@@ -145,8 +145,80 @@ async function showCollection(owner,id,offset,limit){
  const items=ids.slice(offset,offset+limit).map(key=>library.get(key)).filter(Boolean).map(item=>({title:text(item.title,250),cover_url:url(item.coverUrl||item.cover||item.imageUrl),mal_id:text(item.malId,50),simkl_id:text(item.simklId,50)}));
  return json({collection:safeCollectionHeader(c,owner),items,offset,next_offset:offset+limit<ids.length?offset+limit:null});
 }
+
+const SHARED_SECTION_FLAGS={
+ library:"show_library",history:"show_history",order:"show_personal_order",
+ old:"show_old_system",statistics:"show_statistics",ratings:"show_ratings",levels:"show_levels"
+};
+function liveTitle(t,cats,ratings=false){
+ const v={id:text(t.id,160),title:text(t.title,250),
+  cover_url:url(t.coverUrl||t.cover||t.imageUrl),status:text(t.status,32),
+  priority:text(t.priority,32),category:text(cats.get(String(t.categoryId))||"",90),
+  progress:Number.isFinite(Number(t.progress))?Math.max(0,Math.floor(Number(t.progress))):0,
+  total:Number.isFinite(Number(t.total))?Math.max(0,Math.floor(Number(t.total))):null,
+  mal_id:text(t.malId,60),simkl_id:text(t.simklId,60)};
+ const rating=Number(t.rating);
+ if(ratings&&Number.isFinite(rating)&&rating>=0&&rating<=10)v.rating=rating;
+ return v;
+}
+function statsLive(state,categories){
+ const library=Array.isArray(state?.library)?state.library:[],
+  sessions=Array.isArray(state?.sessions)?state.sessions:[];
+ const counts=new Map();
+ for(const title of library){
+  const key=text(title?.status||"planned",32);counts.set(key,(counts.get(key)||0)+1);
+ }
+ return {total_titles:library.length,total_sessions:sessions.length,
+  total_collections:Array.isArray(state?.collections)?state.collections.length:0,
+  total_categories:categories.size,
+  by_status:[...counts].map(([name,count])=>({name,count}))};
+}
+async function sharedSection(username,section,offset,limit){
+ const flag=SHARED_SECTION_FLAGS[section];
+ if(!flag)return json({error:"Unknown shared section"},400);
+ const p=await admin.from("mfp_profiles").select("user_id,is_public,username,show_library,show_history,show_personal_order,show_old_system,show_statistics,show_ratings,show_levels")
+  .eq("username",username).eq("is_public",true).maybeSingle();
+ if(p.error)throw new Error("Shared section unavailable");
+ if(!p.data)return json({error:"Profile is private or unavailable"},404);
+ const v=await admin.from("mfp_profile_showcase").select("enabled").eq("owner_id",p.data.user_id).eq("enabled",true).maybeSingle();
+ if(v.error)throw new Error("Showcase visibility unavailable");
+ if(!v.data||p.data[flag]!==true)return json({error:"This workspace section is private"},403);
+ // Load canonical state only after authorization; never transmit entire state.
+ const state=await stateFor(p.data.user_id)||{};
+ const library=Array.isArray(state.library)?state.library:[],
+  categories=new Map((Array.isArray(state.categories)?state.categories:[]).filter(c=>c?.id).map(c=>[String(c.id),text(c.name,90)]));
+ const byId=new Map(library.filter(t=>t?.id).map(t=>[String(t.id),t]));
+ let rows=[],summary=null;
+ if(section==="library")rows=library.filter(t=>t?.id).map(t=>liveTitle(t,categories,p.data.show_ratings===true));
+ if(section==="ratings")rows=library.filter(t=>t?.id&&Number(t.rating)>0&&Number(t.rating)<=10)
+   .sort((a,b)=>Number(b.rating)-Number(a.rating)).map(t=>liveTitle(t,categories,true));
+ if(section==="history"){
+  const sessions=Array.isArray(state.sessions)?state.sessions:[];
+  rows=sessions.slice().sort((a,b)=>Number(b?.timestamp||0)-Number(a?.timestamp||0)).map(session=>({
+   date:text(session.date||session.timestamp,35),minutes:Number(session.minutes)||0,
+   category:text(categories.get(String(session.categoryId))||"",90),
+   titles:(Array.isArray(session.titles)?session.titles:[]).slice(0,30)
+    .map(t=>text(t?.title||byId.get(String(t?.libraryId||""))?.title,220)).filter(Boolean)
+  }));
+ }
+ if(section==="order"){
+  const ids=Array.isArray(state.orderPlan?.titleIds)?state.orderPlan.titleIds:[];
+  rows=[...new Set(ids.map(String))].map(id=>byId.get(id)).filter(Boolean).map(t=>liveTitle(t,categories,p.data.show_ratings===true));
+ }
+ if(section==="old"){
+  const balances=state.oldSystem?.balances||{};
+  rows=Object.entries(balances).slice(0,300).map(([id,val])=>({category:text(categories.get(String(id))||"Category",90),
+    balance:Number.isFinite(Number(val))?Number(val):0}));
+ }
+ if(section==="statistics")summary=statsLive(state,categories);
+ if(section==="levels")summary={available:false,note:"Live XP and level parity verification is required before publishing an authoritative level."};
+ return json({section,items:rows.slice(offset,offset+limit),total:rows.length,
+  offset,next_offset:offset+limit<rows.length?offset+limit:null,summary,
+  source:"live_owner_workspace",stored_public_copy:false});
+}
+
 async function showProfile(username){
- const p=await admin.from("mfp_profiles").select("user_id,username,display_name,bio,avatar_url,is_public").eq("username",username).eq("is_public",true).maybeSingle();
+ const p=await admin.from("mfp_profiles").select("user_id,username,display_name,bio,avatar_url,is_public,show_library,show_history,show_personal_order,show_old_system,show_statistics,show_ratings,show_levels").eq("username",username).eq("is_public",true).maybeSingle();
  if(p.error)throw new Error("Public profile unavailable");
  if(!p.data)return json({error:"Profile not found or private"},404);
  const owner=p.data.user_id;
@@ -155,7 +227,7 @@ async function showProfile(username){
  if(!visibility.data)return json({error:"Profile showcase is not published"},404);
  const result={
   user_id:owner,username:text(p.data.username,24),display_name:text(p.data.display_name,100),
-  bio:text(p.data.bio,500),avatar_url:url(p.data.avatar_url),collections:[],categories:[],statistics:null
+  bio:text(p.data.bio,500),avatar_url:url(p.data.avatar_url),collections:[],categories:[],statistics:null,visible_sections:Object.fromEntries(Object.entries(SHARED_SECTION_FLAGS).map(([name,flag])=>[name,p.data[flag]===true]))
  };
  const opts=visibility.data;
  let live=null;
@@ -194,6 +266,14 @@ Deno.serve(async req=>{
    const offset=Math.min(20000,Math.max(0,Number.parseInt(u.searchParams.get("offset")||"0",10)||0));
    const limit=Math.min(40,Math.max(1,Number.parseInt(u.searchParams.get("limit")||"24",10)||24));
    return await browseVerified(query,sort,offset,limit);
+  }
+  if(type==="section"){
+   const username=text(u.searchParams.get("username"),24).trim().toLowerCase();
+   const section=text(u.searchParams.get("section"),32);
+   if(!/^[a-z0-9_]{3,24}$/.test(username))return json({error:"Invalid username"},400);
+   const offset=Math.min(100000,Math.max(0,Number.parseInt(u.searchParams.get("offset")||"0",10)||0));
+   const limit=Math.min(80,Math.max(1,Number.parseInt(u.searchParams.get("limit")||"30",10)||30));
+   return await sharedSection(username,section,offset,limit);
   }
   if(type==="profile"){
    const username=String(u.searchParams.get("username")||"").trim().toLowerCase();
