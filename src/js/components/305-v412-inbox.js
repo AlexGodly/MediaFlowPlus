@@ -6,6 +6,13 @@
 'use strict';
 const IN412={rows:[],profiles:[],thread:'',search:'',mini:false,loaded:false,loading:false,sending:false,
  last:0,channel:null,channelUser:'',error:'',epoch:0};
+function in412EnsureAccount(){
+ const me=String(AUTH_USER?.id||'');
+ if(IN412.ownerId!==me){
+  IN412.ownerId=me;IN412.rows=[];IN412.profiles=[];IN412.thread='';IN412.loaded=false;
+  IN412.search='';IN412.error='';IN412.last=0;IN412.epoch++;
+ }
+}
 const in412Esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function in412Me(){return String(AUTH_USER?.id||'');}
 function in412Name(id){
@@ -51,6 +58,7 @@ function in412MessagesHtml(mini){
  '<form class="in412-compose" onsubmit="return App.in412Send(event)"><textarea name="body" rows="2" maxlength="2000" required placeholder="Write a message…" aria-label="Write a message"></textarea><button type="submit" '+(IN412.sending?'disabled':'')+' aria-label="Send message">Send</button></form>';
 }
 function in412FullRenderer(){
+ in412EnsureAccount();
  return '<section class="in412-page"><header class="in412-header"><div><span class="in412-eyebrow">MEDIAFLOW PLUS · COMMUNITY</span><h1>Inbox</h1><p>Private conversations, all in one place.</p></div><button type="button" class="btn" onclick="App.in412Refresh()">Refresh</button></header>'+
  '<div class="in412-alert" id="in412-alert" role="status">'+in412Esc(IN412.error)+'</div>'+
  '<div class="in412-workspace"><aside class="in412-sidebar" aria-label="Conversations"><h2>Messages <span class="in412-count">'+in412Unread()+' unread</span></h2>'+in412ThreadsHtml(false)+'</aside>'+
@@ -63,6 +71,7 @@ function in412MiniHtml(){
  '<div class="in412-mini-footer"><button type="button" onclick="App.in412Open()">Open full Inbox →</button></div>';
 }
 function in412MountFloat(){
+ in412EnsureAccount();
  const old=document.getElementById('in412-float-wrap');
  if(!AUTH_READY||!AUTH_USER){old?.remove();return;}
  const host=old||document.createElement('div');
@@ -99,6 +108,7 @@ async function in412MarkRead(){
  in412RefreshViews();
 }
 async function in412Fetch(){
+ in412EnsureAccount();
  const me=in412Me();
  if(!me||!supabase){IN412.error='Please sign in to use Inbox.';IN412.loaded=true;in412RefreshViews();return;}
  if(IN412.loading)return;
