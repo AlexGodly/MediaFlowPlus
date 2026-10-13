@@ -271,7 +271,10 @@ function v138PickerMatches(){
   const existing=new Set(p.titleIds.map(String));
   const q=String(ui.search||'').trim().toLowerCase();
 
-  let rows=(S.library||[]).filter(i=>i?.id&&!existing.has(String(i.id)));
+  // v412: membership is relative to Personal Order, not to the main Library.
+  // Showing an existing item is read-only; the canonical add path still deduplicates.
+  const show=ui.v412Show==='added'||ui.v412Show==='notadded'?ui.v412Show:'all';
+  let rows=(S.library||[]).filter(i=>i?.id&&(show==='all'||(show==='added'?existing.has(String(i.id)):!existing.has(String(i.id)))));
 
   // Search remains useful with no query: filters can browse the full Library.
   if(q){
