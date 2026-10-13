@@ -34,6 +34,7 @@ const {chromium}=require('playwright');
  page.on('console',msg=>{if(msg.type()==='error')console.error('[BROWSER]',msg.text().slice(0,700))});
  await page.route(/mediaflow-v\d+\.bundle\.js/,route=>route.fulfill({contentType:'application/javascript',body:patched}));
  await page.goto('http://127.0.0.1:8765/',{waitUntil:'domcontentloaded',timeout:45000});
+ console.log('STARTUP DIAGNOSTICS',JSON.stringify({errors,html:await page.evaluate(()=>document.getElementById('app')?.textContent?.slice(0,180)),bundleLoaded:await page.evaluate(()=>!!window.__MF_SMOKE),version}));
  const boot=await page.evaluate(async()=>{await window.__MF_SMOKE.boot();return window.__MF_SMOKE.snapshot()});
  console.log('BOOT',JSON.stringify({view:boot.view,rootLength:boot.root.length,nav:boot.nav}));
  const snapshots={};
