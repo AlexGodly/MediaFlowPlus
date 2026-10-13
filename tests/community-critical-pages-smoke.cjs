@@ -20,7 +20,7 @@ const {chromium}=require('playwright');
  '  supabase={from:()=>q(),auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>{}}};',
  '  await v115StartWithData(undefined);',
  ' },',
- ' snapshot(){return {view:S.view,root:document.getElementById("view-root")?.innerText||"",nav:[...document.querySelectorAll(".nav-item")].map(x=>x.dataset.view)}}',
+ ' snapshot(){return {view:S.view,root:document.getElementById("view-root")?.innerText||"",nav:[...document.querySelectorAll(".nav-item")].map(x=>x.dataset.view)}},',
  ' dropAuth(){AUTH_USER=null;}',
  ' corruptVolatileState(){S.settings=null;}',
  '};'
