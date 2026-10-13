@@ -162,5 +162,6 @@
   "components/305-v412-inbox.js",
   "components/306-v412-live-public-workspaces.js",
   "components/307-v412-friends-and-no-copy-community.js",
-  "components/308-v413-live-browse-top.js"
+  "components/308-v413-live-browse-top.js",
+  "components/309-v414-community-home-navigation.js"
 ]
