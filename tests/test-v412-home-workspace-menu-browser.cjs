@@ -63,7 +63,7 @@ const {chromium}=require('playwright');
  await page.locator('.mf412n-mobile-head').click();
  await page.locator('.mf412n-mobile-page').filter({hasText:'Friends'}).click();
  assert.equal(await page.evaluate(()=>window.__MF_NAV_SMOKE.snapshot().tab),'friends');
- assert.equal(await page.evaluate(()=>S.view),'community');
+ assert.equal(await page.evaluate(()=>window.__MF_NAV_SMOKE.snapshot().view),'community');
  const horizontal=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+10);
  assert(!horizontal,'Community menu creates global horizontal scrolling');
  assert.equal(errors.length,0,'Page errors '+JSON.stringify(errors));
