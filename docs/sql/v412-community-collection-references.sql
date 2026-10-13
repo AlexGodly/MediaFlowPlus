@@ -26,6 +26,16 @@ CREATE POLICY mfp_publications_owner_update ON public.mfp_collection_publication
 DROP POLICY IF EXISTS mfp_publications_owner_delete ON public.mfp_collection_publications;
 CREATE POLICY mfp_publications_owner_delete ON public.mfp_collection_publications
  FOR DELETE TO authenticated USING (owner_id=(SELECT auth.uid()));
+-- Published metadata (only owner ID + canonical collection ID) is discoverable
+-- by authenticated members; actual collection contents remain inaccessible.
+DROP POLICY IF EXISTS mfp_publications_discover_public ON public.mfp_collection_publications;
+CREATE POLICY mfp_publications_discover_public ON public.mfp_collection_publications
+ FOR SELECT TO authenticated USING (
+  is_published AND EXISTS (
+   SELECT 1 FROM public.mfp_profiles p
+   WHERE p.user_id=owner_id AND p.is_public
+  )
+ );
 CREATE INDEX IF NOT EXISTS mfp_publications_public_idx
  ON public.mfp_collection_publications (owner_id,collection_id) WHERE is_published;
 
@@ -64,8 +74,6 @@ CREATE POLICY mfp_subscriptions_delete_own ON public.mfp_collection_subscription
 CREATE INDEX IF NOT EXISTS mfp_subscriptions_owner_idx
  ON public.mfp_collection_subscriptions(owner_id,collection_id);
 
--- Critical security note: the owner's publications policy above allows only
--- the OWNER to SELECT rows. The subscriber INSERT policy cannot see those rows
--- under RLS, so subscription creation must eventually go through a purpose-
--- built, privilege-audited RPC or add a safe public-publications SELECT policy.
--- DO NOT weaken mediaflow_states SELECT RLS or use raw state_data as payload.
+-- Only reference metadata is readable; never grant cross-account SELECT on
+-- mediaflow_states. Owner-sided blocks, expiration and public projection must
+-- be verified by the future secure server-side collection read endpoint.
