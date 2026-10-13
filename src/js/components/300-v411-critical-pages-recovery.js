@@ -72,6 +72,11 @@ renderView=function(){
 };
 const v411RenderBase=render;
 render=function(){
+ // Do not enter hundreds of legacy render wrappers with unhydrated workspace state.
+ if(V411_CRITICAL_VIEWS.has(String(S.view||''))&&v411MissingState()){
+  v411ShowRecovery(String(S.view||''),'Workspace data is not initialized');
+  return;
+ }
  try{return v411RenderBase.apply(this,arguments);}
  catch(error){
   const view=String(S.view||'');
