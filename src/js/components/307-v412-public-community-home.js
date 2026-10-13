@@ -1,6 +1,6 @@
 /* MediaFlow Plus: actual public Community Home and Workspace entry point.
  * #/community/home is public. Workspace is always the real signed-in scheduler.
- * No private S.library/state is read for the public site.
+ * Public pages never query a private workspace object.
  */
 const MF412_GUEST={tab:'home',query:'',sort:'alpha',page:0,request:0,data:null,loading:false,error:''};
 const MF412_GUEST_PAGES=[['home','Home'],['browse','Browse Titles'],['collections','Collections'],['top','Top Titles']];
