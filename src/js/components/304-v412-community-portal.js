@@ -76,6 +76,12 @@ mfp408RenderRows=function(){
 };
 async function mf412Load(){
  if(S.view!=='community')return;
+ // Invalidate older reads before rendering an expired-session recovery.
+ if(!AUTH_USER||!supabase){
+  MF412_PORTAL.request++;
+  mfp408Failure('Your MediaFlow Plus session is unavailable. Sign in again to access Community.');
+  return;
+ }
  const tab=MFP408.tab,id=++MF412_PORTAL.request;
  try{
   if(tab==='home'||tab==='collections'){
@@ -107,10 +113,11 @@ async function mf412Load(){
     followers:profiles.filter(x=>followers.has(x.user_id)),
     mutuals:profiles.filter(x=>following.has(x.user_id)&&followers.has(x.user_id))};
   }else return;
-  if(id!==MF412_PORTAL.request||S.view!=='community'||tab!==MFP408.tab)return;
+  if(id!==MF412_PORTAL.request||S.view!=='community'||tab!==MFP408.tab||!AUTH_USER)return;
   const root=document.getElementById('mfp408-content');if(root)root.innerHTML=mfp408RenderRows();
  }catch(err){
   if(id!==MF412_PORTAL.request||tab!==MFP408.tab)return;
+  if(!AUTH_USER){mfp408Failure('Your MediaFlow Plus session is unavailable. Sign in again to access Community.');return;}
   const root=document.getElementById('mfp408-content');
   if(root)root.innerHTML='<div class="mfp408-card" role="alert"><h3>Community unavailable</h3><p>'+mfp408Esc(err?.message||'Could not load')+
    '</p><button onclick="App.mf412Load()">Retry</button></div>';
