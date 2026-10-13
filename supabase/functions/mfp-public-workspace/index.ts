@@ -59,7 +59,7 @@ function collectionCard(c,profile){
  updated_at:Number(c.updatedAt)||0,owner:publicOwner(profile)};
 }
 async function ownerWithAccess(username,viewer){
- const rows=await api("mfp_profiles?select=user_id,username,display_name,bio,avatar_url,is_public,show_workspace_stats,show_workspace_categories&username=eq."+username+"&limit=1");
+ const rows=await api("mfp_profiles?select=user_id,username,display_name,bio,avatar_url,is_public,show_workspace_stats,show_workspace_categories,show_library,show_history,show_personal_order,show_old_system,show_statistics,show_ratings,show_levels&username=eq."+username+"&limit=1");
  const owner=rows[0];if(!owner)return null;
  if(!owner.is_public&&owner.user_id!==viewer)return null;
  if(await blockedBetween(viewer,owner.user_id))return null;
@@ -72,7 +72,7 @@ async function profileView(owner,viewer){
  const pubs=await publications(owner.user_id);
  const state=await loadState(owner.user_id);
  const collections=pubs.map(p=>stateCollection(state,p.collection_id)).filter(Boolean).map(c=>collectionCard(c,owner));
- const response={profile:publicOwner(owner),collections};
+ const response={profile:publicOwner(owner),collections,sections:{library:owner.show_library===true,history:owner.show_history===true,order:owner.show_personal_order===true,old:owner.show_old_system===true,statistics:owner.show_statistics===true,ratings:owner.show_ratings===true,levels:owner.show_levels===true}};
  if(owner.show_workspace_stats===true){
   response.workspace={title_count:Array.isArray(state.library)?state.library.length:0,
    collection_count:Array.isArray(state.collections)?state.collections.length:0,
@@ -114,6 +114,120 @@ async function discover(viewer){
  }
  return {collections:items};
 }
+
+/* Public workspace tabs: everything below is constructed from the CURRENT
+ * canonical owner state at request time. Results are carefully allowlisted,
+ * paginated and only returned when the owner opted into that particular tab.
+ * There is no public mirror, materialized view or copied Library data. */
+const SECTION_FLAGS={
+ library:"show_library",history:"show_history",order:"show_personal_order",
+ old:"show_old_system",statistics:"show_statistics",ratings:"show_ratings",
+ levels:"show_levels"
+};
+function safeCount(n,max=1e9){const x=Number(n);return Number.isFinite(x)?Math.max(0,Math.min(max,Math.floor(x))):0;}
+function safeDate(value){
+ const n=Number(value);
+ if(Number.isFinite(n)&&n>0){const d=new Date(n);return Number.isNaN(d.getTime())?"":d.toISOString();}
+ const s=String(value||"");return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:"";
+}
+function categoryIndex(state){
+ return new Map((Array.isArray(state.categories)?state.categories:[])
+ .filter(x=>x?.id).map(x=>[String(x.id),clean(x.name,110)]));
+}
+function titleProjection(t,cats,allowRatings=false){
+ const x={id:clean(t.id,160),title:clean(t.title,260),
+  cover_url:httpsImage(t.coverUrl||t.cover||t.imageUrl),
+  category:cats.get(String(t.categoryId))||"",
+  status:clean(t.status,35),priority:clean(t.priority,25),
+  progress:safeCount(t.progress),total:safeCount(t.total),
+  mal_id:clean(t.malId,60),simkl_id:clean(t.simklId,60),
+  media_service_id:clean(t.mediaServiceId,60)};
+ if(allowRatings&&Number.isFinite(Number(t.rating))&&Number(t.rating)>0)
+  x.rating=Math.max(0,Math.min(10,Number(t.rating)));
+ return x;
+}
+function historyProjection(session,byId,cats){
+ const rows=(Array.isArray(session.titles)?session.titles:[]).slice(0,40);
+ const titles=rows.map(t=>{
+  const item=byId.get(String(t.libraryId||""));
+  return {title:clean(t.title||item?.title,260),cover_url:httpsImage(item?.coverUrl),
+   consumed:safeCount(t.qty||t.amount||t.progressDelta),repeat:t.repeat===true};
+ }).filter(t=>t.title);
+ return {date:safeDate(session.date)||safeDate(session.timestamp),
+  category:cats.get(String(session.categoryId))||"",
+  minutes:safeCount(session.minutes,100000),
+  amount:safeCount(session.actualAmount,1000000),
+  unit:clean(session.unit,30),titles};
+}
+function liveOrderRows(state,byId,cats,allowRatings){
+ const order=state.orderPlan&&typeof state.orderPlan==="object"?state.orderPlan:{};
+ const ids=Array.isArray(order.titleIds)?order.titleIds:[];
+ const seen=new Set(),out=[];
+ for(const id of ids){
+  const key=String(id);if(seen.has(key))continue;seen.add(key);
+  const item=byId.get(key);if(item)out.push(titleProjection(item,cats,allowRatings));
+ }
+ return out;
+}
+function liveOldRows(state,cats){
+ const old=state.oldSystem&&typeof state.oldSystem==="object"?state.oldSystem:{};
+ const balances=old.balances&&typeof old.balances==="object"?old.balances:{};
+ return Object.entries(balances).slice(0,300).map(([key,val])=>({
+  category:cats.get(key)||"Category",
+  balance:Number.isFinite(Number(val))?Number(val):0
+ }));
+}
+function liveStats(state,cats){
+ const library=Array.isArray(state.library)?state.library:[];
+ const sessions=Array.isArray(state.sessions)?state.sessions:[];
+ const statuses={},categories={};
+ for(const t of library){
+  const st=clean(t.status||"planned",35);
+  statuses[st]=(statuses[st]||0)+1;
+  const name=cats.get(String(t.categoryId))||"Uncategorized";
+  categories[name]=(categories[name]||0)+1;
+ }
+ const mins=sessions.reduce((sum,s)=>sum+safeCount(s?.minutes,100000),0);
+ return {total_titles:library.length,total_sessions:sessions.length,
+  total_minutes:mins,completed_titles:library.filter(t=>String(t.status)==="completed").length,
+  by_status:Object.entries(statuses).map(([name,count])=>({name,count})),
+  by_category:Object.entries(categories).map(([name,count])=>({name,count}))};
+}
+function liveLevels(state){
+ // Use existing authoritative persisted XP totals only when recognizable.
+ // The app's v334 active-time/XP and streak rules require parity checks before
+ // publishing a computed level or claiming a verified global rank.
+ const xp=state?.xpLedger?.totalXP;
+ if(!Number.isFinite(Number(xp))||Number(xp)<0)return {
+  available:false,note:"Live level parity is being verified against the current Workspace engine."
+ };
+ return {available:false,note:"Live XP ranking requires parity with all Workspace reward ledgers."};
+}
+async function workspaceSection(owner,section,offset,limit){
+ if(!Object.hasOwn(SECTION_FLAGS,section))return {error:"Unknown workspace section",status:400};
+ if(owner[SECTION_FLAGS[section]]!==true)return {error:"This workspace section is private",status:403};
+ const state=await loadState(owner.user_id);
+ const lib=Array.isArray(state.library)?state.library:[];
+ const cats=categoryIndex(state),byId=new Map(lib.filter(t=>t?.id).map(t=>[String(t.id),t]));
+ const allowRatings=owner.show_ratings===true;
+ let rows=[],summary=null;
+ if(section==="library")rows=lib.filter(t=>t&&t.id).map(t=>titleProjection(t,cats,allowRatings));
+ if(section==="ratings")rows=lib.filter(t=>t&&Number(t.rating)>0&&Number(t.rating)<=10)
+  .sort((a,b)=>Number(b.rating)-Number(a.rating)||clean(a.title).localeCompare(clean(b.title)))
+  .map(t=>titleProjection(t,cats,true));
+ if(section==="history")rows=(Array.isArray(state.sessions)?state.sessions:[])
+  .slice().sort((a,b)=>Number(b?.timestamp||0)-Number(a?.timestamp||0))
+  .map(s=>historyProjection(s,byId,cats));
+ if(section==="order")rows=liveOrderRows(state,byId,cats,allowRatings);
+ if(section==="old")rows=liveOldRows(state,cats);
+ if(section==="statistics")summary=liveStats(state,cats);
+ if(section==="levels")summary=liveLevels(state);
+ const total=rows.length;
+ return {section,owner:publicOwner(owner),items:rows.slice(offset,offset+limit),
+  total,offset,next_offset:offset+limit<total?offset+limit:null,
+  summary,source:"current_owner_workspace",stored_public_copy:false};
+}
+
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
  if(req.method!=="GET")return reply({error:"Read-only endpoint"},405);
@@ -127,6 +241,13 @@ Deno.serve(async req=>{
   const owner=await ownerWithAccess(username,viewer);
   if(!owner)return reply({error:"Profile unavailable or private"},404);
   if(kind==="profile")return reply(await profileView(owner,viewer));
+  if(kind==="section"){
+   const section=clean(url.searchParams.get("section"),32);
+   const offset=Math.max(0,Math.min(100000,Math.floor(Number(url.searchParams.get("offset"))||0)));
+   const limit=Math.max(1,Math.min(100,Math.floor(Number(url.searchParams.get("limit"))||40)));
+   const result=await workspaceSection(owner,section,offset,limit);
+   return result?.error?reply({error:result.error},result.status||403):reply(result);
+  }
   if(kind==="collection"){
    const id=clean(url.searchParams.get("collection_id"),160);
    if(!/^[a-zA-Z0-9_-]{1,160}$/.test(id))return reply({error:"Invalid collection ID"},400);
