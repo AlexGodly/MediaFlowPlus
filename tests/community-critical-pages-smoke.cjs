@@ -96,6 +96,7 @@ const {chromium}=require('playwright');
  assert(snapshots.library.root.match(/library|add|title/i),'Library UI absent');
  await page.evaluate(()=>window.App.setView('about'));
  const about=await page.locator('#view-root').innerText();
+ console.log('ABOUT DIAGNOSTICS',JSON.stringify({text:about.slice(0,1700),html:(await page.locator('#view-root').innerHTML()).slice(0,950)}));
  assert(about.includes('What MediaFlow does')&&about.includes('FAQ')&&about.includes('Developer'),'Personal parity About content absent');
  const aboutHref=await page.locator('#view-root a').filter({hasText:'Open latest web app'}).getAttribute('href');
  assert(aboutHref?.includes('/MediaFlowPlus/'),'Plus About accidentally points at Personal edition');
