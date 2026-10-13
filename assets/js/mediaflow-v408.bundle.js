@@ -65559,6 +65559,9 @@ function mfp408Notice(msg,error=false){const el=document.getElementById('mfp408-
 function mfp408SafeURL(url){try{const u=new URL(url);return u.protocol==='https:'?u.href:''}catch(_){return ''}}
 function mfp408Nav(){
  if(!NAV_ITEMS.some(n=>n.id==='community'))NAV_ITEMS.splice(Math.max(0,NAV_ITEMS.length-2),0,{id:'community',label:'Community'});
+ if(!MOBILE_MORE_NAV.includes('community'))MOBILE_MORE_NAV.unshift('community');
+ // Re-normalize the persisted navigation layout so existing accounts can see the new page.
+ if(typeof v161NormalizeNavLayout==='function')S.navLayout=v161NormalizeNavLayout(S.navLayout);
  ICONS.community='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20v-2a6 6 0 0 1 12 0v2M15 15a5 5 0 0 1 7 5"/></svg>';
 }
 mfp408Nav();
@@ -65594,7 +65597,7 @@ function mfp408RenderRows(){
  }else if(MFP408.tab==='notifications'){
   html=r.map(x=>'<article class="mfp408-card"><div class="mfp408-meta">'+new Date(x.created_at).toLocaleString()+'</div><p>'+esc(mfp408Name(x.actor_id))+' · '+esc(x.kind)+'</p>'+(x.is_read?'':'<button onclick="App.mfp408Read(\''+x.id+'\')">Mark read</button>')+'</article>').join('');
  }
- if(!r.length&&MFP408.tab!=='profile')html+='<p class="mfp408-muted">Nothing here yet. Be the first to contribute.</p>';
+ if(!r.length&&MFP408.tab!=='profile'&&MFP408.profile)html+='<p class="mfp408-muted">Nothing here yet. Be the first to contribute.</p>';
  if(r.length>=MFP408.limit&&MFP408.tab!=='profile')html+='<button class="mfp408-more" onclick="App.mfp408More()">Load more</button>';
  return top+html;
 }
@@ -65630,7 +65633,7 @@ async function mfp408SaveProfile(event){
 }
 async function mfp408Post(e){e.preventDefault();let f=new FormData(e.target);await mfp408Mutation('mfp_posts','insert',{user_id:AUTH_USER.id,body:String(f.get('body')||'').trim(),title_name:String(f.get('title_name')||'').trim()||null});}
 async function mfp408Collection(e){e.preventDefault();let f=new FormData(e.target),titles=String(f.get('titles')||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,300);await mfp408Mutation('mfp_collections','insert',{user_id:AUTH_USER.id,title:String(f.get('title')||'').trim(),description:String(f.get('description')||'').trim(),titles});}
-async function mfp408Review(e){e.preventDefault();let f=new FormData(e.target);await mfp408Mutation('mfp_reviews','upsert',{user_id:AUTH_USER.id,media_key:String(f.get('media_key')||'').trim(),title_name:String(f.get('title_name')||'').trim(),rating:Number(f.get('rating')),body:String(f.get('body')||'').trim()});}
+async function mfp408Review(e){e.preventDefault();let f=new FormData(e.target);if(MFP408.busy)return;MFP408.busy=true;try{const record={user_id:AUTH_USER.id,media_key:String(f.get('media_key')||'').trim(),title_name:String(f.get('title_name')||'').trim(),rating:Number(f.get('rating')),body:String(f.get('body')||'').trim()};let res=await supabase.from('mfp_reviews').upsert(record,{onConflict:'user_id,media_key'});if(res.error)throw res.error;await mfp408Fetch();mfp408Notice('Review saved.')}catch(err){mfp408Error(err)}finally{MFP408.busy=false}}
 async function mfp408Like(id){try{let q=supabase.from('mfp_likes');let res=MFP408.likes.has(id)?await q.delete().eq('user_id',AUTH_USER.id).eq('post_id',id):await q.insert({user_id:AUTH_USER.id,post_id:id});if(res.error)throw res.error;await mfp408Fetch()}catch(e){mfp408Error(e)}}
 async function mfp408Comments(id){
  let el=document.getElementById('mfp408-comments-'+id);if(!el)return;
@@ -65646,7 +65649,7 @@ async function mfp408Delete(table,id){if(!confirm('Delete this item permanently?
 async function mfp408Report(kind,id){let reason=prompt('Report reason (at least 5 characters):');if(!reason)return;if(reason.trim().length<5)return mfp408Notice('Please explain the issue.',true);await mfp408Mutation('mfp_reports','insert',{reporter_id:AUTH_USER.id,target_kind:kind,target_id:id,reason:reason.trim().slice(0,500)})}
 function mfp408Tab(tab){if(!MFP408_TABS.some(x=>x[0]===tab))return;MFP408.tab=tab;MFP408.limit=12;renderView();}
 function mfp408More(){MFP408.limit=Math.min(120,MFP408.limit+12);mfp408Fetch()}
-let mfp408SearchTimer=null;function mfp408Search(s){MFP408.search=s;clearTimeout(mfp408SearchTimer);mfp408SearchTimer=setTimeout(()=>{let input=document.getElementById('mfp408-search');mfp408Fetch().then(()=>{let next=document.getElementById('mfp408-search');if(next){next.focus();next.setSelectionRange(s.length,s.length)}})},250)}
+let mfp408SearchTimer=null;function mfp408Search(s){MFP408.search=s;clearTimeout(mfp408SearchTimer);mfp408SearchTimer=setTimeout(()=>{mfp408Fetch().then(()=>{let next=document.getElementById('mfp408-search');if(next){next.focus();next.setSelectionRange(s.length,s.length)}})},250)}
 MediaFlowRuntime.registerPageRenderer('community',mfp408Renderer);
 MediaFlowRuntime.registerPageEnhancer('community',mfp408Fetch);
 Object.assign(App,{mfp408Tab,mfp408SaveProfile,mfp408Post,mfp408Collection,mfp408Review,mfp408Like,mfp408Comments,mfp408Comment,mfp408Follow,mfp408MessageTo,mfp408Message,mfp408Read,mfp408Delete,mfp408Report,mfp408More,mfp408Search});
