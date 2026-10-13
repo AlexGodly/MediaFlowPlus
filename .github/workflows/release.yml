@@ -49,6 +49,8 @@ jobs:
           git add index.html sw.js version.json "assets/js/mediaflow-v$(cat VERSION).bundle.js"
           if ! git diff --cached --quiet; then
             git commit -m "build: generate MediaFlow Plus v$(cat VERSION) production assets"
+            git fetch origin main
+            git rebase origin/main
             git push
           fi
       - name: Publish numeric tag and GitHub Release
