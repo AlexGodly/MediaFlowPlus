@@ -24,8 +24,9 @@ async function stateFor(owner){
  const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
  const ds=new DecompressionStream("gzip");
  const writer=ds.writable.getWriter();
+ const reading=new Response(ds.readable).text();
  await writer.write(bytes);await writer.close();
- const decoded=JSON.parse(await new Response(ds.readable).text());
+ const decoded=JSON.parse(await reading);
  return decoded&&typeof decoded==="object"?decoded:null;
 }
 function canonicalCollection(state,id){
