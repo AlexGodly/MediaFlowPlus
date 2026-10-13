@@ -21,6 +21,8 @@ const {chromium}=require('playwright');
  '  await v115StartWithData(undefined);',
  ' },',
  ' snapshot(){return {view:S.view,root:document.getElementById("view-root")?.innerText||"",nav:[...document.querySelectorAll(".nav-item")].map(x=>x.dataset.view)}}',
+ ' dropAuth(){AUTH_USER=null;}',
+ ' corruptVolatileState(){S.settings=null;}',
  '};'
  ].join('\n');
  const patched=bundle.replace(/\}\)\(\);\s*$/,hook+'\n})();\n');
@@ -47,6 +49,21 @@ const {chromium}=require('playwright');
  assert(!/Loading community/i.test(snapshots.community.root),'Community spinner never settled');
  assert(snapshots.dashboard.root.match(/session|dashboard|recommend|today/i),'Dashboard UI absent');
  assert(snapshots.library.root.match(/library|add|title/i),'Library UI absent');
+ // Expired authentication must never leave Community stuck on Loading.
+ await page.evaluate(()=>{window.__MF_SMOKE.dropAuth();window.App.setView('community')});
+ await page.waitForTimeout(400);
+ const expired=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
+ console.log('EXPIRED COMMUNITY',expired.root.slice(0,400).replace(/\\n/g,' '));
+ assert(/session is unavailable|temporarily unavailable|Sign in/i.test(expired.root),'Community missing session recovery absent');
+ assert(!/Loading community/i.test(expired.root),'Community indefinitely loading after missing auth');
+
+ // A null workspace must produce a recovery UI rather than erase Dashboard.
+ await page.evaluate(()=>{window.__MF_SMOKE.corruptVolatileState();window.App.setView('dashboard')});
+ await page.waitForTimeout(300);
+ const recovery=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
+ console.log('DASHBOARD RECOVERY',recovery.root.slice(0,400).replace(/\\n/g,' '));
+ assert(/workspace has not loaded|PAGE RECOVERY/i.test(recovery.root),'Null workspace did not render a recovery UI');
+
  console.log('PAGE ERRORS',JSON.stringify(errors.slice(0,8)));
  assert.equal(errors.length,0,'Browser runtime errors encountered');
  await browser.close();
