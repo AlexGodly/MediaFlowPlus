@@ -74,6 +74,7 @@ const {chromium}=require('playwright');
   const snap=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
   snapshots[v]=snap;
   console.log('VIEW',v,'actual',snap.view,'text length',snap.root.length,'sample',snap.root.slice(0,450).replace(/\n/g,' '));
+  if(v==='browse'&&!snap.root.trim()){const debug=await page.evaluate(()=>({hasRenderer:window.MediaFlowRuntime?.hasPageRenderer('browse'),knownPages:window.MediaFlowRuntime?.getRegisteredPages(),rootHtml:document.getElementById('view-root')?.innerHTML?.slice(0,1200),appContent:document.getElementById('app')?.textContent?.slice(0,400),view:window.__MF_SMOKE.snapshot().view}));console.log('BROWSE CRITICAL DIAGNOSTICS',JSON.stringify(debug));}
   assert.equal(snap.view,v,'Navigation view mismatch for '+v);
   assert(snap.root.trim().length>80,v+' unexpectedly blank');
  }
