@@ -5,6 +5,7 @@ on:
     paths:
       - 'tests/community-critical-pages-smoke.cjs'
       - 'tests/test-v412-*.cjs'
+      - 'tests/v412-membership-contract.cjs'
       - 'assets/css/30*-v412-*.css'
       - 'supabase/functions/mediaflow-plus-public-workspace/**'
       - '.github/workflows/ui-regression-smoke.yml'
@@ -36,6 +37,10 @@ jobs:
         run: node tests/test-v412-live-public-pages.cjs
       - name: Verify privacy and publication revocation (synthetic Edge runtime)
         run: node tests/test-v412-edge-privacy.cjs
+      - name: Verify v412 membership filter contracts
+        run: |
+          node tests/v412-membership-contract.cjs
+          node tests/test-v412-membership-live.cjs
       - name: Install browser test runtime
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
