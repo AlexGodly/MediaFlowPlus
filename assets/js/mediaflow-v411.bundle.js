@@ -65928,7 +65928,7 @@ window.MediaFlowPlusInbox={version:412,refresh:mf412Load,open:mf412OpenPage};
 (function(){
 'use strict';
 const MF412_SHOW_VALUES=new Set(['all','not','added']);
-let MF412_TITLE_SHOW='all',MF412_COLLECTION_SHOW='all';
+let MF412_TITLE_SHOW='all',MF412_COLLECTION_SHOW='all',MF412_LOG_SHOW='all';
 function mf412SetMembership(kind,value){
  const mode=MF412_SHOW_VALUES.has(value)?value:'all';
  if(kind==='titles'){
@@ -65937,6 +65937,10 @@ function mf412SetMembership(kind,value){
   try{v141InvalidateOrderPickerCache()}catch(_){}
   if(typeof v141RefreshOrderPickerAll==='function')v141RefreshOrderPickerAll();
   else renderView();
+ }else if(kind==='logging'){
+  MF412_LOG_SHOW=mode;
+  if(typeof v89ResetLogPage==='function')v89ResetLogPage();
+  if(typeof renderLogSuggestions==='function')renderLogSuggestions();
  }else if(kind==='collections'){
   MF412_COLLECTION_SHOW=mode;
   const ui=v287OrderUI();ui.v359CollectionPage=0;
@@ -65944,7 +65948,7 @@ function mf412SetMembership(kind,value){
  }
 }
 function mf412ShowControl(kind,value){
- const collection=kind==='collections';
+ const collection=kind==='collections',logging=kind==='logging';
  return '<label class="mf412-show-control"><span>SHOW '+(collection?'COLLECTIONS':'TITLES')+'</span><select aria-label="Show '+(collection?'collections':'titles')+' by membership" onchange="App.mf412SetMembership(\''+kind+'\',this.value)">'+
  [['all',collection?'All collections':'All titles'],['not','Not added'],['added','Already added']].map(([id,label])=>'<option value="'+id+'" '+(id===value?'selected':'')+'>'+label+'</option>').join('')+'</select></label>';
 }
@@ -65986,7 +65990,23 @@ if(typeof mf412AddOrderTitleBase==='function')App.v392AddOrderTitle=function(){
  return output;
 };
 App.mf412SetMembership=mf412SetMembership;
-window.MediaFlowPlusMembershipFilters={version:412,set:mf412SetMembership,get:()=>({titles:MF412_TITLE_SHOW,collections:MF412_COLLECTION_SHOW})};
+const mf412LogCandidatesBase=logTitleCandidates;
+logTitleCandidates=function(query){
+ const rows=mf412LogCandidatesBase.apply(this,arguments);
+ if(MF412_LOG_SHOW==='all')return rows;
+ const entries=S.logDraft?.entries||[];
+ const assigned=new Set(entries.map(e=>String(e?.libraryId||'')).filter(Boolean));
+ return rows.filter(x=>assigned.has(String(x.id))===(MF412_LOG_SHOW==='added'));
+};
+const mf412LogToolsBase=v224LogToolsHtml;
+v224LogToolsHtml=function(){
+ const raw=String(mf412LogToolsBase.apply(this,arguments));
+ const holder=document.createElement('div');holder.innerHTML=raw;
+ const controls=holder.querySelector('.v224-log-tools,.v89-log-tools,.v87-log-tools')||holder.firstElementChild;
+ if(controls&&!controls.querySelector('.mf412-show-control'))controls.insertAdjacentHTML('afterbegin',mf412ShowControl('logging',MF412_LOG_SHOW));
+ return holder.innerHTML;
+};
+window.MediaFlowPlusMembershipFilters={version:412,set:mf412SetMembership,get:()=>({titles:MF412_TITLE_SHOW,collections:MF412_COLLECTION_SHOW,logging:MF412_LOG_SHOW})};
 })();
 
 })();
