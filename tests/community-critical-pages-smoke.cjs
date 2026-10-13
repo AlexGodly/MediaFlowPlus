@@ -28,6 +28,44 @@ const {chromium}=require('playwright');
  const patched=bundle.replace(/\}\)\(\);\s*$/,hook+'\n})();\n');
  assert.notEqual(patched,bundle,'Bundle closure not found');
  new (require('node:vm').Script)(patched,{filename:'instrumented-mediaflow.js'});
+ // Exercise the real Inbox refresh function with deferred, synthetic Supabase reads.
+ // This detects dropped realtime notifications and cross-account stale responses.
+ const inboxSource=fs.readFileSync('src/js/components/302-v412-inbox.js','utf8');
+ const refreshStart=inboxSource.indexOf('async function mfp412InboxRefresh(){');
+ const refreshEnd=inboxSource.indexOf('async function mfp412MarkRead(){',refreshStart);
+ assert(refreshStart>=0&&refreshEnd>refreshStart,'v412 Inbox refresh function missing');
+ new (require('node:vm').Script)(inboxSource,{filename:'v412-inbox.js'});
+ const pending=[],auth={id:'alice'},state={messages:[],profiles:new Map(),active:'',loading:false,ready:false,error:'',lastFetch:0,refreshPending:false,refreshToken:0};
+ const fakeDb={from(table){return {select(){return this;},or(){return this;},order(){return this;},limit(){
+  return table==='mfp_profiles'?Promise.resolve({data:[],error:null}):
+   new Promise((resolve,reject)=>pending.push({resolve,reject}));
+ }}}};
+ const refresh=new Function('MFP412_INBOX','AUTH_USER','mfp412InboxMe','supabase','mfp412DrawInbox','mfp412MarkRead','console',
+  inboxSource.slice(refreshStart,refreshEnd)+';return mfp412InboxRefresh;')(
+  state,auth,()=>auth.id,fakeDb,()=>{},()=>Promise.resolve(),console);
+ const tick=()=>new Promise(resolve=>setImmediate(resolve));
+ const initial=refresh();await refresh();
+ assert.equal(pending.length,1,'in-flight Inbox refresh should coalesce notifications');
+ pending[0].resolve({data:[{id:'old'}],error:null});await initial;await tick();
+ assert.equal(pending.length,2,'Inbox should refetch after a notification during a request');
+ pending[1].resolve({data:[{id:'latest'}],error:null});await tick();await tick();
+ assert.equal(state.messages[0].id,'latest','Inbox must retain latest fetched messages');
+ const stale=refresh();
+ auth.id='bob';state.refreshToken++;state.loading=false;state.refreshPending=false;state.messages=[];
+ const current=refresh();
+ pending[3].resolve({data:[{id:'bob-message'}],error:null});await current;
+ pending[2].resolve({data:[{id:'alice-message'}],error:null});await stale;
+ assert.equal(state.messages[0].id,'bob-message','stale account response leaked into current Inbox');
+ const staleError=refresh();
+ auth.id='carol';state.refreshToken++;state.loading=false;state.refreshPending=false;
+ const currentAgain=refresh();
+ pending[4].reject(Error('stale account error'));await staleError;
+ pending[5].resolve({data:[{id:'carol-message'}],error:null});await currentAgain;
+ assert.equal(state.error,'','stale account error leaked into current Inbox');
+ assert.equal(state.messages[0].id,'carol-message');
+ assert.match(inboxSource,/refreshToken\+\+;MFP412_INBOX\.refreshPending=false;MFP412_INBOX\.loading=false;/,
+  'account switch must invalidate in-flight Inbox requests');
+ console.log('INBOX REFRESH REGRESSION: coalescing, stale responses and stale errors passed');
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const page=await browser.newPage({viewport:{width:1440,height:900}});
  const errors=[];
