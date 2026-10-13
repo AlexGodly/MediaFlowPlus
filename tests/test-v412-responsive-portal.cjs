@@ -26,7 +26,7 @@ const {chromium}=require('playwright');
  const errors=[];page.on('pageerror',err=>errors.push(err.message));
  await page.route(/mediaflow-v\d+\.bundle\.js/,route=>route.fulfill({contentType:'application/javascript',body:source}));
  await page.route('**/functions/v1/mediaflow-plus-public-workspace?*',async route=>{
-  const url=new URL(route.request().url),type=url.searchParams.get('type');
+  const url=new URL(route.request().url()),type=url.searchParams.get('type');
   let data={error:'Unknown'};
   if(type==='directory')data={source:'live',stored_public_copy:false,
    collections:[{id:'coll1',owner_id:'11111111-1111-4111-8111-111111111111',
