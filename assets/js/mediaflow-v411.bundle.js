@@ -66035,7 +66035,9 @@ function mf412ActionEntries(kind,select){
  let ids;
  try{ids=v230VisibleIds(surface).map(String).filter(id=>valid.has(id));}
  catch(_){ids=[];}
- for(const id of known)if(valid.has(id)&&!ids.includes(id))ids.push(id);
+ // A configured hidden item remains hidden: use fallbacks only when settings
+ // cannot be resolved, not merely because a value was hidden by the owner.
+ if(!ids.length){for(const id of known)if(valid.has(id)&&!ids.includes(id))ids.push(id);}
  const categories=new Map((S.categories||[]).filter(x=>x?.id).map(x=>[String(x.id),x]));
  return ids.map(id=>{
   if(kind==='category'){const cat=categories.get(id);return cat?{id,label:String(cat.name||'Unnamed category'),icon:typeof v144CategoryIconHtml==='function'?v144CategoryIconHtml(cat):''}:null;}
