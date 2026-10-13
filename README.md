@@ -1,13 +1,13 @@
 <div align="center">
   <img src="icon.svg" width="92" height="92" alt="MediaFlow icon">
 
-# MediaFlow
+# MediaFlow Plus
 
 **A personal home for everything worth watching, reading, and finishing.**
 
 Organize a media library, plan what comes next, record consumption, and understand progress — on a workspace built around individual preferences rather than a fixed catalog.
 
-[**Launch MediaFlow**](https://alexgodly.github.io/MediaFlow/) · [Getting started](#getting-started) · [Features](#features) · [How it works](#how-it-works) · [Evolution](#evolution)
+[**Launch MediaFlow Plus**](https://alexgodly.github.io/MediaFlowPlus/) · [Getting started](#getting-started) · [Features](#features) · [How it works](#how-it-works) · [Evolution](#evolution)
 
 **Web application · Installable PWA · Custom categories · Private account data · Import & export**
 </div>
@@ -135,7 +135,7 @@ Supported import workflows include manually supplied data from services such as 
 
 ### Open the hosted app
 
-**[alexgodly.github.io/MediaFlow](https://alexgodly.github.io/MediaFlow/)**
+**[alexgodly.github.io/MediaFlow](https://alexgodly.github.io/MediaFlowPlus/)**
 
 1. Open MediaFlow in a modern browser.
 2. Sign in or create an account through the configured authentication service.
@@ -161,7 +161,7 @@ python -m http.server 8080
 
 Open **http://localhost:8080/**. Local previewing is preferable to opening `index.html` directly with a `file://` URL, which restricts service workers and certain browser features.
 
-A separately hosted installation needs its **own correctly configured Supabase authentication, database schema, and Row-Level Security policies** for cloud features. The source files alone are not a complete independent cloud deployment.
+This public edition uses its own Supabase project and does not share the original MediaFlow account database. A separately hosted installation needs its **own correctly configured Supabase authentication, database schema, and Row-Level Security policies** for cloud features. The source files alone are not a complete independent cloud deployment.
 
 ## How it works
 
@@ -379,7 +379,7 @@ The repository includes source code, but the project is distributed under the in
 
 **MediaFlow** is designed and developed by **Alex Godly**.
 
-- **Project:** [MediaFlow](https://alexgodly.github.io/MediaFlow/)
+- **Project:** [MediaFlow](https://alexgodly.github.io/MediaFlowPlus/)
 - **Developer:** Alex Godly
 - **License:** [MediaFlow Proprietary License](LICENSE)
 - **Detailed history and technical notes:** [`docs/`](docs/) · [`README2.md`](README2.md)
