@@ -67,4 +67,4 @@ const {chromium}=require('playwright');
  console.log('PAGE ERRORS',JSON.stringify(errors.slice(0,8)));
  assert.equal(errors.length,0,'Browser runtime errors encountered');
  await browser.close();
-})().catch(e=>{console.error(e?.stack||e);process.exitCode=1});
+})().catch(e=>{console.error(e?.stack||e);process.exit(1)});
