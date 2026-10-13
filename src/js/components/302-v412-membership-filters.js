@@ -28,6 +28,16 @@ function mfp412Membership(kind,value){
   renderLogSuggestions();
  }
 }
+// Late interception: earlier releases replace the Personal Order candidate
+// function, so ensure membership is applied after *all* legacy overrides.
+const mfp412OrderCandidatesBase=v138PickerMatches;
+v138PickerMatches=function(){
+ const rows=mfp412OrderCandidatesBase.apply(this,arguments);
+ const mode=v140EnsureOrderPickerUI().v412Show||MFP412_SHOW.titles;
+ if(mode==='all')return rows;
+ const assigned=new Set(v138EnsureOrderPlan().titleIds.map(String));
+ return rows.filter(i=>mode==='added'?assigned.has(String(i.id)):!assigned.has(String(i.id)));
+};
 const mfp412OrderToolsBase=v140OrderPickerToolsHtml;
 v140OrderPickerToolsHtml=function(){
  const html=String(mfp412OrderToolsBase.apply(this,arguments)||'');
