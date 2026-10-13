@@ -109,6 +109,7 @@ function mf412Subscribe(){
  const id=AUTH_USER?.id;if(!id||!supabase||MF412.session===id)return;
  try{MF412.channel?.unsubscribe?.();}catch(_){}
  MF412.session=id;
+ void mf412Load();
  if(typeof supabase.channel==='function'){
   MF412.channel=supabase.channel('mfplus-inbox-'+id)
    .on('postgres_changes',{event:'*',schema:'public',table:'mfp_messages',filter:'recipient_id=eq.'+id},()=>void mf412Load())
@@ -126,11 +127,11 @@ function mf412Tick(){
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&MF412.open)mf412Toggle(false);});
 setInterval(mf412Tick,4000);
-setInterval(()=>{if(AUTH_USER&&(MF412.open||S.view==='inbox'))void mf412Load();},30000);
+setInterval(()=>{if(AUTH_USER)void mf412Load();},45000);
 MediaFlowRuntime.registerPageRenderer('inbox',mf412Page);
 MediaFlowRuntime.registerPageEnhancer('inbox',()=>{mf412EnsureFloating();mf412Render();void mf412Load();});
 const oldMessages=App.mfp408MessageTo;
-App.mfp408MessageTo=function(id){const p=MFP408.profiles.find(x=>x.user_id===id);MF412.peer=id;mf412OpenPage();};
+App.mfp408MessageTo=function(id){MF412.peer=id;mf412OpenPage();};
 Object.assign(App,{mf412Toggle,mf412OpenPage,mf412Load,mf412Peer,mf412Search,mf412Send});
 window.MediaFlowPlusInbox={version:412,refresh:mf412Load,open:mf412OpenPage};
 })();
