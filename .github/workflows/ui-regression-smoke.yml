@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: mediaflow-plus-ui-smoke
+  group: mediaflow-plus-ui-smoke-${{ github.ref_name }}
   cancel-in-progress: true
 jobs:
   chromium:
