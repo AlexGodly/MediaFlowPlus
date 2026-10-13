@@ -2,7 +2,7 @@
  * One canonical Supabase mfp_messages table and one in-memory conversation store.
  * No shadow message table, no publication of private Library data.
  */
-const MFP412_INBOX={messages:[],profiles:new Map(),active:'',search:'',mini:false,loading:false,ready:false,error:'',draft:'',busy:false,lastFetch:0,channel:null};
+const MFP412_INBOX={messages:[],profiles:new Map(),active:'',search:'',mini:false,loading:false,ready:false,error:'',draft:'',busy:false,lastFetch:0,channel:null,sessionUser:''};
 const mfp412Esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const mfp412Who=id=>{
  const p=MFP412_INBOX.profiles.get(String(id||''));
@@ -78,6 +78,15 @@ function mfp412InboxRenderer(){
 }
 function mfp412InboxEnsureFloating(){
  if(!document.body)return;
+ const currentUser=mfp412InboxMe();
+ if(currentUser!==MFP412_INBOX.sessionUser){
+  if(MFP412_INBOX.channel&&supabase?.removeChannel)void supabase.removeChannel(MFP412_INBOX.channel);
+  MFP412_INBOX.channel=null;MFP412_INBOX.messages=[];MFP412_INBOX.profiles=new Map();
+  MFP412_INBOX.active='';MFP412_INBOX.draft='';MFP412_INBOX.search='';
+  MFP412_INBOX.ready=false;MFP412_INBOX.lastFetch=0;MFP412_INBOX.error='';
+  MFP412_INBOX.mini=false;MFP412_INBOX.sessionUser=currentUser;
+ }
+
  let fab=document.getElementById('mf412-inbox-fab');
  const showing=!!AUTH_USER&&!!AUTH_READY&&!!document.querySelector('.sidebar');
  if(!fab){
