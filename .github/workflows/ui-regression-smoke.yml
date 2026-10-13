@@ -36,3 +36,17 @@ jobs:
           python -m http.server 8765 --bind 127.0.0.1 > /tmp/mediaflow-http.log 2>&1 &
           sleep 2
           node tests/community-critical-pages-smoke.cjs
+      - name: Verify live Community public projection endpoint
+        run: |
+          python - <<'PY'
+          import json,re,urllib.request
+          from pathlib import Path
+          source=Path('src/js/core/constants/001-constants.js').read_text(encoding='utf-8')
+          key=re.search(r"SUPABASE_PUBLISHABLE_KEY='([^']+)'",source).group(1)
+          url="https://puaqaobplyrdrujapznp.supabase.co/functions/v1/mfp-public-workspace?kind=discover"
+          req=urllib.request.Request(url,headers={"apikey":key,"Accept":"application/json"})
+          with urllib.request.urlopen(req,timeout=30) as response:
+              payload=json.load(response)
+          assert isinstance(payload.get("collections"),list),payload
+          print("Public live collection discovery endpoint: HTTP 200, JSON list verified")
+          PY
