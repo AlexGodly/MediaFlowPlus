@@ -59,3 +59,17 @@
 | Personal Edition repo/database/deployment | Unchanged |
 | Public profile/collection privacy | Strict opt-in, read-only projection |
 | Legacy full feature parity | In progress |
+
+
+## 9. Community Home, Workspace gateway and nested navigation (restored after review)
+- Real public Community Home at the dedicated #/community/home route, available before sign-in, with polished Home, Browse Titles, Collections and Top Titles destinations.
+- Public Home has a prominent My Workspace gateway. Signed-in users return to the actual private Dashboard/Library/History workspace; visitors who are not logged in go to the existing sign-in form. Authentication and canonical state persistence are preserved.
+- The account login screen includes an optional Explore the Community Home entry.
+- Separate private Workspace label/header in the existing sidebar. All existing Workspace navigation continues respecting the canonical v161 saved visibility and ordering.
+- Community is a nested, collapsible sidebar group with Home, Browse Titles, Community Collections, Top Titles, People, Feed, Friends, Inbox, Notifications, Reviews and Public Profile.
+- The existing independent Inbox page remains authoritative for messages. The Community Inbox link routes to it rather than creating a second conversation database.
+- Mobile More uses the same nested, collapsible Community group and responsive navigation. The sprawling duplicate top tab strip on the Community page is removed.
+- Settings → Navigation now includes Community group visibility, expansion, page hide/show, up/down ordering and Restore Defaults; settings are persisted with the existing Settings state, not with a second local database.
+- Public Community pages never read private S.library state. Live public directory requests are routed through the existing visibility-gated read-only endpoint. The Home renders a usable empty/recovery state while the Plus-only endpoint has not yet been deployed.
+
+**Additional checks:** source-level navigation/guest route contracts and synthetic Chromium browser tests of Home, Workspace, desktop collapse, intermediate/mobile More, active menu states, and horizontal overflow. These are required gates before production.
