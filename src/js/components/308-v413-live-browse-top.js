@@ -17,7 +17,7 @@ function lbCatalogLink(scope,search,offset){
 function lbHeader(){
  return '<div class="lb413-top"><div><span class="lb413-eyebrow">MEDIAFLOW PLUS · COMMUNITY</span><h1>Browse</h1><p>Discover media from members’ real shared libraries — no duplicate catalog database.</p></div><button type="button" class="btn" onclick="App.lb413Refresh()">Refresh</button></div>';
 }
-function lbPage(){
+function lbRenderPage(){
  return '<section class="lb413-page">'+lbHeader()+
   '<div class="lb413-toolbar"><div class="lb413-tabs" role="tablist" aria-label="Community browse modes">'+
   [['titles','Titles'],['top','Top Rated']].map(([id,title])=>'<button type="button" role="tab" aria-selected="'+String(LB413.scope===id)+'" onclick="App.lb413Tab(\''+id+'\')">'+title+'</button>').join('')+'</div>'+
@@ -67,7 +67,7 @@ async function lbLoad(){
 }
 function lbTab(tab){if(!['titles','top'].includes(tab))return;LB413.scope=tab;LB413.offset=0;S.view='browse';render();}
 function lbSearch(value){LB413.search=String(value||'');LB413.offset=0;clearTimeout(LB413.debounce);LB413.debounce=setTimeout(lbLoad,280);}
-function lbPage(direction){LB413.offset=direction>0?LB413.next??LB413.offset:Math.max(0,LB413.offset-25);void lbLoad();}
+function lbTurnPage(direction){LB413.offset=direction>0?LB413.next??LB413.offset:Math.max(0,LB413.offset-25);void lbLoad();}
 function lbRefresh(){void lbLoad();}
 function lbStartAdd(key){
  if(!AUTH_USER||!S.library){showToast('Sign in to your MediaFlow Plus workspace before importing.');return;}
@@ -133,9 +133,9 @@ App.mfp408Tab=function(tab){
  if(tab==='browse'||tab==='reviews'){LB413.scope=tab==='reviews'?'top':'titles';LB413.offset=0;S.view='browse';render();return;}
  return lbOldCommunityTab(tab);
 };
-MediaFlowRuntime.registerPageRenderer('browse',lbPage);
+MediaFlowRuntime.registerPageRenderer('browse',lbRenderPage);
 MediaFlowRuntime.registerPageEnhancer('browse',()=>{if(!LB413.loading)void lbLoad();});
-Object.assign(App,{lb413Tab:lbTab,lb413Search:lbSearch,lb413Page:lbPage,lb413Refresh:lbRefresh,
+Object.assign(App,{lb413Tab:lbTab,lb413Search:lbSearch,lb413Page:lbTurnPage,lb413Refresh:lbRefresh,
  lb413StartAdd:lbStartAdd,lb413CommitAdd:lbCommitAdd,lb413CloseAdd:lbCloseAdd});
 window.MediaFlowPlusLiveBrowse413={release:413,canonical:true,refresh:lbLoad,scope:()=>LB413.scope};
 })();
