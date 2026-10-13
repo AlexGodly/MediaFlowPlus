@@ -1,0 +1,38 @@
+name: Critical pages browser smoke
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tests/community-critical-pages-smoke.cjs'
+      - '.github/workflows/ui-regression-smoke.yml'
+      - 'src/js/**'
+      - 'VERSION'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mediaflow-plus-ui-smoke
+  cancel-in-progress: true
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build production bundle
+        run: python scripts/build.py
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Run synthetic-account browser smoke
+        run: |
+          python -m http.server 8765 --bind 127.0.0.1 > /tmp/mediaflow-http.log 2>&1 &
+          sleep 2
+          node tests/community-critical-pages-smoke.cjs
