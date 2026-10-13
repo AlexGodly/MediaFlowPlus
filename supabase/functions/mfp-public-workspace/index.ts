@@ -101,13 +101,13 @@ async function collectionView(owner,id,offset,limit){
  return {owner:publicOwner(owner),collection:collectionCard(c,owner),titles,offset,
  total:ids.length,next_offset:offset+slice.length<ids.length?offset+slice.length:null};
 }
-async function discover(){
+async function discover(viewer){
  const pubs=await api("mfp_collection_publications?select=owner_id,collection_id&order=created_at.desc&limit=30");
  const owners=new Map(),data=new Map(),items=[];
  for(const p of pubs){
   let owner=owners.get(p.owner_id);
   if(owner===undefined){const rows=await api("mfp_profiles?select=user_id,username,display_name,bio,avatar_url,is_public&user_id=eq."+p.owner_id+"&limit=1");owner=rows[0]||null;owners.set(p.owner_id,owner);}
-  if(!owner?.is_public)continue;
+  if(!owner?.is_public||await blockedBetween(viewer,owner.user_id))continue;
   let state=data.get(p.owner_id);
   if(!state){state=await loadState(p.owner_id);data.set(p.owner_id,state);}
   const c=stateCollection(state,p.collection_id);if(c)items.push(collectionCard(c,owner));
@@ -121,7 +121,7 @@ Deno.serve(async req=>{
  try{
   const url=new URL(req.url),kind=url.searchParams.get("kind")||"profile";
   const viewer=await userId(req);
-  if(kind==="discover")return reply(await discover());
+  if(kind==="discover")return reply(await discover(viewer));
   const username=clean(url.searchParams.get("username"),24).toLowerCase();
   if(!/^[a-z0-9_]{3,24}$/.test(username))return reply({error:"Invalid username"},400);
   const owner=await ownerWithAccess(username,viewer);
