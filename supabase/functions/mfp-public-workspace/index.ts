@@ -233,6 +233,74 @@ async function workspaceSection(owner,section,offset,limit){
   summary,source:"current_owner_workspace",stored_public_copy:false};
 }
 
+
+/* Live Browse and Top: aggregate original title IDs/ratings in memory ONLY.
+ * Zero Community media copy tables. Bounded scope prevents exhaustive
+ * unbounded decompression on every request; partial coverage is disclosed.
+ */
+function canonicalMediaIdentity(t){
+ const sources=[['mal','malId'],['simkl','simklId'],['anilist','anilistId'],
+  ['tmdb','tmdbId'],['imdb','imdbId'],['kitsu','kitsuId']];
+ for(const [provider,key] of sources){
+  const value=clean(t?.[key],90);
+  if(/^[a-zA-Z0-9:_-]{1,90}$/.test(value))return provider+':'+value;
+ }
+ const extra=t?.externalIds;
+ if(extra&&typeof extra==='object'&&!Array.isArray(extra)){
+  for(const [provider] of sources){
+   const value=clean(extra[provider],90);
+   if(/^[a-zA-Z0-9:_-]{1,90}$/.test(value))return provider+':'+value;
+  }
+ }
+ return '';
+}
+async function liveCatalog(scope,search,offset,limit,viewer){
+ // Every request requires the current viewer's verified Plus auth JWT.
+ // Public profile deep links remain guest-readable through the other route.
+ if(!viewer)return {error:"Sign in to browse live Community titles",status:401};
+ if(scope!=="titles"&&scope!=="top")return {error:"Invalid Community catalog",status:400};
+ const flag=scope==="top"?"show_ratings":"show_library";
+ const raw=await api("mfp_profiles?select=user_id,username,display_name,is_public,show_library,show_ratings&is_public=eq.true&order=created_at.asc&limit=13");
+ const eligible=raw.filter(p=>p.is_public===true&&p[flag]===true);
+ const capped=eligible.slice(0,8),groups=new Map();
+ let partial=raw.length>=13||eligible.length>8,scanned=0;
+ for(const owner of capped){
+  if(await blockedBetween(viewer,owner.user_id))continue;
+  const state=await loadState(owner.user_id),library=Array.isArray(state.library)?state.library:[];
+  scanned++;
+  if(library.length>75000)partial=true;
+  const seen=new Set();
+  for(const t of library.slice(0,75000)){
+   if(!t||typeof t!=="object")continue;
+   const mediaKey=canonicalMediaIdentity(t);if(!mediaKey||seen.has(mediaKey))continue;
+   seen.add(mediaKey);
+   let row=groups.get(mediaKey);
+   if(!row){
+    row={media_key:mediaKey,title:clean(t.title,240),cover_url:httpsImage(t.coverUrl),
+     users_count:0,ratings_count:0,sum:0};
+    groups.set(mediaKey,row);
+   }
+   row.users_count++;
+   if(owner.show_ratings===true&&Number(t.rating)>0&&Number(t.rating)<=10){
+    row.sum+=Number(t.rating);row.ratings_count++;
+   }
+  }
+ }
+ const filter=clean(search,120).trim().toLocaleLowerCase();
+ let items=[...groups.values()].filter(row=>(!filter||row.title.toLocaleLowerCase().includes(filter))&&(scope!=="top"||row.ratings_count>0)).map(row=>({
+  media_key:row.media_key,title:row.title,cover_url:row.cover_url,
+  users_count:row.users_count,ratings_count:row.ratings_count,
+  average_rating:row.ratings_count?Math.round(row.sum/row.ratings_count*100)/100:null
+ }));
+ items.sort(scope==="top"?
+  (a,b)=>(b.average_rating??0)-(a.average_rating??0)||b.ratings_count-a.ratings_count||a.title.localeCompare(b.title):
+  (a,b)=>b.users_count-a.users_count||b.ratings_count-a.ratings_count||a.title.localeCompare(b.title));
+ const total=items.length;
+ return {source:"current_owner_workspace",stored_public_copy:false,scope,partial,
+  scanned_profiles:scanned,eligible_sample:eligible.length,
+  total,items:items.slice(offset,offset+limit),offset,next_offset:offset+limit<total?offset+limit:null};
+}
+
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
  if(req.method!=="GET")return reply({error:"Read-only endpoint"},405);
@@ -240,6 +308,14 @@ Deno.serve(async req=>{
  try{
   const url=new URL(req.url),kind=url.searchParams.get("kind")||"profile";
   const viewer=await userId(req);
+  if(kind==="catalog"){
+   const scope=clean(url.searchParams.get("scope")||"titles",12);
+   const search=clean(url.searchParams.get("search"),120);
+   const offset=Math.max(0,Math.min(5000,Math.floor(Number(url.searchParams.get("offset"))||0)));
+   const limit=Math.max(1,Math.min(50,Math.floor(Number(url.searchParams.get("limit"))||25)));
+   const data=await liveCatalog(scope,search,offset,limit,viewer);
+   return data?.error?reply({error:data.error},data.status||400):reply(data);
+  }
   if(kind==="discover")return reply(await discover(viewer));
   const username=clean(url.searchParams.get("username"),24).toLowerCase();
   if(!/^[a-z0-9_]{3,24}$/.test(username))return reply({error:"Invalid username"},400);
