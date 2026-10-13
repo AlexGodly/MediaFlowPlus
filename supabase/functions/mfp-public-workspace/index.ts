@@ -260,7 +260,7 @@ async function liveCatalog(scope,search,offset,limit,viewer){
  if(!viewer)return {error:"Sign in to browse live Community titles",status:401};
  if(scope!=="titles"&&scope!=="top")return {error:"Invalid Community catalog",status:400};
  const flag=scope==="top"?"show_ratings":"show_library";
- const raw=await api("mfp_profiles?select=user_id,username,display_name,is_public,show_library,show_ratings&is_public=eq.true&order=created_at.asc&limit=13");
+ const raw=await api("mfp_profiles?select=user_id,username,display_name,is_public,show_library,show_ratings&is_public=eq.true&"+flag+"=eq.true&order=created_at.asc&limit=13");
  const eligible=raw.filter(p=>p.is_public===true&&p[flag]===true);
  const capped=eligible.slice(0,8),groups=new Map();
  let partial=raw.length>=13||eligible.length>8,scanned=0;
