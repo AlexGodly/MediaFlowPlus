@@ -4,6 +4,9 @@ on:
     branches: [main, feature/v412-smart-filters-inbox-live-community]
     paths:
       - 'tests/community-critical-pages-smoke.cjs'
+      - 'tests/test-v412-*.cjs'
+      - 'assets/css/30*-v412-*.css'
+      - 'supabase/functions/mediaflow-plus-public-workspace/**'
       - '.github/workflows/ui-regression-smoke.yml'
       - 'src/js/**'
       - 'VERSION'
