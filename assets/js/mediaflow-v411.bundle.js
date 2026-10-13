@@ -66596,7 +66596,8 @@ async function psUnsubscribe(ownerId,id){
  PS412.lastSubs=0;await psLoadSubs(true);psAlert('Unsubscribed.');
 }
 async function psLoadSubs(force=false){
- if(!AUTH_USER)return;
+ if(!AUTH_USER){PS412.subs=[];PS412.subscriberId='';return;}
+ if(PS412.subscriberId!==String(AUTH_USER.id)){PS412.subs=[];PS412.lastSubs=0;PS412.subscriberId=String(AUTH_USER.id);}
  if(!force&&Date.now()-PS412.lastSubs<14000)return;
  const q=await supabase.from('mfp_collection_subscriptions').select('owner_id,collection_id,subscribed_at').eq('subscriber_id',AUTH_USER.id).order('subscribed_at',{ascending:false}).limit(120);
  if(q.error){console.warn('Community subscriptions:',q.error);return;}
@@ -66613,6 +66614,7 @@ async function psLoadSubs(force=false){
  psRenderSubs();
 }
 function psSubsHtml(){
+ if(PS412.subscriberId!==String(AUTH_USER?.id||'')){PS412.subs=[];PS412.subscriberId=String(AUTH_USER?.id||'');PS412.lastSubs=0;PS412.pubs=new Set();PS412.pubsAt=0;}
  return '<section class="ps412-panel ps412-community-section"><div class="ps412-panel-top"><div><h2>Community Collections</h2><p>Live subscriptions to other members’ collections — stored as references, never copied.</p></div><button type="button" class="btn btn-sm" onclick="App.ps412RefreshSubscriptions()">Refresh</button></div>'+
  (PS412.subs.length?'<div class="ps412-collection-grid">'+PS412.subs.map(s=>'<article class="ps412-collection-card"><h3>'+psEsc(s.unavailable?'Unavailable collection':s.collection?.title||'Shared collection')+'</h3><p>'+psEsc(s.unavailable?'The owner removed or restricted public access. Your independent converted collections are unaffected.':(s.collection?.description||''))+'</p>'+
  '<small>'+psEsc(s.username||'Member')+'</small><div class="ps412-share-actions">'+(!s.unavailable?'<button class="btn btn-sm" onclick="App.ps412Open(\''+psEsc(s.username)+'\',\''+psEsc(s.collection_id)+'\')">View live</button><button class="btn btn-sm" onclick="App.ps412Convert(\''+psEsc(s.username)+'\',\''+psEsc(s.collection_id)+'\')">Convert to my collection</button>':'')+
