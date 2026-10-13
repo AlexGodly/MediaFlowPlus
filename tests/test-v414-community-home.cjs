@@ -12,5 +12,5 @@ for(const v of ['function guestMount','function workspace','function navSync','f
  if(v==='stored')continue;
  assert(source.includes(v),'Required Community navigation feature missing: '+v);
 }
-assert(!/\\.insert\\(|\\.upsert\\(|from\\(['"]mediaflow_states['"]\\)/.test(source),'Public Home must not copy Library data');
+assert(!source.includes('.insert(')&&!source.includes('.upsert(')&&!source.includes("from('mediaflow_states')"),'Public Home must not copy Library data');
 console.log('v414 live Community Home, Workspace and nested navigation source contracts passed');
