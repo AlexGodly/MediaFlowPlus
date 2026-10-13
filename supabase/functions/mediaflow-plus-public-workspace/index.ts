@@ -13,6 +13,32 @@ function json(body,status=200){return new Response(JSON.stringify(body),{status,
 function text(value,max=250){return String(value??"").slice(0,max);}
 function url(value){try{const out=new URL(text(value,2048));return out.protocol==="https:"?out.href:"";}catch{return "";}}
 function uuid(value){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value||"");}
+// A public URL must never be able to inflate a compressed private workspace
+// without a hard output limit. 96 MiB covers large legitimate libraries while
+// rejecting gzip bombs before JSON parsing or public field projection.
+const MAX_PUBLIC_STATE_BYTES=96*1024*1024;
+async function decodeStateGzip(encoded){
+ const binary=atob(encoded);
+ const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
+ const reader=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip")).getReader();
+ const decoder=new TextDecoder("utf-8",{fatal:true});
+ let decoded="",total=0;
+ try{
+  while(true){
+   const {done,value}=await reader.read();
+   if(done)break;
+   total+=value.byteLength;
+   if(total>MAX_PUBLIC_STATE_BYTES){
+    void reader.cancel().catch(()=>{});
+    throw new Error("Workspace exceeds public projection limit");
+   }
+   decoded+=decoder.decode(value,{stream:true});
+  }
+  decoded+=decoder.decode();
+ }finally{reader.releaseLock();}
+ const state=JSON.parse(decoded);
+ return state&&typeof state==="object"&&!Array.isArray(state)?state:null;
+}
 async function stateFor(owner){
  const {data,error}=await admin.from("mediaflow_states").select("state_data").eq("user_id",owner).maybeSingle();
  if(error)throw new Error("Workspace is unavailable");
@@ -20,14 +46,7 @@ async function stateFor(owner){
  const raw=data.state_data;
  if(raw?.__mediaflowCompressed!=="gzip")return raw;
  if(typeof raw.data!=="string"||raw.data.length>44000000)throw new Error("Workspace exceeds public projection limit");
- const binary=atob(raw.data);
- const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
- const ds=new DecompressionStream("gzip");
- const writer=ds.writable.getWriter();
- const reading=new Response(ds.readable).text();
- await writer.write(bytes);await writer.close();
- const decoded=JSON.parse(await reading);
- return decoded&&typeof decoded==="object"?decoded:null;
+ return await decodeStateGzip(raw.data);
 }
 function canonicalCollection(state,id){
  return (Array.isArray(state?.collections)?state.collections:[]).find(c=>c&&String(c.id)===id)||null;
