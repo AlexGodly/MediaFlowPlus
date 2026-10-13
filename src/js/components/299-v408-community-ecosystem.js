@@ -1,5 +1,5 @@
 /* MediaFlow Plus v408 — Community Ecosystem. No personal library data is published automatically. */
-const MFP408={tab:'feed',busy:false,profile:null,rows:[],profiles:[],likes:new Set(),comments:{},target:null,search:'',page:0,limit:12,unread:0};
+const MFP408={tab:'feed',busy:false,profile:null,rows:[],profiles:[],topRows:[],likes:new Set(),comments:{},target:null,search:'',page:0,limit:12,unread:0};
 const MFP408_TABS=[['feed','Feed'],['people','People'],['collections','Collections'],['reviews','Reviews & Top'],['messages','Messages'],['notifications','Alerts'],['profile','My profile']];
 const mfp408Esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const mfp408Name=id=>{let p=MFP408.profiles.find(x=>x.user_id===id);return p?('@'+p.username):'Community member'};
@@ -36,9 +36,9 @@ function mfp408RenderRows(){
   html='<div class="mfp408-card"><h3>Publish a curated collection</h3><p class="mfp408-muted">Enter title names manually. Your private library is never uploaded.</p><form onsubmit="return App.mfp408Collection(event)"><label>Collection name<input name="title" maxlength="120" required></label><label>Description<textarea name="description" maxlength="1000"></textarea></label><label>Titles (one per line, up to 300)<textarea name="titles" rows="4" required></textarea></label><button type="submit">Publish collection</button></form></div>';
   html+=r.map(x=>'<article class="mfp408-card"><div class="mfp408-meta">'+esc(mfp408Name(x.user_id))+'</div><h3>'+esc(x.title)+'</h3><p>'+esc(x.description)+'</p><div class="mfp408-chips">'+(Array.isArray(x.titles)?x.titles:[]).slice(0,30).map(t=>'<span>'+esc(t)+'</span>').join('')+'</div><div class="mfp408-actions">'+(x.user_id===me?'<button onclick="App.mfp408Delete(\'mfp_collections\',\''+x.id+'\')">Delete</button>':'<button onclick="App.mfp408Report(\'collection\',\''+x.id+'\')">Report</button>')+'</div></article>').join('');
  }else if(MFP408.tab==='reviews'){
-  const groups=new Map();for(const x of r){let k=x.media_key;let z=groups.get(k)||{name:x.title_name,sum:0,count:0};z.sum+=Number(x.rating);z.count++;groups.set(k,z)}
+  
   html='<div class="mfp408-card"><h3>Rate a title</h3><form onsubmit="return App.mfp408Review(event)"><label>Title<input name="title_name" required maxlength="250"></label><label>Media ID (MAL, SIMKL or a unique title key)<input name="media_key" required maxlength="200" placeholder="mal:12345"></label><label>Rating / 10<input name="rating" type="number" min="0" max="10" step="0.5" required></label><label>Review<textarea name="body" maxlength="3000"></textarea></label><button type="submit">Publish review</button></form></div>';
-  html+='<div class="mfp408-card"><h3>Top community ratings</h3>'+[...groups.values()].sort((a,b)=>b.sum/b.count-a.sum/a.count).slice(0,15).map(x=>'<p>'+esc(x.name)+' · <b>'+(x.sum/x.count).toFixed(1)+'/10</b> ('+x.count+' ratings)</p>').join('')+'</div>';
+  html+='<div class="mfp408-card"><h3>Top community ratings</h3><p class="mfp408-muted">Ranked across all visible reviews, not just this page.</p>'+(MFP408.topRows.length?MFP408.topRows.map((x,i)=>'<p><b>#'+(i+1)+'</b> '+esc(x.title_name)+' · <b>'+Number(x.average_rating).toFixed(2)+'/10</b> ('+Number(x.rating_count)+' ratings)</p>').join(''):'<p class="mfp408-muted">No community ratings yet.</p>')+'</div>';
   html+=r.map(x=>'<article class="mfp408-card"><div class="mfp408-meta">'+esc(mfp408Name(x.user_id))+'</div><h3>'+esc(x.title_name)+' · '+Number(x.rating).toFixed(1)+'/10</h3><p>'+esc(x.body)+'</p>'+(x.user_id===me?'<button onclick="App.mfp408Delete(\'mfp_reviews\',\''+x.id+'\')">Delete</button>':'<button onclick="App.mfp408Report(\'review\',\''+x.id+'\')">Report</button>')+'</article>').join('');
  }else if(MFP408.tab==='messages'){
   html='<div class="mfp408-card"><h3>Send a message</h3><form onsubmit="return App.mfp408Message(event)"><label>Recipient username<input name="username" required value="'+esc(MFP408.target||'')+'" placeholder="username"></label><label>Message<textarea name="body" required maxlength="2000"></textarea></label><button type="submit">Send message</button></form></div>';
@@ -64,6 +64,7 @@ async function mfp408Fetch(){
   if(tab==='messages')res=await client.from('mfp_messages').select('*').or('sender_id.eq.'+me+',recipient_id.eq.'+me).order('created_at',{ascending:false}).range(0,MFP408.limit-1);
   if(tab==='notifications')res=await client.from('mfp_notifications').select('*').order('created_at',{ascending:false}).range(0,MFP408.limit-1);
   if(res.error)throw res.error;
+  if(tab==='reviews'){const top=await client.from('mfp_top_rated').select('media_key,title_name,rating_count,average_rating').order('average_rating',{ascending:false}).order('rating_count',{ascending:false}).limit(25);if(top.error)throw top.error;MFP408.topRows=top.data||[];}
   MFP408.rows=res.data||[];
   if(tab==='feed'&&MFP408.rows.length){let likes=await client.from('mfp_likes').select('post_id').eq('user_id',me).in('post_id',MFP408.rows.map(x=>x.id));if(!likes.error)MFP408.likes=new Set((likes.data||[]).map(x=>x.post_id));}
   if(S.view==='community'){let root=document.getElementById('mfp408-content');if(root)root.innerHTML=mfp408RenderRows();}
