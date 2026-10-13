@@ -16,7 +16,7 @@ function mf412CollectionCard(c){
 function mf412HomeHtml(){
  const d=MF412_PORTAL.home||{collections:[],posts:[]},e=mfp408Esc;
  const cards=[['browse','Browse Titles','Discover verified titles'],['people','People','Explore public profiles'],['collections','Collections','Explore shared collections'],
-  ['reviews','Ratings','Community recommendations'],['friends','Friends','Followers and mutuals'],['messages','Inbox','Message community members']];
+  ['top','Top ratings','Current opt-in ratings'],['friends','Friends','Followers and mutuals'],['messages','Inbox','Message community members']];
  return '<section class="mf412c-home"><div class="mf412c-hero"><div><span class="mf412c-kicker">WELCOME TO THE COMMUNITY</span>'+
   '<h2>A world of stories, <em>shared together.</em></h2><p>Discover people, titles and collections from live MediaFlow Plus workspaces. Your personal Library remains yours.</p>'+
   '<div class="mf412c-actions"><button onclick="App.mfp408Tab(\'browse\')">Browse titles</button><button onclick="App.mfp408Tab(\'people\')">Explore people</button></div></div>'+

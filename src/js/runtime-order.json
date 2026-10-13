@@ -158,5 +158,6 @@
   "components/301-v412-membership-filters.js",
   "components/302-v412-inbox.js",
   "components/303-v412-live-community.js",
-  "components/304-v412-community-portal.js"
+  "components/304-v412-community-portal.js",
+  "components/305-v412-live-public-pages.js"
 ]
