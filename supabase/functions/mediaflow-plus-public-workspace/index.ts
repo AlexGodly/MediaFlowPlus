@@ -59,7 +59,82 @@ async function published(owner,id){
  if(q.error)throw new Error("Sharing is unavailable");
  return !!q.data;
 }
+
+async function canPublish(owner){
+ const [p,v]=await Promise.all([
+  admin.from("mfp_profiles").select("user_id,is_public").eq("user_id",owner).eq("is_public",true).maybeSingle(),
+  admin.from("mfp_profile_showcase").select("enabled,show_collections").eq("owner_id",owner).eq("enabled",true).eq("show_collections",true).maybeSingle()
+ ]);
+ if(p.error||v.error)throw new Error("Publication permissions unavailable");
+ return !!p.data&&!!v.data;
+}
+async function browseDirectory(){
+ const q=await admin.from("mfp_shared_collections").select("owner_id,collection_id")
+  .eq("is_published",true).order("updated_at",{ascending:false}).limit(80);
+ if(q.error)throw new Error("Collection directory unavailable");
+ const refs=q.data||[],ids=[...new Set(refs.map(x=>x.owner_id))];
+ if(!ids.length)return json({collections:[],source:"live",stored_public_copy:false});
+ const [ps,vs]=await Promise.all([
+  admin.from("mfp_profiles").select("user_id,username,display_name").in("user_id",ids).eq("is_public",true),
+  admin.from("mfp_profile_showcase").select("owner_id").in("owner_id",ids).eq("enabled",true).eq("show_collections",true)
+ ]);
+ if(ps.error||vs.error)throw new Error("Sharing privacy unavailable");
+ const allow=new Set((vs.data||[]).map(x=>x.owner_id)),profiles=new Map((ps.data||[]).filter(x=>allow.has(x.user_id)).map(x=>[x.user_id,x]));
+ const states=new Map(),collections=[];
+ for(const ref of refs){
+  const p=profiles.get(ref.owner_id);if(!p)continue;
+  let s=states.get(ref.owner_id);
+  if(!s){try{s=await stateFor(ref.owner_id)||{};}catch{continue;}states.set(ref.owner_id,s);}
+  const c=canonicalCollection(s,String(ref.collection_id));if(!c)continue;
+  collections.push({...safeCollectionHeader(c,ref.owner_id),username:text(p.username,24),display_name:text(p.display_name,100)});
+ }
+ return json({collections,source:"live",stored_public_copy:false});
+}
+async function browseVerified(query,sort,offset,limit){
+ // Only explicitly public Libraries. Scan source state, never store a duplicate.
+ const q=await admin.from("mfp_profiles").select("user_id,username,show_ratings")
+  .eq("is_public",true).eq("show_library",true).order("created_at",{ascending:true}).limit(50);
+ if(q.error)throw new Error("Browse authorization unavailable");
+ const profiles=q.data||[];
+ if(!profiles.length)return json({titles:[],total:0,partial:false,source:"live",stored_public_copy:false});
+ const visibility=await admin.from("mfp_profile_showcase").select("owner_id").in("owner_id",profiles.map(x=>x.user_id)).eq("enabled",true);
+ if(visibility.error)throw new Error("Browse visibility unavailable");
+ const publicIds=new Set((visibility.data||[]).map(x=>x.owner_id));
+ const found=new Map(),term=query.toLowerCase();let partial=profiles.length===50;
+ for(const p of profiles){
+  if(!publicIds.has(p.user_id))continue;
+  let s;try{s=await stateFor(p.user_id);}catch{partial=true;continue;}
+  const seen=new Set();
+  for(const t of Array.isArray(s?.library)?s.library:[]){
+   if(!t||typeof t!=="object")continue;
+   const mal=text(t.malId||t.mal_id,80),simkl=text(t.simklId||t.simkl_id,80),title=text(t.title,250).trim();
+   if((!mal&&!simkl)||!title||(term&&!title.toLowerCase().includes(term)))continue;
+   const key=mal?"mal:"+mal:"simkl:"+simkl;
+   if(seen.has(key))continue;seen.add(key);
+   let row=found.get(key);
+   if(!row){
+    if(found.size>=20000){partial=true;continue;}
+    row={key,title,mal_id:mal,simkl_id:simkl,cover_url:url(t.coverUrl||t.cover||t.imageUrl),username:text(p.username,24),owners_count:0,rating_count:0,rating_sum:0};
+    found.set(key,row);
+   }
+   row.owners_count++;
+   const rating=Number(t.rating);
+   if(p.show_ratings===true&&Number.isFinite(rating)&&rating>0&&rating<=10){row.rating_sum+=rating;row.rating_count++;}
+  }
+ }
+ const results=[...found.values()].map(x=>({
+  key:x.key,title:x.title,mal_id:x.mal_id,simkl_id:x.simkl_id,cover_url:x.cover_url,
+  username:x.username,owners_count:x.owners_count,rating_count:x.rating_count,
+  average_rating:x.rating_count?Math.round(x.rating_sum/x.rating_count*100)/100:null
+ }));
+ results.sort(sort==="rated"?
+  (a,b)=>(b.average_rating??-1)-(a.average_rating??-1)||b.rating_count-a.rating_count||a.title.localeCompare(b.title):
+  (a,b)=>a.title.localeCompare(b.title));
+ return json({titles:results.slice(offset,offset+limit),total:results.length,partial,source:"live",stored_public_copy:false});
+}
+
 async function showCollection(owner,id,offset,limit){
+ if(!await canPublish(owner))return json({error:"Collection is not public"},404);
  // Published references MUST be checked first, on every request.
  if(!await published(owner,id))return json({error:"Collection is not public"},404);
  const state=await stateFor(owner);
@@ -112,6 +187,14 @@ Deno.serve(async req=>{
  if(!SUPABASE_URL||!SERVICE_ROLE)return json({error:"Unavailable"},503);
  try{
   const u=new URL(req.url),type=u.searchParams.get("type");
+  if(type==="directory")return await browseDirectory();
+  if(type==="browse"){
+   const query=text(u.searchParams.get("query"),120).trim();
+   const sort=u.searchParams.get("sort")==="rated"?"rated":"alpha";
+   const offset=Math.min(20000,Math.max(0,Number.parseInt(u.searchParams.get("offset")||"0",10)||0));
+   const limit=Math.min(40,Math.max(1,Number.parseInt(u.searchParams.get("limit")||"24",10)||24));
+   return await browseVerified(query,sort,offset,limit);
+  }
   if(type==="profile"){
    const username=String(u.searchParams.get("username")||"").trim().toLowerCase();
    if(!/^[a-z0-9_]{3,24}$/.test(username))return json({error:"Invalid username"},400);
