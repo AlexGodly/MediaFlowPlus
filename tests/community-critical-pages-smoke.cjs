@@ -57,7 +57,8 @@ const {chromium}=require('playwright');
   const kind=url.searchParams.get('kind');
   const base={owner:{username:'demo',display_name:'Demo'},collection:{id:'c1',title:'Shared Example',description:'A public collection',count:1},titles:[{title:'A Public Title',category:'Anime'}],total:1,next_offset:null};
   const payload=kind==='discover'?{collections:[{...base.collection,owner:base.owner}]}:
-    kind==='profile'?{profile:{username:'demo',display_name:'Demo',bio:'A public profile'},collections:[{...base.collection,owner:base.owner}],workspace:{title_count:12,collection_count:1,category_count:3}}:base;
+    kind==='profile'?{profile:{username:'demo',display_name:'Demo',bio:'A public profile'},collections:[{...base.collection,owner:base.owner}],workspace:{title_count:12,collection_count:1,category_count:3},sections:{library:true,history:true,order:false,old:false,statistics:true,ratings:true,levels:false}}:
+    kind==='section'?{section:url.searchParams.get('section'),source:'current_owner_workspace',stored_public_copy:false,items:[{id:'live-title-1',title:'Live Owner Title',category:'Seasonal Anime',status:'active',progress:1,total:12}],total:1,offset:0,next_offset:null,summary:null}:base;
   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
  });
 
@@ -141,6 +142,12 @@ const {chromium}=require('playwright');
  await page.waitForTimeout(600);
  const guestProfile=await page.locator('#ps412-public-host').innerText();
  assert(/Demo|Published collections/i.test(guestProfile),'Guest public profile does not render');
+ assert(/Live workspace/i.test(guestProfile),'Public profile live Workspace tabs missing');
+ await page.evaluate(()=>window.App.ps412Tab('library'));
+ await page.waitForTimeout(350);
+ const liveTitles=await page.locator('#ps412-live-section').innerText();
+ assert(liveTitles.includes('Live Owner Title'),'Public Library tab did not load the owner-native projection');
+ assert(liveTitles.includes('No copies'),'Public Library did not indicate canonical source');
  await page.evaluate(()=>{window.location.hash='#/collection/demo/c1'});
  await page.waitForTimeout(600);
  const guestCollection=await page.locator('#ps412-public-host').innerText();
