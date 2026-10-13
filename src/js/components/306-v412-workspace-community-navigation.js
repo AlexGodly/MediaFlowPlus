@@ -231,6 +231,9 @@ mfp408Renderer=function(){
   '<button type="button" class="mf412n-go-workspace" onclick="App.mfp412GoWorkspace()">'+
    mfp412MenuIcon('layers')+' My Workspace →</button></div></header>');
 };
+// Runtime registration keeps the original function reference, so explicitly
+// replace the registered renderer after enhancing the Community header.
+MediaFlowRuntime.registerPageRenderer('community',mfp408Renderer);
 // Modern sidebar navigation is the source of truth; remove duplicate 11-button
 // horizontal tab strip, which broke intermediate/mobile layouts.
 const mfp412CommunityOldTab=App.mfp408Tab;
