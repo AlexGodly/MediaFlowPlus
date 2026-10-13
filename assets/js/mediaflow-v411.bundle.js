@@ -65787,360 +65787,921 @@ window.MediaFlowPlusPageHealth={
  };}
 };
 })();
-/* MediaFlow Plus v412 — canonical Inbox and floating mini inbox.
- * Messages stay in existing mfp_messages; this module creates no message copies.
+/* MediaFlow v406 — membership-aware Personal Order / Logging workspaces and
+   accessible searchable bulk action pickers. Existing data/schema unchanged. */
+const V406_RELEASE=406;
+const V406_MEMBERSHIP={collections:'all',logging:'all'};
+function v406Mode(value){return ['all','available','added'].includes(String(value))?String(value):'all';}
+function v406MatchMembership(id,members,mode){return mode==='all'||(mode==='added'?members.has(String(id)):!members.has(String(id)));}
+function v406MemberSelect(kind,value){
+  const mode=v406Mode(value);
+  if(kind==='titles'){
+    const ui=v140EnsureOrderPickerUI();ui.v406Membership=mode;ui.page=0;
+    v141InvalidateOrderPickerCache();v141RefreshOrderPickerAll();return;
+  }
+  if(kind==='collections'){
+    V406_MEMBERSHIP.collections=mode;
+    const ui=v287OrderUI();ui.v359CollectionPage=0;
+    v287RefreshCollectionPicker();return;
+  }
+  if(kind==='logging'){
+    V406_MEMBERSHIP.logging=mode;V89_LOG.page=0;
+    renderLogSuggestions();
+  }
+}
+function v406MembershipField(kind){
+  const state=kind==='titles'?v406Mode(v140EnsureOrderPickerUI().v406Membership||'all'):V406_MEMBERSHIP[kind];
+  const first=kind==='collections'?'All collections':'All titles';
+  return `<label class="mf406-membership"><span>Show</span><select aria-label="${kind==='collections'?'Personal Order collection':kind==='logging'?'Logging Library':'Personal Order title'} membership" onchange="App.v406MemberSelect('${kind}',this.value)">
+    <option value="all" ${state==='all'?'selected':''}>${first}</option>
+    <option value="available" ${state==='available'?'selected':''}>Not added</option>
+    <option value="added" ${state==='added'?'selected':''}>Already added</option>
+  </select></label>`;
+}
+// Personal Order Add Titles — filter the existing indexed and sorted candidate
+// stream *before* its pager. Recompute against the canonical queue every time.
+const v406OrderMatchesBase=v138PickerMatches;
+v138PickerMatches=function(){
+  const rows=v406OrderMatchesBase.apply(this,arguments),ui=v140EnsureOrderPickerUI(),mode=v406Mode(ui.v406Membership);
+  if(mode==='all')return rows;
+  const ids=new Set((v138EnsureOrderPlan().titleIds||[]).map(String));
+  return rows.filter(item=>v406MatchMembership(item.id,ids,mode));
+};
+const v406OrderToolsBase=v140OrderPickerToolsHtml;
+v140OrderPickerToolsHtml=function(){
+  const html=String(v406OrderToolsBase.apply(this,arguments));
+  return `<div class="mf406-order-membership">${v406MembershipField('titles')}</div>`+html;
+};
+// Personal Order Add Collections — membership is relative to the currently
+// selected *assignment category*, not all Personal Order categories combined.
+const v406CollectionMatchesBase=v287CollectionMatches;
+v287CollectionMatches=function(){
+  const rows=v406CollectionMatchesBase.apply(this,arguments),mode=V406_MEMBERSHIP.collections;
+  if(mode==='all')return rows;
+  const categoryId=String(v287OrderUI().v287CollectionCategoryId||'');
+  const assigned=new Set(v287Assignments(categoryId).map(x=>String(x.collectionId)));
+  return rows.filter(collection=>v406MatchMembership(collection.id,assigned,mode));
+};
+const v406CollectionControlsBase=v358CollectionControlsHtml;
+v358CollectionControlsHtml=function(){
+  const html=String(v406CollectionControlsBase.apply(this,arguments));
+  const marker='<div class="mf354-collection-picker-controls mf358-filters-grid">';
+  return html.includes(marker)?html.replace(marker,marker+`<div class="mf358-filter-control mf406-collection-membership">${v406MembershipField('collections')}</div>`):html;
+};
+// Logging Library — membership means the active, unsubmitted Logging draft,
+// never presence in the main Library or a historic Logging session.
+const v406LogCandidatesBase=logTitleCandidates;
+logTitleCandidates=function(query){
+  const rows=v406LogCandidatesBase.apply(this,arguments),mode=V406_MEMBERSHIP.logging;
+  if(mode==='all')return rows;
+  const added=v378AddedIds();return rows.filter(item=>v406MatchMembership(item.id,added,mode));
+};
+const v406LogToolsBase=v224LogToolsHtml;
+v224LogToolsHtml=function(){
+  const html=String(v406LogToolsBase.apply(this,arguments));
+  return html.replace('data-v89-log-tools="1">',`data-v89-log-tools="1">${v406MembershipField('logging')}`);
+};
+// Every *new* picker session starts with All; changing other filters/search
+// during the same session doesn't erase its chosen membership filter.
+const v406OpenSheetBase=App.v354OpenSheet;
+App.v354OpenSheet=function(kind){
+  if(kind==='title')v140EnsureOrderPickerUI().v406Membership='all';
+  if(kind==='collection')V406_MEMBERSHIP.collections='all';
+  return v406OpenSheetBase.apply(this,arguments);
+};
+
+const V406_STATUS_LABEL={planned:'Plan to Watch',active:'Watching',paused:'On Hold',completed:'Completed',dropped:'Dropped'};
+const V406_PRIORITY_LABEL={low:'Low',medium:'Medium',high:'High'};
+function v406ActionItems(kind){
+  const ids=v230VisibleIds(kind==='category'?'setCategory':kind==='status'?'setStatus':'setPriority');
+  const cats=new Map((S.categories||[]).filter(c=>c?.id).map(c=>[String(c.id),c]));
+  return ids.map(id=>{
+    if(kind==='category'){
+      const c=cats.get(String(id));return c?{id:String(id),label:String(c.name||'Untitled'),icon:v144CategoryIconHtml(c)}:null;
+    }
+    if(kind==='status')return {id,label:V406_STATUS_LABEL[id]||id,icon:v230StatusIcon(id)};
+    return {id,label:V406_PRIORITY_LABEL[id]||id,icon:v230PriorityIcon(id)};
+  }).filter(Boolean);
+}
+function v406PickerHtml(kind,scope){
+  const title=kind==='category'?'Move to category':kind==='status'?'Set status':'Set priority';
+  const icon=kind==='category'?'▦':kind==='status'?'◉':'⚑';
+  const options=v406ActionItems(kind).map(item=>
+    `<button type="button" class="mf406-picker-option" role="option" data-v406-search="${escapeHtml(item.label.toLocaleLowerCase())}" data-v406-value="${escapeHtml(item.id)}" onclick="App.v406Choose(this)">
+      <span class="mf406-picker-icon" aria-hidden="true">${item.icon||icon}</span><span>${escapeHtml(item.label)}</span>
+    </button>`).join('');
+  return `<details class="mf406-action-picker" data-v406-kind="${kind}" data-v406-scope="${scope}" ontoggle="App.v406Position(this)">
+    <summary aria-label="${title}"><span class="mf406-summary-symbol" aria-hidden="true">${icon}</span><span>${title}…</span><span aria-hidden="true">⌄</span></summary>
+    <div class="mf406-picker-panel"><input type="search" autocomplete="off" aria-label="Search ${kind==='category'?'categories':kind==='status'?'statuses':'priorities'}" placeholder="Search ${kind==='category'?'categories':kind==='status'?'statuses':'priorities'}…" oninput="App.v406Search(this)">
+      <div class="mf406-picker-options" role="listbox">${options}</div><div class="mf406-picker-empty" ${options?'hidden':''}>${options?'No matching results.':'No visible options in Settings.'}</div>
+    </div></details>`;
+}
+function v406UpgradeBatchMarkup(html,scope){
+  const text=String(html||'');if(!text.includes('<select'))return text;
+  const root=document.createElement('div');root.innerHTML=text;
+  // Only replace action selects, not unrelated category/status filter selects.
+  root.querySelectorAll('.mf-batchbar select').forEach(el=>{
+    const value=String(el.getAttribute('onchange')||'');
+    const kind=value.includes('BatchCollectionCategory')||value.includes('batchLibraryCategory')?'category':
+      value.includes('BatchCollectionStatus')||value.includes('batchLibraryStatus')?'status':
+      value.includes('BatchCollectionPriority')||value.includes('batchLibraryPriority')?'priority':null;
+    if(!kind)return;
+    const holder=document.createElement('div');holder.innerHTML=v406PickerHtml(kind,scope);
+    if(holder.firstElementChild)el.replaceWith(holder.firstElementChild);
+  });
+  return root.innerHTML;
+}
+function v406Position(menu){
+  if(!menu?.open)return;
+  const panel=menu.querySelector('.mf406-picker-panel');if(!panel)return;
+  // A fixed panel escapes mobile Library batchbars' horizontal overflow.
+  // Anchor within the visible viewport, flipping upward near the bottom.
+  const box=menu.getBoundingClientRect();
+  const width=Math.min(310,Math.max(220,window.innerWidth-20));
+  const left=Math.max(10,Math.min(box.left,window.innerWidth-width-10));
+  const below=window.innerHeight-box.bottom-10,above=box.top-10;
+  panel.style.width=width+'px';panel.style.left=left+'px';
+  panel.style.maxHeight=Math.max(130,Math.max(below,above)-4)+'px';
+  if(below<230&&above>below){panel.style.top='auto';panel.style.bottom=Math.max(10,window.innerHeight-box.top+4)+'px';}
+  else {panel.style.top=Math.max(8,box.bottom+3)+'px';panel.style.bottom='auto';}
+}
+function v406Search(input){
+  const menu=input?.closest('.mf406-action-picker');if(!menu)return;
+  const term=String(input.value||'').trim().toLocaleLowerCase();let visible=0;
+  menu.querySelectorAll('.mf406-picker-option').forEach(button=>{
+    button.hidden=!!term&&!String(button.dataset.v406Search||'').includes(term);
+    if(!button.hidden)visible++;
+  });
+  const empty=menu.querySelector('.mf406-picker-empty');if(empty)empty.hidden=visible>0;
+}
+function v406Choose(button){
+  const menu=button?.closest('.mf406-action-picker');if(!menu)return;
+  const kind=menu.dataset.v406Kind,scope=menu.dataset.v406Scope,id=button.dataset.v406Value;
+  if(!v406ActionItems(kind).some(item=>item.id===id))return; // stale DOM or hidden choice
+  menu.open=false;
+  const method=scope==='collection'?{category:'v274BatchCollectionCategory',status:'v274BatchCollectionStatus',priority:'v274BatchCollectionPriority'}[kind]:
+    {category:'batchLibraryCategory',status:'batchLibraryStatus',priority:'batchLibraryPriority'}[kind];
+  App[method]?.(id); // existing bulk confirmation, undo, History and XP flow
+}
+// Upgrade the actual live Library toolbars, both Normal and Dynamic, and
+// Collection detail toolbars without touching unrelated filters/forms.
+const v406RenderLibraryBase=renderLibrary;
+renderLibrary=function(){return v406UpgradeBatchMarkup(v406RenderLibraryBase.apply(this,arguments),'library');};
+const v406CollectionToolsBase=v274CollectionToolsHtml;
+v274CollectionToolsHtml=function(){return v406UpgradeBatchMarkup(v406CollectionToolsBase.apply(this,arguments),'collection');};
+const v406BatchCollectionBase=v274CollectionBatchBarHtml;
+v274CollectionBatchBarHtml=function(){return v406UpgradeBatchMarkup(v406BatchCollectionBase.apply(this,arguments),'collection');};
+// Dropdowns have document-level outside-click/Escape behavior, but do not
+// interfere with keyboard focus inside search boxes or with modal focus traps.
+document.addEventListener('keydown',event=>{
+  if(event.key!=='Escape')return;
+  const el=event.target?.closest?.('.mf406-action-picker');if(el?.open){el.open=false;event.stopPropagation();}
+});
+document.addEventListener('click',event=>{
+  document.querySelectorAll('.mf406-action-picker[open]').forEach(menu=>{
+    if(!menu.contains(event.target))menu.open=false;
+  });
+});
+Object.assign(App,{v406MemberSelect,v406Search,v406Choose,v406Position});
+MediaFlowRuntime.version=V406_RELEASE;
+window.MediaFlowV406={version:406,features:['Personal Order title and collection membership filters','Logging draft membership filter','Searchable bulk category/status/priority actions','Set Category/Status/Priority order and icons'],audit:()=>({version:406,order:v406Mode(v140EnsureOrderPickerUI().v406Membership),collections:V406_MEMBERSHIP.collections,logging:V406_MEMBERSHIP.logging,orderedStatus:v406ActionItems('status').map(i=>i.id),orderedPriority:v406ActionItems('priority').map(i=>i.id)})};
+/* MediaFlow v407 — clean, single-icon bulk action dropdowns.
+ * Shared rendering applies to Library Normal, Library Dynamic, and Collections.
+ * Preserve the v406 membership filters, canonical Set Category/Status/Priority
+ * order/visibility, and original action handlers. No data-schema changes. */
+const V407_RELEASE=407;
+
+// v225/v226 decorate *every* button, which accidentally added a generic
+// circle-arrow to options already displaying their own semantic icon.
+// Opt these specific picker choices out of both icon-enhancement passes.
+const v407IconNameBase=v225ButtonIconName;
+v225ButtonIconName=function(el){
+  if(el?.matches?.('.mf406-action-picker .mf406-picker-option'))return null;
+  return v407IconNameBase(el);
+};
+
+// Reuse the v406 picker integration and handlers; render exactly one canonical
+// icon per row. Category remains searchable. Status and Priority are compact
+// ordered lists without a search field.
+v406PickerHtml=function(kind,scope){
+  if(!['category','status','priority'].includes(kind))return '';
+  if(!['library','collection'].includes(scope))return '';
+  const title=kind==='category'?'Move to category':kind==='status'?'Set status':'Set priority';
+  const summarySymbol=kind==='category'?'▦':kind==='status'?'◉':'⚑';
+  const searchable=kind==='category';
+  const items=v406ActionItems(kind); // canonical Settings order and visibility
+  const options=items.map(item=>
+    `<button type="button" class="mf406-picker-option mf407-picker-option" data-v225-iconified="1" role="option" data-v406-search="${escapeHtml(item.label.toLocaleLowerCase())}" data-v406-value="${escapeHtml(item.id)}" onclick="App.v406Choose(this)">`+
+      `<span class="mf406-picker-icon mf407-option-icon" aria-hidden="true">${item.icon||summarySymbol}</span>`+
+      `<span class="mf407-option-label">${escapeHtml(item.label)}</span>`+
+    `</button>`).join('');
+  const search=searchable?`<input type="search" autocomplete="off" aria-label="Search categories" placeholder="Search categories…" oninput="App.v406Search(this)">`:'';
+  return `<details class="mf406-action-picker mf407-action-picker mf407-${kind}" data-v406-kind="${kind}" data-v406-scope="${scope}" ontoggle="App.v406Position(this)">`+
+    `<summary aria-label="${title}"><span class="mf406-summary-symbol" aria-hidden="true">${summarySymbol}</span><span>${title}…</span><span aria-hidden="true">⌄</span></summary>`+
+    `<div class="mf406-picker-panel mf407-picker-panel">${search}`+
+      `<div class="mf406-picker-options" role="listbox" aria-label="${title} choices">${options}</div>`+
+      `<div class="mf406-picker-empty" ${items.length?'hidden':''}>${items.length?'No matching categories.':'No visible options in Settings.'}</div>`+
+    `</div></details>`;
+};
+
+MediaFlowRuntime.version=V407_RELEASE;
+window.MediaFlowV407={
+  version:V407_RELEASE,
+  features:['Single semantic icon per action option','Left-aligned bulk action rows','Category-only search','Settings-based option order and visibility'],
+  audit:()=>({version:V407_RELEASE,searchable:['category'],status:v406ActionItems('status').map(x=>x.id),priority:v406ActionItems('priority').map(x=>x.id),category:v406ActionItems('category').map(x=>x.id)})
+};
+/* MediaFlow v408 — performance and responsive controls.
+ * Stable source data and existing handlers remain authoritative. No backend
+ * schema, History, XP or recommendation calculations are changed. */
+const V408_RELEASE=Number(document.querySelector('meta[name="mediaflow-version"]')?.content)||412;
+const V408_METRICS={repeatComputes:0,repeatReuses:0,categorySearches:0};
+
+// One repeat-total computation per synchronous render/event. The snapshot is
+// discarded at the microtask boundary so subsequent edits, imports, logging,
+// and cloud hydration never reuse stale repeat data. The computation itself
+// is linear after the v408 library ID indexing change in the source module.
+const v408RepeatComputeBase=v81RepeatTotals;
+let V408_REPEAT_CACHED=null;
+let V408_REPEAT_SIGNATURE=null;
+let V408_REPEAT_QUEUED=false;
+v81RepeatTotals=function(){
+  const sessions=S.sessions||[],last=sessions[sessions.length-1];
+  const signature=[S.library,Number(V53_LIB.libraryToken)||0,sessions,sessions.length,
+    last,last?.titles?.length||0];
+  if(V408_REPEAT_CACHED&&V408_REPEAT_SIGNATURE&&signature.every((value,i)=>value===V408_REPEAT_SIGNATURE[i])){
+    V408_METRICS.repeatReuses++;return V408_REPEAT_CACHED;
+  }
+  const value=v408RepeatComputeBase.apply(this,arguments);
+  V408_REPEAT_SIGNATURE=signature;
+  V408_METRICS.repeatComputes++;
+  V408_REPEAT_CACHED=value;
+  if(!V408_REPEAT_QUEUED){
+    V408_REPEAT_QUEUED=true;
+    queueMicrotask(()=>{V408_REPEAT_CACHED=null;V408_REPEAT_SIGNATURE=null;V408_REPEAT_QUEUED=false;});
+  }
+  return value;
+};
+
+// v378 generates the Logging suggestions and then re-evaluates the same
+// candidates to attach picker selection controls. At 30K+ titles, the empty
+// search means two expensive full-list sorts per single refresh. Reuse results
+// only within the current event-loop turn and with an exact UI-state key.
+const v408LogCandidatesBase=logTitleCandidates;
+let V408_LOG_CACHE={key:'',library:null,rows:null};
+let V408_LOG_QUEUED=false;
+V408_METRICS.logCandidateReuses=0;
+V408_METRICS.logCandidateComputes=0;
+logTitleCandidates=function(query){
+  const st=v224NormalizeLogSort();
+  const keys=(S.logDraft?.entries||[]).map(e=>String(e.libraryId||'')).join('\u0001');
+  const key=[String(query||''),Number(V53_LIB.libraryToken)||0,(S.library||[]).length,
+    String(st.sortBase||''),String(st.sortDir||''),String(st.status||''),
+    String(st.priority||''),(st.categories||[]).join('\u0001'),
+    String(st.v373RandomSeed||''),String(V406_MEMBERSHIP.logging||'all'),keys].join('\u0002');
+  if(V408_LOG_CACHE.library===S.library&&V408_LOG_CACHE.key===key&&V408_LOG_CACHE.rows){
+    V408_METRICS.logCandidateReuses++;
+    return V408_LOG_CACHE.rows;
+  }
+  const rows=v408LogCandidatesBase.apply(this,arguments);
+  V408_METRICS.logCandidateComputes++;
+  V408_LOG_CACHE={key,library:S.library,rows};
+  if(!V408_LOG_QUEUED){
+    V408_LOG_QUEUED=true;
+    queueMicrotask(()=>{V408_LOG_QUEUED=false;V408_LOG_CACHE={key:'',library:null,rows:null};});
+  }
+  return rows;
+};
+
+// Two independent Collections category checklists. The Search box only
+// controls visible checkbox rows, never the actual selection or All button.
+// Query/open state is ephemeral UI state, not a new saved or cloud field.
+const V408_CAT_UI={collection:{query:'',open:false},add:{query:'',open:false}};
+function v408CategoryUI(surface){return V408_CAT_UI[surface==='add'?'add':'collection'];}
+function v408SortCategories(panel){
+  const order=typeof v236EffectiveCategoryFilterCategories==='function'
+    ?v236EffectiveCategoryFilterCategories().map(c=>String(c.id))
+    :(S.categories||[]).map(c=>String(c.id));
+  const rank=new Map(order.map((id,i)=>[id,i]));
+  const rows=[...panel.querySelectorAll(':scope > .v66-cat-option')];
+  // Keep existing selected/hidden entries available: the authoritative All
+  // semantics are driven by existing v274 actions, not search results.
+  rows.sort((a,b)=>{
+    const aid=a.querySelector('input')?.getAttribute('onchange')?.match(/'([^']+)'/)?.[1]||'';
+    const bid=b.querySelector('input')?.getAttribute('onchange')?.match(/'([^']+)'/)?.[1]||'';
+    return (rank.get(aid)??1e6)-(rank.get(bid)??1e6);
+  });
+  for(const row of rows)panel.appendChild(row);
+}
+function v408DecorateCategoryMarkup(html,surface){
+  const raw=String(html||'');
+  if(!raw.includes('Show categories'))return raw;
+  const host=document.createElement('div');host.innerHTML=raw;
+  const details=surface==='add'?
+    host.querySelector('.mf276-add-category-filter,.mf274-add-tools .v66-cat-filter,.mf399-collection-filters .v66-cat-filter'):
+    host.querySelector('.mf274-collection-tools .v66-cat-filter,.mf274-tools-grid .v66-cat-filter');
+  const panel=details?.querySelector('.v66-cat-panel');
+  if(!details||!panel)return raw;
+  const ui=v408CategoryUI(surface);
+  details.classList.add('mf408-searchable-categories');
+  details.dataset.mf408Surface=surface;
+  details.setAttribute('ontoggle',`App.v408CategoryToggle('${surface}',this)`);
+  if(ui.open)details.setAttribute('open','');
+  v408SortCategories(panel);
+  const field=document.createElement('div');field.className='mf408-category-search-wrap';
+  field.innerHTML=`<input type="search" class="mf408-category-search" autocomplete="off" spellcheck="false" aria-label="Search categories" placeholder="Search categories…" value="${escapeHtml(ui.query)}" oninput="App.v408CategorySearch(this)"><p class="mf408-category-empty" hidden>No matching categories</p>`;
+  panel.querySelector('.v66-cat-head')?.after(field);
+  if(!panel.contains(field))panel.prepend(field);
+  v408CategoryFilterRows(details,ui.query);
+  return host.innerHTML;
+}
+function v408CategoryFilterRows(details,query){
+  const value=String(query||'').trim().toLocaleLowerCase();
+  let visible=0;
+  for(const row of details.querySelectorAll('.v66-cat-panel .v66-cat-option')){
+    const yes=!value||String(row.textContent||'').toLocaleLowerCase().includes(value);
+    row.hidden=!yes;
+    if(yes)visible++;
+  }
+  const empty=details.querySelector('.mf408-category-empty');if(empty)empty.hidden=visible!==0;
+}
+function v408CategorySearch(input){
+  const details=input?.closest('.mf408-searchable-categories');
+  if(!details)return;
+  const ui=v408CategoryUI(details.dataset.mf408Surface);
+  ui.query=String(input.value||'');ui.open=true;
+  V408_METRICS.categorySearches++;
+  v408CategoryFilterRows(details,ui.query);
+}
+function v408CategoryToggle(surface,details){
+  // Detached old dropdowns must not overwrite the newly rendered panel state.
+  if(!details?.isConnected)return;
+  v408CategoryUI(surface).open=!!details.open;
+}
+const v408CollectionToolsBase=v274CollectionToolsHtml;
+v274CollectionToolsHtml=function(){
+  return v408DecorateCategoryMarkup(v408CollectionToolsBase.apply(this,arguments),'collection');
+};
+const v408CollectionAddBodyBase=v274AddModalBody;
+v274AddModalBody=function(){
+  return v408DecorateCategoryMarkup(v408CollectionAddBodyBase.apply(this,arguments),'add');
+};
+const v408OpenCollectionAddBase=v274OpenAddTitles;
+v274OpenAddTitles=function(){
+  V408_CAT_UI.add={query:'',open:false};
+  return v408OpenCollectionAddBase.apply(this,arguments);
+};
+Object.assign(App,{v408CategorySearch,v408CategoryToggle});
+
+// Normalize current-version export headers after the additive v405 layer.
+// Keep legacy v402/v405 manifests as historical evidence, not rewritten
+// provenance. Existing import versions, schema keys and payloads are unchanged.
+const v408FullBackupBase=v148BuildFullBackup;
+v148BuildFullBackup=function(){
+  const data=v408FullBackupBase.apply(this,arguments);
+  if(data){data.mediaFlowVersion=V408_RELEASE;data.backupVersion=V408_RELEASE;}
+  return data;
+};
+backupSnapshot=function(){return v148BuildFullBackup();};
+const v408PresetBase=v196BuildSettingsPreset;
+v196BuildSettingsPreset=function(){
+  const data=v408PresetBase.apply(this,arguments);
+  if(data)data.mediaFlowVersion=V408_RELEASE;
+  return data;
+};
+const v408OrderExportBase=v142OrderExportPayload;
+v142OrderExportPayload=function(){
+  const data=v408OrderExportBase.apply(this,arguments);
+  if(data)data.mediaFlowVersion=V408_RELEASE;
+  return data;
+};
+const v408CollectionsExportBase=v281CollectionsExportPayload;
+v281CollectionsExportPayload=function(){
+  const data=v408CollectionsExportBase.apply(this,arguments);
+  if(data){data.appVersion=V408_RELEASE;data.mediaFlowVersion=V408_RELEASE;}
+  return data;
+};
+function v408AuditDataIntegrity(){
+  // The v402/v405 auditor's release constants are historical; preserve its
+  // coverage and replace only its obsolete version assertion with v408.
+  const previous=v402AuditDataIntegrity();
+  const issues=(previous.issues||[]).filter(s=>s!=='Collections release stamp');
+  const snap=snapshot(),backup=v148BuildFullBackup(),preset=v196BuildSettingsPreset();
+  const order=v142OrderExportPayload(),collections=v281CollectionsExportPayload();
+  const versions={backup:backup.mediaFlowVersion,preset:preset.mediaFlowVersion,
+    order:order.mediaFlowVersion,collections:collections.appVersion};
+  for(const [name,stamp] of Object.entries(versions)){
+    if(Number(stamp)!==V408_RELEASE)issues.push(name+' incorrect current release stamp');
+  }
+  for(const key of ['v405ShowFloatingAdd','v405ShowFloatingTaskProgress']){
+    const flag=o=>o?.settings?.[key]!==false;
+    if(flag(snap)!==flag(backup)||flag(snap)!==flag(preset))
+      issues.push(key+' transfer mismatch');
+  }
+  return {...previous,release:V408_RELEASE,ok:issues.length===0,issues,
+    versionStamps:versions,actualLiveCloudChecked:false,actualInstalledPwaChecked:false};
+}
+App.v408AuditDataIntegrity=v408AuditDataIntegrity;
+window.MediaFlowV408={version:V408_RELEASE,features:['Linear repeat-history library lookup','Render-turn repeat result reuse','Searchable Collections category checklists','Responsive Logging Library toolbar'],audit:()=>({version:V408_RELEASE,...V408_METRICS}),transferAudit:v408AuditDataIntegrity};
+MediaFlowRuntime.version=V408_RELEASE;
+/* MediaFlow Plus v412 — About-page content parity with Personal v408.
+ * Personal source 064-v161-about-custom-navigation-data-audit.js has an identical
+ * SHA in both editions. Preserve its FAQ/features/developer layout; ensure the
+ * 'official' update checker and app link never point Plus back to Personal.
  */
 (function(){
 'use strict';
-const MF412={open:false,loading:false,peer:'',messages:[],profiles:[],error:'',query:'',epoch:0,channel:null,session:'',refreshTimer:0};
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const svg='<svg viewBox="0 0 24 24" aria-hidden="true" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 21l1.9-5.5a9 9 0 0 1-.9-4A8.5 8.5 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5Z"/><path d="M8 10h9M8 14h6"/></svg>';
-if(!NAV_ITEMS.some(x=>x.id==='inbox'))NAV_ITEMS.splice(Math.max(0,NAV_ITEMS.length-2),0,{id:'inbox',label:'Inbox'});
-if(!MOBILE_MORE_NAV.includes('inbox'))MOBILE_MORE_NAV.unshift('inbox');
-ICONS.inbox=svg;
-if(typeof v161NormalizeNavLayout==='function')S.navLayout=v161NormalizeNavLayout(S.navLayout);
-function mf412Peer(id){return MF412.profiles.find(p=>p.user_id===id);}
-function mf412Display(id){const p=mf412Peer(id);return p?.display_name|| (p?.username?'@'+p.username:'Member');}
-function mf412Groups(){
- const me=AUTH_USER?.id,groups=new Map();
- for(const m of MF412.messages){
-  const peer=m.sender_id===me?m.recipient_id:m.sender_id;
-  const group=groups.get(peer)||{id:peer,latest:m,unread:0};
-  if(!group.latest||new Date(m.created_at)>new Date(group.latest.created_at))group.latest=m;
-  if(m.recipient_id===me&&!m.read_at)group.unread++;
-  groups.set(peer,group);
+if(typeof V161_UPDATE_SOURCES!=='undefined'&&Array.isArray(V161_UPDATE_SOURCES)){
+ V161_UPDATE_SOURCES.splice(0,V161_UPDATE_SOURCES.length,
+  'https://raw.githubusercontent.com/AlexGodly/MediaFlowPlus/main/index.html',
+  'https://alexgodly.github.io/MediaFlowPlus/');
+}
+if(typeof renderAbout==='function'){
+ const original=renderAbout;
+ renderAbout=function(){
+  const html=String(original.apply(this,arguments));
+  return html
+   .replaceAll('https://alexgodly.github.io/MediaFlow/','https://alexgodly.github.io/MediaFlowPlus/')
+   .replace('>MediaFlow v'+escapeHtml(v161CurrentVersion())+' · by Alex Godly<','>MediaFlow Plus v'+escapeHtml(v161CurrentVersion())+' · by Alex Godly<')
+   .replace('ABOUT MEDIAFLOW</div>','ABOUT MEDIAFLOW PLUS</div>');
+ };
+}
+window.MediaFlowPlusAboutParity={release:412,source:'Personal v408 About content; read-only comparison; Plus-specific update sources'};
+})();/* MediaFlow Plus v412 — inbox and floating mini inbox.
+ * One canonical messages table; floating and full views share the same model.
+ * Never reads or writes Personal Edition or MediaFlow private workspace data.
+ */
+(function(){
+'use strict';
+const IN412={rows:[],profiles:[],thread:'',search:'',mini:false,loaded:false,loading:false,sending:false,
+ last:0,channel:null,channelUser:'',error:'',epoch:0};
+const in412Esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function in412Me(){return String(AUTH_USER?.id||'');}
+function in412Name(id){
+ const p=IN412.profiles.find(x=>String(x.user_id)===String(id))||MFP408?.profiles?.find(x=>String(x.user_id)===String(id));
+ return p?.display_name|| (p?.username?'@'+p.username : 'Community member');
+}
+function in412Username(id){
+ const p=IN412.profiles.find(x=>String(x.user_id)===String(id))||MFP408?.profiles?.find(x=>String(x.user_id)===String(id));
+ return p?.username||'';
+}
+function in412Partner(m){return String(m.sender_id)===in412Me()?String(m.recipient_id):String(m.sender_id);}
+function in412Threads(){
+ const map=new Map();
+ for(const m of IN412.rows){
+  const id=in412Partner(m);
+  let t=map.get(id);
+  if(!t){t={id,latest:m,unread:0};map.set(id,t);}
+  if(String(m.recipient_id)===in412Me()&&!m.read_at)t.unread++;
  }
- return [...groups.values()].sort((a,b)=>new Date(b.latest.created_at)-new Date(a.latest.created_at));
+ return [...map.values()];
 }
-function mf412Shell(mini=false){
- const groups=mf412Groups(),me=AUTH_USER?.id,peer=MF412.peer;
- const chats=groups.filter(g=>mf412Display(g.id).toLocaleLowerCase().includes(MF412.query.toLocaleLowerCase()));
- const list='<div class="mf412-list"><label class="mf412-search"><span>Find conversations</span><input type="search" value="'+esc(MF412.query)+'" placeholder="Search people" oninput="App.mf412Search(this.value)"></label>'+
-   (chats.map(g=>'<button type="button" class="mf412-conversation '+(g.id===peer?'active':'')+'" onclick="App.mf412Peer(\''+g.id+'\')"><span class="mf412-avatar">'+esc(mf412Display(g.id).slice(0,1).toUpperCase())+'</span><span class="mf412-contact"><strong>'+esc(mf412Display(g.id))+'</strong><small>'+esc(g.latest.body)+'</small></span>'+(g.unread?'<b class="mf412-unread">'+g.unread+'</b>':'')+'</button>').join('')||'<p class="mf412-muted">No conversations yet. Start one using a username.</p>')+'</div>';
- const msg=MF412.messages.filter(m=>m.sender_id===peer&&m.recipient_id===me||m.recipient_id===peer&&m.sender_id===me).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
- const history=peer?'<div class="mf412-messages">'+(msg.map(m=>'<div class="mf412-bubble '+(m.sender_id===me?'mine':'theirs')+'"><p>'+esc(m.body)+'</p><small>'+new Date(m.created_at).toLocaleString()+'</small></div>').join('')||'<p class="mf412-muted">Say hello to start the conversation.</p>')+'</div>':'<div class="mf412-empty"><h3>Your conversations</h3><p>Choose a person or enter their username below to start chatting.</p></div>';
- const form='<form class="mf412-compose" onsubmit="return App.mf412Send(event)">'+(!peer?'<label>Recipient username<input name="username" required maxlength="24" placeholder="username" autocomplete="off"></label>':'<div class="mf412-to">Chatting with <b>'+esc(mf412Display(peer))+'</b> <button type="button" onclick="App.mf412Peer(\'\')">New chat</button></div>')+'<label class="mf412-message-input">Message<textarea name="body" required maxlength="2000" placeholder="Write a message…" rows="2"></textarea></label><button type="submit" class="btn btn-primary">Send</button></form>';
- const banner=MF412.error?'<div class="mf412-error" role="alert">'+esc(MF412.error)+' <button onclick="App.mf412Load()">Retry</button></div>':'';
- return '<section class="mf412-layout '+(mini?'mini':'full')+'" aria-label="Inbox">'+banner+list+'<section class="mf412-thread"><header><b>'+esc(peer?mf412Display(peer):'Messages')+'</b></header>'+history+form+'</section></section>';
+function in412Unread(){return in412Threads().reduce((n,t)=>n+t.unread,0);}
+function in412Icon(){
+ return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8 11.5h8M8 15h5"/></svg>';
 }
-function mf412Page(){return '<section class="mf412-page"><header class="mf412-page-header"><h1>Inbox</h1><p>Private conversations with the MediaFlow Plus community.</p></header><div id="mf412-page-content">'+mf412Shell(false)+'</div></section>';}
-function mf412Render(){
- const wrap=document.getElementById('mf412-page-content');if(wrap)wrap.innerHTML=mf412Shell(false);
- const mini=document.getElementById('mf412-mini-content');if(mini)mini.innerHTML=mf412Shell(true);
- const badge=document.getElementById('mf412-unread-badge');
- const count=mf412Groups().reduce((n,g)=>n+g.unread,0);
- if(badge){badge.textContent=count>99?'99+':String(count);badge.hidden=!count;}
+function in412ThreadsHtml(mini){
+ const search=IN412.search.toLocaleLowerCase().trim();
+ const threads=in412Threads().filter(t=>!search||in412Name(t.id).toLocaleLowerCase().includes(search)||in412Username(t.id).includes(search));
+ return '<div class="in412-search-row"><input type="search" value="'+in412Esc(IN412.search)+'" placeholder="Search conversations…" aria-label="Search conversations" oninput="App.in412Filter(this.value)"></div>'+
+ (threads.length?threads.map(t=>'<button type="button" class="in412-thread '+(IN412.thread===t.id?'selected':'')+'" onclick="App.in412Select(\''+in412Esc(t.id)+'\')">'+
+  '<span class="in412-avatar">'+in412Esc(in412Name(t.id).slice(0,1).toUpperCase())+'</span><span class="in412-thread-copy"><strong>'+in412Esc(in412Name(t.id))+'</strong>'+
+  '<span>'+in412Esc(String(t.latest.body||'').slice(0,80))+'</span></span>'+
+  (t.unread?'<span class="in412-unread">'+t.unread+'</span>':'')+'</button>').join(''):'<p class="in412-empty">'+(IN412.loaded?'No conversations yet. Start by entering a username.':'Loading conversations…')+'</p>')+
+ (!mini?'<div class="in412-composer-helper"><label>Start a conversation<input id="in412-recipient" autocomplete="off" placeholder="Recipient username" maxlength="24"></label><button type="button" onclick="App.in412New()">Open chat</button></div>':'');
 }
-function mf412EnsureFloating(){
- if(!AUTH_USER||!document.querySelector('#app .sidebar')){
-  document.getElementById('mf412-float')?.remove();return;
+function in412MessagesHtml(mini){
+ const id=IN412.thread;
+ if(!id)return '<div class="in412-conversation-empty"><span class="in412-empty-icon">'+in412Icon()+'</span><h3>Your conversations</h3><p>Select a conversation or start one with a public Community username.</p></div>';
+ const msgs=IN412.rows.filter(m=>in412Partner(m)===id).slice().reverse();
+ return '<div class="in412-conversation-head"><strong>'+in412Esc(in412Name(id))+'</strong><span>'+in412Esc(in412Username(id)?'@'+in412Username(id):'Direct messages')+'</span></div>'+
+ '<div class="in412-message-scroll" id="'+(mini?'in412-mini-scroll':'in412-full-scroll')+'">'+
+ (msgs.length?msgs.map(m=>'<div class="in412-bubble-wrap '+(String(m.sender_id)===in412Me()?'mine':'theirs')+'"><div class="in412-bubble">'+in412Esc(m.body)+'</div><small>'+in412Esc(new Date(m.created_at).toLocaleString())+(String(m.sender_id)===in412Me()&&m.read_at?' · Seen':'')+'</small></div>').join(''):'<p class="in412-empty">No messages yet. Say hello.</p>')+'</div>'+
+ '<form class="in412-compose" onsubmit="return App.in412Send(event)"><textarea name="body" rows="2" maxlength="2000" required placeholder="Write a message…" aria-label="Write a message"></textarea><button type="submit" '+(IN412.sending?'disabled':'')+' aria-label="Send message">Send</button></form>';
+}
+function in412FullRenderer(){
+ return '<section class="in412-page"><header class="in412-header"><div><span class="in412-eyebrow">MEDIAFLOW PLUS · COMMUNITY</span><h1>Inbox</h1><p>Private conversations, all in one place.</p></div><button type="button" class="btn" onclick="App.in412Refresh()">Refresh</button></header>'+
+ '<div class="in412-alert" id="in412-alert" role="status">'+in412Esc(IN412.error)+'</div>'+
+ '<div class="in412-workspace"><aside class="in412-sidebar" aria-label="Conversations"><h2>Messages <span class="in412-count">'+in412Unread()+' unread</span></h2>'+in412ThreadsHtml(false)+'</aside>'+
+ '<section class="in412-conversation" aria-label="Selected conversation">'+in412MessagesHtml(false)+'</section></div></section>';
+}
+function in412MiniHtml(){
+ return '<div class="in412-mini-top"><strong>Inbox</strong><span>'+in412Unread()+' unread</span><button type="button" aria-label="Close mini inbox" onclick="App.in412Toggle()">×</button></div>'+
+ '<div class="in412-mini-alert" role="status">'+in412Esc(IN412.error)+'</div>'+
+ '<div class="in412-mini-body">'+(IN412.thread?'<button type="button" class="in412-back" onclick="App.in412Back()">← Conversations</button>'+in412MessagesHtml(true):in412ThreadsHtml(true))+'</div>'+
+ '<div class="in412-mini-footer"><button type="button" onclick="App.in412Open()">Open full Inbox →</button></div>';
+}
+function in412MountFloat(){
+ const old=document.getElementById('in412-float-wrap');
+ if(!AUTH_READY||!AUTH_USER){old?.remove();return;}
+ const host=old||document.createElement('div');
+ host.id='in412-float-wrap';host.className='in412-floating';
+ host.innerHTML='<button type="button" class="in412-fab" onclick="App.in412Toggle()" aria-label="Open mini inbox" aria-expanded="'+String(IN412.mini)+'">'+in412Icon()+
+ (in412Unread()?'<span class="in412-fab-badge">'+Math.min(in412Unread(),99)+'</span>':'')+'</button>'+
+ (IN412.mini?'<section class="in412-mini-panel" role="dialog" aria-label="Mini inbox">'+in412MiniHtml()+'</section>':'');
+ if(!old)document.body.appendChild(host);
+ const scroll=host.querySelector('#in412-mini-scroll');if(scroll)scroll.scrollTop=scroll.scrollHeight;
+}
+function in412RefreshViews(){
+ const root=document.getElementById('view-root');
+ if(String(S.view||'')==='inbox'&&root){
+  const current=document.activeElement;
+  const focusField=current?.matches?.('.in412-search-row input')?{sel:current.selectionStart}:null;
+  root.innerHTML='<div class="fade-in">'+in412FullRenderer()+'</div>';
+  if(focusField){const input=root.querySelector('.in412-search-row input');input?.focus({preventScroll:true});try{input?.setSelectionRange(focusField.sel,focusField.sel)}catch(_){}}
+  const scroll=root.querySelector('#in412-full-scroll');if(scroll)scroll.scrollTop=scroll.scrollHeight;
  }
- if(document.getElementById('mf412-float'))return;
- document.body.insertAdjacentHTML('beforeend','<aside id="mf412-float" class="mf412-float"><button id="mf412-toggle" type="button" class="mf412-fab" onclick="App.mf412Toggle()" title="Inbox" aria-label="Open mini inbox" aria-expanded="false">'+svg+'<span id="mf412-unread-badge" hidden></span></button><section id="mf412-mini" class="mf412-mini" role="dialog" aria-label="Mini inbox" hidden><header><b>Inbox</b><div><button onclick="App.mf412OpenPage()">Open full inbox</button><button onclick="App.mf412Toggle(false)" aria-label="Close inbox">×</button></div></header><div id="mf412-mini-content"></div></section></aside>');
- mf412Render();
+ in412MountFloat();
 }
-function mf412Toggle(force){
- mf412EnsureFloating();
- MF412.open=typeof force==='boolean'?force:!MF412.open;
- const panel=document.getElementById('mf412-mini'),btn=document.getElementById('mf412-toggle');
- if(panel)panel.hidden=!MF412.open;
- if(btn)btn.setAttribute('aria-expanded',String(MF412.open));
- if(MF412.open){if(typeof mf397SetMenu==='function')mf397SetMenu(false);void mf412Load();}
-}
-function mf412OpenPage(){mf412Toggle(false);App.setView('inbox');}
-async function mf412Load(){
- if(!AUTH_USER||!supabase){MF412.error='Sign in to view your Inbox.';mf412Render();return;}
- const epoch=++MF412.epoch,me=AUTH_USER.id;
- MF412.loading=true;MF412.error='';
- try{
-  // RLS restricts the result to the current participant. Only the latest 500
-  // messages are fetched; future paging can expand long-lived conversations.
-  const [msgs,people]=await Promise.all([
-   supabase.from('mfp_messages').select('id,sender_id,recipient_id,body,created_at,read_at').or('sender_id.eq.'+me+',recipient_id.eq.'+me).order('created_at',{ascending:false}).limit(500),
-   supabase.from('mfp_profiles').select('user_id,username,display_name').limit(500)
-  ]);
-  if(msgs.error)throw msgs.error;
-  if(people.error)throw people.error;
-  if(epoch!==MF412.epoch||AUTH_USER?.id!==me)return;
-  MF412.messages=msgs.data||[];MF412.profiles=people.data||[];
-  if(MF412.peer)void mf412MarkRead();
- }catch(e){if(epoch===MF412.epoch)MF412.error=e?.message||'Could not load your messages.';console.error('MediaFlow Plus Inbox',e)}
- finally{if(epoch===MF412.epoch){MF412.loading=false;mf412Render();}}
-}
-async function mf412MarkRead(){
- const peer=MF412.peer,me=AUTH_USER?.id;if(!peer||!me)return;
- const unread=MF412.messages.filter(m=>m.sender_id===peer&&m.recipient_id===me&&!m.read_at);
+async function in412MarkRead(){
+ const me=in412Me(),thread=IN412.thread;
+ if(!me||!thread)return;
+ const unread=IN412.rows.filter(m=>String(m.recipient_id)===me&&String(m.sender_id)===thread&&!m.read_at);
  if(!unread.length)return;
- // Only the recipient may update the read receipt under RLS.
- const ids=unread.map(m=>m.id),readAt=new Date().toISOString();
- const r=await supabase.from('mfp_messages').update({read_at:readAt}).eq('recipient_id',me).in('id',ids);
- if(!r.error){for(const m of unread)m.read_at=readAt;mf412Render();}
+ const ids=unread.map(m=>m.id);
+ const now=new Date().toISOString();
+ const res=await supabase.from('mfp_messages').update({read_at:now}).in('id',ids).eq('recipient_id',me);
+ if(res.error){console.warn('Inbox read receipt could not save',res.error);return;}
+ for(const m of unread)m.read_at=now;
+ in412RefreshViews();
 }
-function mf412Peer(id){MF412.peer=String(id||'');mf412Render();void mf412MarkRead();}
-function mf412Search(q){MF412.query=String(q||'');const input=document.activeElement;const at=input?.selectionStart;mf412Render();const next=document.querySelector('#mf412-'+(MF412.open?'mini-content':'page-content')+' .mf412-search input');if(next&&input){next.focus();try{next.setSelectionRange(at,at)}catch(_){}}}
-async function mf412Send(event){
- event.preventDefault();if(!AUTH_USER||!supabase)return false;
- const button=event.target.querySelector('[type=submit]');if(button?.disabled)return false;
- button.disabled=true;const fd=new FormData(event.target),body=String(fd.get('body')||'').trim();
+async function in412Fetch(){
+ const me=in412Me();
+ if(!me||!supabase){IN412.error='Please sign in to use Inbox.';IN412.loaded=true;in412RefreshViews();return;}
+ if(IN412.loading)return;
+ const epoch=++IN412.epoch;IN412.loading=true;
  try{
-  if(!body)throw new Error('Enter a message.');
-  let to=MF412.peer;
-  if(!to){const username=String(fd.get('username')||'').trim().toLowerCase();if(!username)throw new Error('Enter a username.');const result=await supabase.from('mfp_profiles').select('user_id').eq('username',username).eq('is_public',true).single();if(result.error)throw result.error;to=result.data.user_id;}
-  if(to===AUTH_USER.id)throw new Error('You cannot message yourself.');
-  const res=await supabase.from('mfp_messages').insert({sender_id:AUTH_USER.id,recipient_id:to,body});
-  if(res.error)throw res.error;
-  MF412.peer=to;await mf412Load();
- }catch(e){MF412.error=e?.message||'Message failed to send.';mf412Render();}
- finally{button.disabled=false;}
+  const results=await Promise.all([
+   supabase.from('mfp_messages').select('id,sender_id,recipient_id,body,created_at,read_at').or('sender_id.eq.'+me+',recipient_id.eq.'+me).order('created_at',{ascending:false}).limit(800),
+   supabase.from('mfp_profiles').select('user_id,username,display_name,avatar_url').limit(300)
+  ]);
+  if(epoch!==IN412.epoch)return;
+  for(const r of results)if(r.error)throw r.error;
+  IN412.rows=results[0].data||[];IN412.profiles=results[1].data||[];IN412.error='';IN412.loaded=true;IN412.last=Date.now();
+  in412RefreshViews();
+  if(IN412.thread)void in412MarkRead();
+ }catch(e){IN412.error='Messages could not load. Check your connection and retry.';console.error('MediaFlow Plus Inbox',e);in412RefreshViews();}
+ finally{IN412.loading=false;}
+}
+function in412Select(id){IN412.thread=String(id||'');in412RefreshViews();void in412MarkRead();}
+function in412Back(){IN412.thread='';in412RefreshViews();}
+function in412Filter(term){
+ IN412.search=String(term||'');const list=IN412.mini?document.querySelector('#in412-float-wrap'):document.querySelector('#view-root');
+ if(list){const field=list.querySelector('.in412-search-row');if(field){const holder=document.createElement('div');holder.innerHTML=in412ThreadsHtml(IN412.mini);const now=holder.querySelector('.in412-search-row');if(now){field.insertAdjacentHTML('afterend',holder.innerHTML.slice(0,0));const children=[...field.parentElement.children].filter(el=>el!==field&&el.matches('.in412-thread,.in412-empty,.in412-composer-helper'));children.forEach(el=>el.remove());field.insertAdjacentHTML('afterend',holder.innerHTML.replace(now.outerHTML,''));}}}
+}
+function in412New(){const name=String(document.getElementById('in412-recipient')?.value||'').trim().toLowerCase();
+ const p=IN412.profiles.find(x=>x.username===name);
+ if(!p){IN412.error='No public Community account with that username was found.';in412RefreshViews();return;}
+ if(p.user_id===in412Me()){IN412.error='You cannot message yourself.';in412RefreshViews();return;}
+ IN412.error='';in412Select(p.user_id);
+}
+async function in412Send(e){
+ e.preventDefault();if(IN412.sending||!IN412.thread||!AUTH_USER)return false;
+ const body=String(new FormData(e.target).get('body')||'').trim();
+ if(!body||body.length>2000)return false;
+ IN412.sending=true;
+ try{
+  const r=await supabase.from('mfp_messages').insert({sender_id:in412Me(),recipient_id:IN412.thread,body});
+  if(r.error)throw r.error;
+  IN412.error='';await in412Fetch();
+ }catch(err){IN412.error=String(err?.message||'Message was not sent.');in412RefreshViews();}
+ finally{IN412.sending=false;}
  return false;
 }
-function mf412Subscribe(){
- const id=AUTH_USER?.id;if(!id||!supabase||MF412.session===id)return;
- try{MF412.channel?.unsubscribe?.();}catch(_){}
- MF412.session=id;
- void mf412Load();
- if(typeof supabase.channel==='function'){
-  MF412.channel=supabase.channel('mfplus-inbox-'+id)
-   .on('postgres_changes',{event:'*',schema:'public',table:'mfp_messages',filter:'recipient_id=eq.'+id},()=>void mf412Load())
-   .on('postgres_changes',{event:'*',schema:'public',table:'mfp_messages',filter:'sender_id=eq.'+id},()=>void mf412Load())
-   .subscribe();
- }
+function in412Toggle(){IN412.mini=!IN412.mini;in412MountFloat();if(IN412.mini)void in412Fetch();}
+function in412Open(){IN412.mini=false;S.view='inbox';render();void in412Fetch();}
+function in412Refresh(){void in412Fetch();}
+function in412MessageTo(id){IN412.thread=String(id||'');IN412.mini=false;S.view='inbox';render();void in412Fetch();}
+function in412Subscribe(){
+ const me=in412Me();
+ if(!me||!supabase?.channel)return;
+ if(IN412.channelUser===me&&IN412.channel)return;
+ if(IN412.channel)try{supabase.removeChannel(IN412.channel)}catch(_){}
+ IN412.channelUser=me;
+ try{
+  IN412.channel=supabase.channel('mfp412-inbox-'+me).on('postgres_changes',{event:'*',schema:'public',table:'mfp_messages'},payload=>{
+   if(payload?.new?.sender_id===me||payload?.new?.recipient_id===me||payload?.old?.sender_id===me||payload?.old?.recipient_id===me)
+    void in412Fetch();
+  }).subscribe();
+ }catch(e){console.warn('Inbox realtime unavailable; background refresh remains enabled.',e);}
 }
-function mf412Tick(){
- if(!AUTH_USER||!document.querySelector('#app .sidebar')){
-  document.getElementById('mf412-float')?.remove();
-  if(MF412.session){MF412.channel?.unsubscribe?.();MF412.channel=null;MF412.session='';MF412.messages=[];}
-  return;
- }
- mf412EnsureFloating();mf412Subscribe();
+function in412Init(){
+ if(!NAV_ITEMS.some(n=>n.id==='inbox'))NAV_ITEMS.splice(Math.max(0,NAV_ITEMS.length-2),0,{id:'inbox',label:'Inbox'});
+ if(!MOBILE_MORE_NAV.includes('inbox'))MOBILE_MORE_NAV.unshift('inbox');
+ ICONS.inbox=in412Icon();
+ if(typeof v161NormalizeNavLayout==='function')S.navLayout=v161NormalizeNavLayout(S.navLayout);
+ if(Array.isArray(MFP408_TABS)){const row=MFP408_TABS.find(x=>x[0]==='messages');if(row)row[1]='Inbox';}
+ const legacy=App.mfp408Tab;App.mfp408Tab=function(tab){return tab==='messages'?in412Open():legacy(tab);};
+ App.mfp408MessageTo=in412MessageTo;
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&MF412.open)mf412Toggle(false);});
-setInterval(mf412Tick,4000);
-setInterval(()=>{if(AUTH_USER)void mf412Load();},45000);
-MediaFlowRuntime.registerPageRenderer('inbox',mf412Page);
-MediaFlowRuntime.registerPageEnhancer('inbox',()=>{mf412EnsureFloating();mf412Render();void mf412Load();});
-const oldMessages=App.mfp408MessageTo;
-App.mfp408MessageTo=function(id){MF412.peer=id;mf412OpenPage();};
-Object.assign(App,{mf412Toggle,mf412OpenPage,mf412Load,mf412Peer,mf412Search,mf412Send});
-window.MediaFlowPlusInbox={version:412,refresh:mf412Load,open:mf412OpenPage};
-})();
-/* MediaFlow Plus v412 — membership filters, non-mutating and live.
- * v392 already renders assigned titles/collections as disabled Add rows.
- * This module filters the canonical candidate arrays without changing membership.
+in412Init();
+MediaFlowRuntime.registerPageRenderer('inbox',in412FullRenderer);
+MediaFlowRuntime.registerPageEnhancer('inbox',()=>{in412Subscribe();void in412Fetch();});
+Object.assign(App,{in412Select,in412Back,in412Filter,in412New,in412Send,in412Toggle,in412Open,in412Refresh,in412MessageTo});
+function in412Pulse(){
+ try{
+  if(!AUTH_READY||!AUTH_USER){if(IN412.channel&&supabase?.removeChannel)void supabase.removeChannel(IN412.channel);IN412.channel=null;IN412.channelUser='';IN412.mini=false;in412MountFloat();return;}
+  in412MountFloat();in412Subscribe();
+  if((IN412.mini||String(S.view||'')==='inbox'||Date.now()-IN412.last>60000)&&document.visibilityState==='visible')void in412Fetch();
+ }catch(e){console.warn('Inbox background refresh skipped',e)}
+}
+setInterval(in412Pulse,25000);
+setTimeout(in412Pulse,1000);
+window.MediaFlowPlusInbox412={release:412,refresh:in412Fetch,state:()=>({loaded:IN412.loaded,unread:in412Unread(),threadCount:in412Threads().length})};
+})();/* MediaFlow Plus v412 — live, reference-based workspace showcasing.
+ * Owner collections remain ONLY in mediaflow_states. Publication/subscription
+ * rows are identifiers and permissions, never duplicated collection payloads.
  */
 (function(){
 'use strict';
-const MF412_SHOW_VALUES=new Set(['all','not','added']);
-let MF412_TITLE_SHOW='all',MF412_COLLECTION_SHOW='all',MF412_LOG_SHOW='all';
-function mf412SetMembership(kind,value){
- const mode=MF412_SHOW_VALUES.has(value)?value:'all';
- if(kind==='titles'){
-  MF412_TITLE_SHOW=mode;
-  const ui=v140EnsureOrderPickerUI();ui.page=0;
-  try{v141InvalidateOrderPickerCache()}catch(_){}
-  if(typeof v141RefreshOrderPickerAll==='function')v141RefreshOrderPickerAll();
-  else renderView();
- }else if(kind==='logging'){
-  MF412_LOG_SHOW=mode;
-  if(typeof v89ResetLogPage==='function')v89ResetLogPage();
-  if(typeof renderLogSuggestions==='function')renderLogSuggestions();
- }else if(kind==='collections'){
-  MF412_COLLECTION_SHOW=mode;
-  const ui=v287OrderUI();ui.v359CollectionPage=0;
-  if(typeof v287RefreshCollectionPicker==='function')v287RefreshCollectionPicker();
+const PS412={route:null,publicData:null,error:'',discover:[],subs:[],pubs:new Set(),profiles:[],
+ lastSubs:0,publicBusy:false,shareBusy:false,discoverFilter:'',offset:0,publicToken:0};
+const psEsc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const psHandle=x=>String(x||'').toLowerCase().trim();
+const psPublicUrl=username=>location.origin+location.pathname+'#/u/'+encodeURIComponent(username);
+const psCollectionUrl=(username,id)=>location.origin+location.pathname+'#/collection/'+encodeURIComponent(username)+'/'+encodeURIComponent(id);
+function psRoute(hash=location.hash){
+ let m=String(hash||'').match(/^#\/u\/([a-z0-9_]{3,24})$/);
+ if(m)return {kind:'profile',username:m[1]};
+ m=String(hash||'').match(/^#\/collection\/([a-z0-9_]{3,24})\/([a-zA-Z0-9_-]{1,160})$/);
+ return m?{kind:'collection',username:m[1],id:m[2]}:null;
+}
+function psAlert(message){try{showToast(message)}catch(_){console.info(message)}}
+async function psProfile(){
+ if(!AUTH_USER||!supabase)return null;
+ const r=await supabase.from('mfp_profiles').select('*').eq('user_id',AUTH_USER.id).maybeSingle();
+ if(r.error)throw r.error;return r.data;
+}
+async function psPublicRequest(kind,username='',id='',offset=0,limit=60){
+ const q=new URLSearchParams({kind});if(username)q.set('username',username);
+ if(id){q.set('collection_id',id);q.set('offset',String(offset));q.set('limit',String(limit));}
+ const headers={'apikey':SUPABASE_PUBLISHABLE_KEY};
+ if(AUTH_USER&&supabase){const r=await supabase.auth.getSession();if(r.data?.session?.access_token)headers.authorization='Bearer '+r.data.session.access_token;}
+ const result=await fetch(SUPABASE_URL+'/functions/v1/mfp-public-workspace?'+q.toString(),{headers,cache:'no-store'});
+ const data=await result.json().catch(()=>({error:'Malformed response'}));
+ if(!result.ok)throw new Error(data?.error||'Shared workspace unavailable');
+ return data;
+}
+async function psCopy(value){
+ try{
+  if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(value);
+  else{const el=document.createElement('textarea');el.value=value;document.body.appendChild(el);el.select();document.execCommand('copy');el.remove();}
+  psAlert('Share link copied ✓');
+ }catch(e){prompt('Copy your share link:',value)}
+}
+async function psShareProfile(){
+ const p=await psProfile();if(!p?.username)return psAlert('Create your Community username first.');
+ if(!p.is_public)return psAlert('Enable Public profile before sharing.');
+ await psCopy(psPublicUrl(p.username));
+}
+async function psOwnerPubs(force=false){
+ if(!AUTH_USER||!supabase)return;
+ if(!force&&PS412.pubsAt&&Date.now()-PS412.pubsAt<10000)return;
+ const r=await supabase.from('mfp_collection_publications').select('collection_id').eq('owner_id',AUTH_USER.id);
+ if(r.error)throw r.error;
+ PS412.pubs=new Set((r.data||[]).map(x=>String(x.collection_id)));PS412.pubsAt=Date.now();
+ const host=document.getElementById('ps412-own-publish');
+ if(host&&V274_UI.activeId)host.innerHTML=psOwnerBar(V274_UI.activeId);
+}
+function psOwnerBar(id){
+ const active=PS412.pubs.has(String(id));
+ return '<div class="ps412-share-card"><div><b>Community sharing</b><p>'+ (active?'Live shared collection — changes are visible to subscribers.':'Private collection — only you can see its contents.')+'</p></div><div class="ps412-share-actions">'+
+ '<button type="button" class="btn btn-sm" onclick="App.ps412TogglePublish(\''+psEsc(id)+'\')">'+(active?'Unpublish':'Publish collection')+'</button>'+
+ (active?'<button type="button" class="btn btn-sm btn-ghost" onclick="App.ps412ShareCollection(\''+psEsc(id)+'\')">Copy share link</button>':'')+
+ '</div></div>';
+}
+async function psTogglePublish(id){
+ if(PS412.shareBusy||!AUTH_USER)return;PS412.shareBusy=true;
+ try{
+  const own=v274CollectionById(id);if(!own)throw new Error('Collection no longer exists.');
+  const p=await psProfile();
+  if(!p?.username)throw new Error('Create a Community profile before publishing.');
+  if(!p.is_public)throw new Error('Enable Public profile in Community → My profile to share collections.');
+  const active=PS412.pubs.has(String(id));
+  if(active&&!confirm('Unpublish this collection? Subscribers will immediately lose public access, but their independent conversions remain.'))return;
+  const q=supabase.from('mfp_collection_publications');
+  const r=active?await q.delete().eq('owner_id',AUTH_USER.id).eq('collection_id',String(id)):
+   await q.insert({owner_id:AUTH_USER.id,collection_id:String(id)});
+  if(r.error)throw r.error;
+  await psOwnerPubs(true);psAlert(active?'Collection unpublished.':'Collection shared live ✓');
+ }catch(e){psAlert(String(e?.message||e));console.error('Collection publication failed',e)}
+ finally{PS412.shareBusy=false;}
+}
+async function psShareCollection(id){
+ const c=v274CollectionById(id);if(!c)return;
+ const p=await psProfile();if(!p?.is_public||!PS412.pubs.has(String(id))){psAlert('Publish this collection and enable your public profile first.');return;}
+ await psCopy(psCollectionUrl(p.username,id));
+}
+function psGuestShell(){
+ const route=psRoute();if(!route)return;
+ PS412.route=route;PS412.publicData=null;PS412.error='';PS412.offset=0;
+ const app=document.getElementById('app');if(!app)return;
+ app.innerHTML='<div class="ps412-guest-shell"><header class="ps412-public-head"><strong>MediaFlow Plus</strong><a href="'+location.pathname+'" class="btn btn-sm">Open MediaFlow Plus</a></header><main class="ps412-public-guest-content"><div id="ps412-public-host" role="main"><p>Loading public workspace…</p></div></main><footer>Shared live from the owner’s MediaFlow Plus workspace. Unpublished content remains private.</footer></div>';
+ void psFetchRoute();
+}
+function psPublicRenderer(){return '<section class="ps412-public-page"><div class="ps412-public-top"><button class="btn btn-sm" onclick="App.ps412Back()">← Back to Collections</button><span>PUBLIC COMMUNITY WORKSPACE</span></div><div id="ps412-public-host" aria-live="polite">Loading public workspace…</div></section>';}
+function psBack(){location.hash='';S.view='collections';render();}
+async function psFetchRoute(){
+ const route=PS412.route||psRoute();if(!route)return;
+ const epoch=++PS412.publicToken;PS412.error='';
+ try{
+  const data=await psPublicRequest(route.kind,route.username,route.id||'',PS412.offset,60);
+  if(epoch!==PS412.publicToken)return;
+  PS412.publicData=data;
+  psShowRoute();
+ }catch(e){if(epoch!==PS412.publicToken)return;PS412.error=String(e?.message||e);psShowRoute();}
+}
+function psShowRoute(){
+ const host=document.getElementById('ps412-public-host');if(!host)return;
+ const route=PS412.route;const data=PS412.publicData;
+ if(PS412.error){host.innerHTML='<div class="ps412-panel" role="alert"><h2>Public workspace unavailable</h2><p>'+psEsc(PS412.error)+'</p><button class="btn" onclick="App.ps412Retry()">Retry</button></div>';return;}
+ if(!data)return;
+ if(route.kind==='profile'){
+  const p=data.profile||{};
+  host.innerHTML='<div class="ps412-profile-hero"><div class="ps412-avatar">'+psEsc((p.display_name||p.username||'?').charAt(0).toUpperCase())+'</div><div><h1>'+psEsc(p.display_name||p.username)+'</h1><p>@'+psEsc(p.username)+'</p><p>'+psEsc(p.bio||'')+'</p></div></div>'+
+  (data.workspace?'<div class="ps412-stats"><div><b>'+Number(data.workspace.title_count||0).toLocaleString()+'</b><small>Titles in workspace</small></div><div><b>'+Number(data.workspace.collection_count||0).toLocaleString()+'</b><small>Personal collections</small></div><div><b>'+Number(data.workspace.category_count||0).toLocaleString()+'</b><small>Categories</small></div></div>':'')+
+  (data.categories?.length?'<div class="ps412-panel"><h2>Shared workspace categories</h2><div class="ps412-chips">'+data.categories.map(x=>'<span>'+psEsc(x.name)+'</span>').join('')+'</div></div>':'')+
+  '<section class="ps412-panel"><h2>Published collections</h2>'+psCards(data.collections||[])+'</section>';
+ }else{
+  const c=data.collection||{},o=data.owner||{},rows=data.titles||[];
+  host.innerHTML='<div class="ps412-profile-hero"><div><span>Live shared collection</span><h1>'+psEsc(c.title)+'</h1><p>by <a href="#/u/'+encodeURIComponent(o.username||route.username)+'">@'+psEsc(o.username||route.username)+'</a> · '+Number(data.total||0).toLocaleString()+' titles</p><p>'+psEsc(c.description||'')+'</p></div></div>'+
+   '<div class="ps412-public-actions">'+(AUTH_USER?'<button class="btn btn-primary" onclick="App.ps412Subscribe(\''+psEsc(o.username||route.username)+'\',\''+psEsc(c.id)+'\')">Subscribe to live collection</button><button class="btn" onclick="App.ps412Convert(\''+psEsc(o.username||route.username)+'\',\''+psEsc(c.id)+'\')">Convert to my collection</button>':'<span>Sign in to subscribe or convert this collection.</span>')+
+   '<button class="btn" onclick="App.ps412CopyCurrent()">Copy link</button></div>'+
+   '<div class="ps412-panel"><h2>Collection titles</h2><div class="ps412-titles">'+rows.map((t,i)=>'<div class="ps412-title"><span>'+(PS412.offset+i+1)+'.</span><strong>'+psEsc(t.title)+'</strong><small>'+psEsc(t.category||'')+'</small></div>').join('')+'</div>'+
+   (data.next_offset!==null?'<button class="btn" onclick="App.ps412More()">Next titles →</button>':'')+'</div>';
  }
 }
-function mf412ShowControl(kind,value){
- const collection=kind==='collections',logging=kind==='logging';
- return '<label class="mf412-show-control"><span>SHOW '+(collection?'COLLECTIONS':'TITLES')+'</span><select aria-label="Show '+(collection?'collections':'titles')+' by membership" onchange="App.mf412SetMembership(\''+kind+'\',this.value)">'+
- [['all',collection?'All collections':'All titles'],['not','Not added'],['added','Already added']].map(([id,label])=>'<option value="'+id+'" '+(id===value?'selected':'')+'>'+label+'</option>').join('')+'</select></label>';
+function psCards(rows){
+ return rows.length?'<div class="ps412-collection-grid">'+rows.map(c=>'<article class="ps412-collection-card"><div><h3>'+psEsc(c.title)+'</h3><p>'+psEsc(c.description||'')+'</p><small>'+Number(c.count||0).toLocaleString()+' titles · @'+psEsc(c.owner?.username||'')+'</small></div><button type="button" class="btn btn-sm" onclick="App.ps412Open(\''+psEsc(c.owner?.username||'')+'\',\''+psEsc(c.id)+'\')">View collection</button></article>').join('')+'</div>':'<p>No public collections yet.</p>';
 }
-const mf412TitleMatchesBase=v138PickerMatches;
-v138PickerMatches=function(){
- const rows=mf412TitleMatchesBase.apply(this,arguments);
- if(MF412_TITLE_SHOW==='all')return rows;
- const ids=new Set((v138EnsureOrderPlan().titleIds||[]).map(String));
- return rows.filter(x=>ids.has(String(x.id))===(MF412_TITLE_SHOW==='added'));
-};
-const mf412TitleToolsBase=v140OrderPickerToolsHtml;
-v140OrderPickerToolsHtml=function(){
- const raw=String(mf412TitleToolsBase.apply(this,arguments));
- const holder=document.createElement('div');holder.innerHTML=raw;
- const bar=holder.querySelector('.v140-order-filterbar')||holder.firstElementChild;
- if(bar&&!bar.querySelector('.mf412-show-control'))bar.insertAdjacentHTML('afterbegin',mf412ShowControl('titles',MF412_TITLE_SHOW));
- return holder.innerHTML;
-};
-const mf412CollectionMatchesBase=v287CollectionMatches;
-v287CollectionMatches=function(){
- const rows=mf412CollectionMatchesBase.apply(this,arguments);
- if(MF412_COLLECTION_SHOW==='all')return rows;
- const cid=String(v287OrderUI().v287CollectionCategoryId||'');
- const assigned=new Set(v287Assignments(cid).map(x=>String(x.collectionId)));
- return rows.filter(x=>assigned.has(String(x.id))===(MF412_COLLECTION_SHOW==='added'));
-};
-const mf412CollectionPickerHtmlBase=v287CollectionPickerHtml;
-v287CollectionPickerHtml=function(){
- const raw=String(mf412CollectionPickerHtmlBase.apply(this,arguments));
- const holder=document.createElement('div');holder.innerHTML=raw;
- const filters=holder.querySelector('.mf358-collection-filters,.mf356-collection-filters,.mf287-add-collection-card')||holder.firstElementChild;
- if(filters&&!filters.querySelector('.mf412-show-control'))filters.insertAdjacentHTML('afterbegin',mf412ShowControl('collections',MF412_COLLECTION_SHOW));
- return holder.innerHTML;
-};
-const mf412AddOrderTitleBase=App.v392AddOrderTitle;
-if(typeof mf412AddOrderTitleBase==='function')App.v392AddOrderTitle=function(){
- const output=mf412AddOrderTitleBase.apply(this,arguments);
- if(MF412_TITLE_SHOW!=='all')v141RefreshOrderPickerPageOnly();
- return output;
-};
-App.mf412SetMembership=mf412SetMembership;
-const mf412LogCandidatesBase=logTitleCandidates;
-logTitleCandidates=function(query){
- const rows=mf412LogCandidatesBase.apply(this,arguments);
- if(MF412_LOG_SHOW==='all')return rows;
- const entries=S.logDraft?.entries||[];
- const assigned=new Set(entries.map(e=>String(e?.libraryId||'')).filter(Boolean));
- return rows.filter(x=>assigned.has(String(x.id))===(MF412_LOG_SHOW==='added'));
-};
-const mf412LogToolsBase=v224LogToolsHtml;
-v224LogToolsHtml=function(){
- const raw=String(mf412LogToolsBase.apply(this,arguments));
- const holder=document.createElement('div');holder.innerHTML=raw;
- const controls=holder.querySelector('.v224-log-tools,.v89-log-tools,.v87-log-tools')||holder.firstElementChild;
- if(controls&&!controls.querySelector('.mf412-show-control'))controls.insertAdjacentHTML('afterbegin',mf412ShowControl('logging',MF412_LOG_SHOW));
- return holder.innerHTML;
-};
-window.MediaFlowPlusMembershipFilters={version:412,set:mf412SetMembership,get:()=>({titles:MF412_TITLE_SHOW,collections:MF412_COLLECTION_SHOW,logging:MF412_LOG_SHOW})};
-})();
-/* MediaFlow Plus v412 — searchable native-action adapters.
- * Existing Library/Collection actions remain canonical; the adapter only
- * supplies searchable Settings-ordered/icon-aware options and dispatches the
- * original select's change event when a member explicitly chooses an item.
- */
-(function(){
-'use strict';
-const MF412_ACTION={active:null,menu:null,pending:false,bound:false};
-const MF412_STATUS_ICONS={planned:'planToWatch',active:'watching',paused:'onHold',completed:'completedStatus',dropped:'dropped'};
-const MF412_PRIORITY_ICONS={low:'priorityLow',medium:'priorityMedium',high:'priorityHigh'};
-function mf412ActionKind(el){
- const cmd=String(el?.getAttribute?.('onchange')||'');
- if(!/(?:App\.batchLibrary|App\.v274BatchCollection)(?:Status|Priority|Category)/.test(cmd))return '';
- if(/(?:Status)\(/.test(cmd))return 'status';
- if(/(?:Priority)\(/.test(cmd))return 'priority';
- if(/(?:Category)\(/.test(cmd))return 'category';
- return '';
+function psOpen(username,id){
+ location.hash='#/collection/'+encodeURIComponent(username)+'/'+encodeURIComponent(id);
 }
-function mf412ActionEntries(kind,select){
- const valid=new Set([...select.options].map(o=>String(o.value)).filter(Boolean));
- const surface=kind==='category'?'setCategory':kind==='status'?'setStatus':'setPriority';
- const known=kind==='category'
-  ?(S.categories||[]).filter(c=>c?.id).map(c=>String(c.id))
-  :kind==='status'?['planned','active','paused','completed','dropped']:['high','medium','low'];
- let ids;
- try{ids=v230VisibleIds(surface).map(String).filter(id=>valid.has(id));}
- catch(_){ids=[];}
- // A configured hidden item remains hidden: use fallbacks only when settings
- // cannot be resolved, not merely because a value was hidden by the owner.
- if(!ids.length){for(const id of known)if(valid.has(id)&&!ids.includes(id))ids.push(id);}
- const categories=new Map((S.categories||[]).filter(x=>x?.id).map(x=>[String(x.id),x]));
- return ids.map(id=>{
-  if(kind==='category'){const cat=categories.get(id);return cat?{id,label:String(cat.name||'Unnamed category'),icon:typeof v144CategoryIconHtml==='function'?v144CategoryIconHtml(cat):''}:null;}
-  if(kind==='status')return {id,label:typeof v199StatusLabel==='function'?v199StatusLabel(id):id,icon:V225_BUTTON_ICONS[MF412_STATUS_ICONS[id]]||''};
-  return {id,label:id.slice(0,1).toUpperCase()+id.slice(1),icon:V225_BUTTON_ICONS[MF412_PRIORITY_ICONS[id]]||''};
- }).filter(Boolean);
+function psMore(){PS412.offset=PS412.publicData?.next_offset??PS412.offset;void psFetchRoute();}
+function psRetry(){void psFetchRoute();}
+function psCopyCurrent(){void psCopy(location.href);}
+function psHashChanged(){
+ const route=psRoute();
+ if(!route)return;
+ PS412.route=route;PS412.publicData=null;PS412.error='';PS412.offset=0;
+ if(AUTH_USER&&AUTH_READY&&document.querySelector('.sidebar')){
+  S.view='publicshare';render();
+ }else psGuestShell();
 }
-function mf412CloseAction(){
- const active=MF412_ACTION.active;
- if(active?.trigger?.isConnected){active.trigger.setAttribute('aria-expanded','false');}
- MF412_ACTION.menu?.remove();
- MF412_ACTION.menu=null;MF412_ACTION.active=null;
-}
-function mf412OpenAction(wrapper,select,trigger,kind){
- if(MF412_ACTION.active?.select===select){mf412CloseAction();return;}
- mf412CloseAction();
- if(typeof mf397SetMenu==='function')mf397SetMenu(false);
- const menu=document.createElement('section');
- menu.className='mf412-action-menu';
- menu.setAttribute('role','dialog');menu.setAttribute('aria-label','Search '+kind+' options');
- const field=document.createElement('input');field.type='search';
- field.placeholder='Search '+kind+'…';field.setAttribute('aria-label','Search '+kind+' options');
- const options=document.createElement('div');options.className='mf412-action-options';options.setAttribute('role','listbox');
- menu.append(field,options);
- const entries=mf412ActionEntries(kind,select);
- function fill(){
-  const q=field.value.trim().toLocaleLowerCase();
-  const rows=entries.filter(x=>x.label.toLocaleLowerCase().includes(q));
-  options.replaceChildren();
-  if(!rows.length){const empty=document.createElement('p');empty.className='mf412-action-empty';empty.textContent='No matching '+kind+' options';options.append(empty);return;}
-  for(const row of rows){
-   const item=document.createElement('button');item.type='button';item.className='mf412-action-option';item.setAttribute('role','option');
-   item.dataset.value=row.id;
-   if(row.icon){const icon=document.createElement('span');icon.className='mf412-action-icon';icon.innerHTML=row.icon;item.append(icon);}
-   const label=document.createElement('span');label.textContent=row.label;item.append(label);
-   item.addEventListener('click',()=>{
-    if(!select.isConnected)return mf412CloseAction();
-    const current=select.value;
-    select.value=row.id;
-    if(select.value===row.id)select.dispatchEvent(new Event('change',{bubbles:true}));
-    if(select.isConnected)select.value=current||'';
-    mf412CloseAction();
-   });
-   options.append(item);
-  }
- }
- field.addEventListener('input',fill);
- field.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){e.preventDefault();mf412CloseAction();trigger.focus({preventScroll:true});}
-  if(e.key==='ArrowDown'){e.preventDefault();options.querySelector('button')?.focus({preventScroll:true});}
-  if(e.key==='Enter'){e.preventDefault();options.querySelector('button')?.click();}
- });
- menu.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();mf412CloseAction();trigger.focus({preventScroll:true});}});
- document.body.append(menu);
- MF412_ACTION.active={wrapper,select,trigger};MF412_ACTION.menu=menu;
- trigger.setAttribute('aria-expanded','true');
- const r=trigger.getBoundingClientRect(),width=Math.min(340,innerWidth-24);
- const left=Math.max(12,Math.min(innerWidth-width-12,r.left));
- const below=innerHeight-r.bottom,menuH=305;
- const top=below>=Math.min(menuH,innerHeight*.46)?r.bottom+6:Math.max(10,r.top-Math.min(menuH,innerHeight*.48)-6);
- menu.style.left=left+'px';menu.style.top=top+'px';menu.style.width=width+'px';menu.style.maxHeight=Math.min(menuH,innerHeight-top-12)+'px';
- fill();field.focus({preventScroll:true});
-}
-function mf412UpgradeActions(){
- if(!['library','collections'].includes(String(S.view||''))){mf412CloseAction();return;}
- const host=document.getElementById('view-root');if(!host)return;
- for(const select of host.querySelectorAll('select[onchange]')){
-  if(select.dataset.mf412Action==='1')continue;
-  const kind=mf412ActionKind(select);if(!kind)continue;
-  const wrapper=document.createElement('span');wrapper.className='mf412-action-wrap';
-  select.before(wrapper);wrapper.append(select);
-  select.dataset.mf412Action='1';select.classList.add('mf412-native-select');select.tabIndex=-1;select.setAttribute('aria-hidden','true');
-  const trigger=document.createElement('button');trigger.type='button';trigger.className='mf412-action-trigger';
-  trigger.textContent=kind==='category'?'Move to Category…':kind==='status'?'Set Status…':'Set Priority…';
-  trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');
-  trigger.setAttribute('aria-label','Searchable '+trigger.textContent);
-  trigger.addEventListener('click',()=>mf412OpenAction(wrapper,select,trigger,kind));
-  wrapper.append(trigger);
- }
- if(MF412_ACTION.active&&!MF412_ACTION.active.select.isConnected)mf412CloseAction();
-}
-function mf412ActionSchedule(){
- if(MF412_ACTION.pending)return;MF412_ACTION.pending=true;
- queueMicrotask(()=>{MF412_ACTION.pending=false;try{mf412UpgradeActions();}catch(e){console.error('MediaFlow Plus action picker',e)}});
-}
-const mf412ActionRenderBase=renderView;
-renderView=function(){const result=mf412ActionRenderBase.apply(this,arguments);mf412ActionSchedule();return result;};
-const mf412ActionPageBase=render;
-render=function(){const result=mf412ActionPageBase.apply(this,arguments);mf412ActionSchedule();return result;};
-if(!MF412_ACTION.bound){
- MF412_ACTION.bound=true;
- document.addEventListener('pointerdown',e=>{
-  if(MF412_ACTION.active&&!MF412_ACTION.menu?.contains(e.target)&&!MF412_ACTION.active.trigger?.contains(e.target))mf412CloseAction();
- },true);
- document.addEventListener('keydown',e=>{if(e.key==='Escape'&&MF412_ACTION.active)mf412CloseAction();});
- window.addEventListener('scroll',()=>{if(MF412_ACTION.active)mf412CloseAction();},true);
- window.addEventListener('resize',()=>{if(MF412_ACTION.active)mf412CloseAction();},{passive:true});
-}
-MediaFlowRuntime.version=412;
-window.MediaFlowPlusSearchableActions={version:412,refresh:mf412ActionSchedule};
-})();
+const psOriginalAuth=renderAuthScreen;
+renderAuthScreen=function(){if(psRoute())return psGuestShell();return psOriginalAuth.apply(this,arguments);};
+window.addEventListener('hashchange',psHashChanged);
+setTimeout(()=>{if(psRoute())psHashChanged();},350);
 
+async function psSubscribe(username,id){
+ if(!AUTH_USER)return psAlert('Please sign in to subscribe.');
+ try{
+  const profile=await supabase.from('mfp_profiles').select('user_id,is_public').eq('username',username).eq('is_public',true).single();
+  if(profile.error)throw profile.error;
+  const proof=await psPublicRequest('collection',username,id,0,1);
+  if(!proof?.collection)throw new Error('Collection is not public.');
+  if(profile.data.user_id===AUTH_USER.id)throw new Error('You own this collection.');
+  const r=await supabase.from('mfp_collection_subscriptions').upsert({subscriber_id:AUTH_USER.id,owner_id:profile.data.user_id,collection_id:id},{onConflict:'subscriber_id,owner_id,collection_id'});
+  if(r.error)throw r.error;psAlert('Subscribed — this collection stays connected to its owner ✓');
+  PS412.lastSubs=0;void psLoadSubs(true);
+ }catch(e){psAlert(String(e?.message||'Could not subscribe'));}
+}
+async function psUnsubscribe(ownerId,id){
+ if(!confirm('Unsubscribe from this Community Collection? Independent copies in My Collections will not be deleted.'))return;
+ const r=await supabase.from('mfp_collection_subscriptions').delete().eq('subscriber_id',AUTH_USER.id).eq('owner_id',ownerId).eq('collection_id',id);
+ if(r.error)return psAlert('Could not unsubscribe.');
+ PS412.lastSubs=0;await psLoadSubs(true);psAlert('Unsubscribed.');
+}
+async function psLoadSubs(force=false){
+ if(!AUTH_USER)return;
+ if(!force&&Date.now()-PS412.lastSubs<14000)return;
+ const q=await supabase.from('mfp_collection_subscriptions').select('owner_id,collection_id,subscribed_at').eq('subscriber_id',AUTH_USER.id).order('subscribed_at',{ascending:false}).limit(120);
+ if(q.error){console.warn('Community subscriptions:',q.error);return;}
+ const subs=q.data||[],ownerIds=[...new Set(subs.map(x=>x.owner_id))];
+ let owners=[];
+ if(ownerIds.length){const r=await supabase.from('mfp_profiles').select('user_id,username,is_public').in('user_id',ownerIds);if(!r.error)owners=r.data||[];}
+ const lookup=new Map(owners.map(x=>[x.user_id,x.username]));
+ const results=await Promise.all(subs.map(async s=>{
+  const username=lookup.get(s.owner_id);if(!username)return {...s,unavailable:true};
+  try{const data=await psPublicRequest('collection',username,s.collection_id,0,1);return {...s,username,collection:data.collection,unavailable:false};}
+  catch(_){return {...s,username,unavailable:true};}
+ }));
+ PS412.subs=results;PS412.lastSubs=Date.now();
+ psRenderSubs();
+}
+function psSubsHtml(){
+ return '<section class="ps412-panel ps412-community-section"><div class="ps412-panel-top"><div><h2>Community Collections</h2><p>Live subscriptions to other members’ collections — stored as references, never copied.</p></div><button type="button" class="btn btn-sm" onclick="App.ps412RefreshSubscriptions()">Refresh</button></div>'+
+ (PS412.subs.length?'<div class="ps412-collection-grid">'+PS412.subs.map(s=>'<article class="ps412-collection-card"><h3>'+psEsc(s.unavailable?'Unavailable collection':s.collection?.title||'Shared collection')+'</h3><p>'+psEsc(s.unavailable?'The owner removed or restricted public access. Your independent converted collections are unaffected.':(s.collection?.description||''))+'</p>'+
+ '<small>'+psEsc(s.username||'Member')+'</small><div class="ps412-share-actions">'+(!s.unavailable?'<button class="btn btn-sm" onclick="App.ps412Open(\''+psEsc(s.username)+'\',\''+psEsc(s.collection_id)+'\')">View live</button><button class="btn btn-sm" onclick="App.ps412Convert(\''+psEsc(s.username)+'\',\''+psEsc(s.collection_id)+'\')">Convert to my collection</button>':'')+
+ '<button class="btn btn-sm btn-ghost" onclick="App.ps412Unsubscribe(\''+psEsc(s.owner_id)+'\',\''+psEsc(s.collection_id)+'\')">Unsubscribe</button></div></article>').join('')+'</div>':'<p>You have no Community subscriptions yet. Explore published collections to follow other members.</p>')+
+ '<button type="button" class="btn" onclick="App.ps412Explore()">Discover shared collections →</button></section>';
+}
+function psRenderSubs(){const el=document.getElementById('ps412-community-list');if(el)el.innerHTML=psSubsHtml();}
+const psCollectionsBrowserBase=v274CollectionsBrowserHtml;
+v274CollectionsBrowserHtml=function(){
+ const html=psCollectionsBrowserBase.apply(this,arguments);
+ return html.replace(/<\/div>\s*$/,'<div id="ps412-community-list">'+psSubsHtml()+'</div></div>');
+};
+const psDetailBase=v274CollectionDetailHtml;
+v274CollectionDetailHtml=function(c){
+ let html=String(psDetailBase.apply(this,arguments));
+ return html.replace(/(<div class="mf274-page[^"]*">)/,'$1<div id="ps412-own-publish">'+psOwnerBar(c.id)+'</div>');
+};
+MediaFlowRuntime.registerPageEnhancer('collections',()=>{
+ if(V274_UI.activeId)void psOwnerPubs();else void psLoadSubs();
+});
+async function psConvert(username,id){
+ if(!AUTH_USER||!Array.isArray(S.library)||!Array.isArray(S.categories))return psAlert('Sign in and load your workspace before converting.');
+ if(!confirm('Convert this live shared collection into your own editable collection? Missing titles will be added to your Library with fresh, private progress. This creates an independent copy.'))return;
+ try{
+  let offset=0,total=0,all=[],meta=null;
+  do{
+   const data=await psPublicRequest('collection',username,id,offset,500);
+   meta=data.collection;total=Number(data.total||0);
+   if(total>10000)throw new Error('This collection is too large for one safe conversion (maximum 10,000 titles).');
+   all.push(...(data.titles||[]));offset=data.next_offset===null?null:data.next_offset;
+   if(offset!==null&&(!Number.isFinite(offset)||offset<=0))throw new Error('Conversion paging error');
+  }while(offset!==null);
+  if(!meta)throw new Error('Collection unavailable');
+  const already=new Map((S.library||[]).filter(i=>i?.title).map(i=>[String(i.title).trim().toLocaleLowerCase(),String(i.id)]));
+  const categories=new Map((S.categories||[]).filter(x=>x?.name).map(x=>[String(x.name).trim().toLocaleLowerCase(),String(x.id)]));
+  const fallback=S.categories[0]?.id;if(!fallback)throw new Error('No destination category is configured.');
+  const newItems=[],ids=[];
+  for(const t of all){
+   const title=String(t.title||'').trim();if(!title)continue;
+   const key=title.toLocaleLowerCase();let titleId=already.get(key);
+   if(!titleId){
+    titleId=uid();already.set(key,titleId);
+    newItems.push({id:titleId,title,categoryId:categories.get(String(t.category||'').toLocaleLowerCase())||fallback,
+     coverUrl:String(t.cover_url||''),total:Number(t.total)||null,progress:0,
+     status:'planned',priority:'medium',createdAt:Date.now(),modifiedAt:Date.now()});
+   }
+   ids.push(titleId);
+  }
+  const imported=sanitizeLibrary(newItems);
+  if(imported.length)S.library.push(...imported);
+  v274EnsureCollections();
+  const copy=v274NormalizeCollection({id:v274Id(),title:meta.title,description:meta.description,
+   coverUrl:meta.cover_url,titleIds:[...new Set(ids)]});
+  S.collections.push(copy);v53InvalidateLibraryCache();
+  await saveState();
+  PS412.lastSubs=0;V274_UI.activeId=copy.id;render();
+  psAlert('Converted '+ids.length+' titles into an independent collection. '+imported.length+' new Library titles added.');
+ }catch(e){psAlert('Conversion failed: '+String(e?.message||e));console.error('Convert live collection',e);}
+}
+
+const psCommunityRowsBase=mfp408RenderRows;
+mfp408RenderRows=function(){
+ let html=String(psCommunityRowsBase.apply(this,arguments));
+ if(MFP408.tab==='profile'){
+  const p=MFP408.profile||{};
+  const fields='<label class="ps412-showcase-setting"><input name="ps412_workspace_stats" type="checkbox" '+(p.show_workspace_stats?'checked':'')+'> Show workspace totals publicly</label>'+
+   '<label class="ps412-showcase-setting"><input name="ps412_workspace_categories" type="checkbox" '+(p.show_workspace_categories?'checked':'')+'> Show category names publicly</label>';
+  html=html.replace('<button type="submit">Save profile</button>',fields+'<button type="submit">Save profile</button>');
+  if(!MFP408.profile)html=html.replace('name="is_public" type="checkbox" checked','name="is_public" type="checkbox"');
+  html+='<div class="mfp408-card"><h3>Share your live workspace profile</h3><p>Only your explicitly enabled public sections and published collections are visible. Your private Library snapshot is never shared.</p>'+
+    '<button type="button" onclick="App.ps412ShareProfile()">Copy public profile link</button></div>';
+ }
+ return html;
+};
+App.mfp408SaveProfile=async function(e){
+ e.preventDefault();
+ const f=new FormData(e.target),username=psHandle(f.get('username')),avatar=String(f.get('avatar_url')||'').trim();
+ if(!/^[a-z0-9_]{3,24}$/.test(username))return mfp408Notice('Use 3–24 lowercase letters, numbers or underscores.',true);
+ if(avatar&&!mfp408SafeURL(avatar))return mfp408Notice('Avatar must be HTTPS.',true);
+ await mfp408Mutation('mfp_profiles','upsert',{
+  user_id:AUTH_USER.id,username,display_name:String(f.get('display_name')||'').slice(0,100),
+  bio:String(f.get('bio')||'').slice(0,500),avatar_url:avatar||null,is_public:f.has('is_public'),
+  show_workspace_stats:f.has('ps412_workspace_stats'),show_workspace_categories:f.has('ps412_workspace_categories')
+ });
+};
+const psCommunityTabBase=App.mfp408Tab;
+App.mfp408Tab=function(tab){if(tab==='collections'){S.view='explorecollections';render();return;}return psCommunityTabBase(tab);};
+function psExplore(){S.view='explorecollections';render();void psDiscover();}
+function psExploreRenderer(){
+ return '<section class="ps412-public-page"><div class="ps412-public-top"><button class="btn btn-sm" onclick="App.setView(\'community\')">← Community</button><span>DISCOVER</span></div><h1>Community Collections</h1><p>Discover published, live collections from other MediaFlow Plus workspaces.</p><input class="ps412-explore-search" type="search" value="'+psEsc(PS412.discoverFilter)+'" placeholder="Search public collections or creators…" oninput="App.ps412FilterExplore(this.value)"><div id="ps412-explore-results">'+psExploreHtml()+'</div></section>';
+}
+function psExploreHtml(){
+ const q=PS412.discoverFilter.toLocaleLowerCase();
+ return psCards(PS412.discover.filter(c=>!q||String(c.title||'').toLocaleLowerCase().includes(q)||String(c.owner?.username||'').includes(q)));
+}
+function psFilterExplore(s){PS412.discoverFilter=String(s||'');const e=document.getElementById('ps412-explore-results');if(e)e.innerHTML=psExploreHtml();}
+async function psDiscover(){
+ const host=document.getElementById('ps412-explore-results');
+ if(host)host.textContent='Finding public collections…';
+ try{
+  const data=await psPublicRequest('discover');PS412.discover=data.collections||[];
+  if(host)host.innerHTML=psExploreHtml();
+ }catch(e){if(host)host.textContent='Community discovery is temporarily unavailable. '+String(e?.message||e);}
+}
+MediaFlowRuntime.registerPageRenderer('publicshare',psPublicRenderer);
+MediaFlowRuntime.registerPageEnhancer('publicshare',()=>{PS412.route=psRoute()||PS412.route;if(PS412.route)void psFetchRoute();});
+MediaFlowRuntime.registerPageRenderer('explorecollections',psExploreRenderer);
+MediaFlowRuntime.registerPageEnhancer('explorecollections',psDiscover);
+Object.assign(App,{ps412ShareProfile:psShareProfile,ps412TogglePublish:psTogglePublish,ps412ShareCollection:psShareCollection,
+ ps412Unsubscribe:psUnsubscribe,ps412RefreshSubscriptions:()=>psLoadSubs(true),ps412Subscribe:psSubscribe,
+ ps412Open:psOpen,ps412Back:psBack,ps412More:psMore,ps412Retry:psRetry,ps412CopyCurrent:psCopyCurrent,
+ ps412Convert:psConvert,ps412Explore:psExplore,ps412FilterExplore:psFilterExplore});
+setInterval(()=>{if(AUTH_USER&&String(S.view||'')==='collections'&&!V274_UI.activeId&&document.visibilityState==='visible')void psLoadSubs(true);},60000);
+window.MediaFlowPlusSharing412={release:412,live:true,canonical:'mediaflow_states',publicationRowsOnly:true,refreshSubscriptions:psLoadSubs};
+})();
 })();
