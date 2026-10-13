@@ -30,7 +30,7 @@ async function fakeFetch(input,options={}){
  let rows=[];
  if(name==='mfp_profiles')rows=profile? [profile]:[];
  if(name==='mfp_blocks')rows=blocked?[{blocker_id:viewerId}]:[];
- if(name==='mediaflow_states')rows=[{state_data:state}];
+ if(name==='mediaflow_states')rows=[{user_id:ownerId,state_data:state}];
  if(name==='mfp_collection_publications')rows=[{owner_id:ownerId,collection_id:'c1',created_at:'2026-10-13T09:00:00Z'}];
  // emulate PostgREST equality predicates for owner and username.
  const username=url.searchParams.get('username');
