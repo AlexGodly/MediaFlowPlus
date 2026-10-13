@@ -66294,6 +66294,7 @@ function in412MountFloat(){
  const old=document.getElementById('in412-float-wrap');
  if(!AUTH_READY||!AUTH_USER){old?.remove();return;}
  const host=old||document.createElement('div');
+ if(old&&document.activeElement?.closest?.('#in412-float-wrap .in412-compose'))return;
  host.id='in412-float-wrap';host.className='in412-floating';
  host.innerHTML='<button type="button" class="in412-fab" onclick="App.in412Toggle()" aria-label="Open mini inbox" aria-expanded="'+String(IN412.mini)+'">'+in412Icon()+
  (in412Unread()?'<span class="in412-fab-badge">'+Math.min(in412Unread(),99)+'</span>':'')+'</button>'+
@@ -66305,6 +66306,7 @@ function in412RefreshViews(){
  const root=document.getElementById('view-root');
  if(String(S.view||'')==='inbox'&&root){
   const current=document.activeElement;
+  if(!IN412.sending&&current?.closest?.('#view-root .in412-compose')){in412MountFloat();return;}
   const focusField=current?.matches?.('.in412-search-row input')?{sel:current.selectionStart}:null;
   root.innerHTML='<div class="fade-in">'+in412FullRenderer()+'</div>';
   if(focusField){const input=root.querySelector('.in412-search-row input');input?.focus({preventScroll:true});try{input?.setSelectionRange(focusField.sel,focusField.sel)}catch(_){}}
@@ -66345,8 +66347,18 @@ async function in412Fetch(){
 function in412Select(id){IN412.thread=String(id||'');in412RefreshViews();void in412MarkRead();}
 function in412Back(){IN412.thread='';in412RefreshViews();}
 function in412Filter(term){
- IN412.search=String(term||'');const list=IN412.mini?document.querySelector('#in412-float-wrap'):document.querySelector('#view-root');
- if(list){const field=list.querySelector('.in412-search-row');if(field){const holder=document.createElement('div');holder.innerHTML=in412ThreadsHtml(IN412.mini);const now=holder.querySelector('.in412-search-row');if(now){field.insertAdjacentHTML('afterend',holder.innerHTML.slice(0,0));const children=[...field.parentElement.children].filter(el=>el!==field&&el.matches('.in412-thread,.in412-empty,.in412-composer-helper'));children.forEach(el=>el.remove());field.insertAdjacentHTML('afterend',holder.innerHTML.replace(now.outerHTML,''));}}}
+ IN412.search=String(term||'');
+ const host=IN412.mini?document.querySelector('#in412-float-wrap'):document.querySelector('#view-root');
+ const row=host?.querySelector('.in412-search-row');
+ if(!row)return;
+ // Replace only result rows. The actual search input stays mounted and focused.
+ const parent=row.parentElement,fragment=document.createElement('div');
+ fragment.innerHTML=in412ThreadsHtml(IN412.mini);
+ fragment.querySelector('.in412-search-row')?.remove();
+ for(const el of [...parent.children]){
+  if(el!==row&&el.matches('.in412-thread,.in412-empty,.in412-composer-helper'))el.remove();
+ }
+ while(fragment.firstElementChild)parent.appendChild(fragment.firstElementChild);
 }
 function in412New(){const name=String(document.getElementById('in412-recipient')?.value||'').trim().toLowerCase();
  const p=IN412.profiles.find(x=>x.username===name);
@@ -66405,6 +66417,7 @@ function in412Pulse(){
  }catch(e){console.warn('Inbox background refresh skipped',e)}
 }
 setInterval(in412Pulse,25000);
+setInterval(()=>{try{in412MountFloat()}catch(_){}},3500);
 setTimeout(in412Pulse,1000);
 window.MediaFlowPlusInbox412={release:412,refresh:in412Fetch,state:()=>({loaded:IN412.loaded,unread:in412Unread(),threadCount:in412Threads().length})};
 })();/* MediaFlow Plus v412 — live, reference-based workspace showcasing.
