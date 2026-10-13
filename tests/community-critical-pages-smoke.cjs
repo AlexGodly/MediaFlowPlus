@@ -31,7 +31,7 @@ const {chromium}=require('playwright');
  ' S.library=saved.library;S.orderPlan=saved.plan;S.orderPlannerUI=saved.ui;return counts;',
  ' },',
  ' dropAuth(){AUTH_USER=null;},',
- ' actionPicker(){const root=document.getElementById("view-root"); const select=document.createElement("select");select.innerHTML="<option value=\"\">Set priority…</option><option value=\"low\">Low</option><option value=\"medium\">Medium</option><option value=\"high\">High</option>";select.onchange=function(){window.__MF_ACTION_PICKED=this.value};root.append(select);mfp412ActionScan();return {upgraded:!!root.querySelector(".mfp412-action-wrap"),initial:window.__MF_ACTION_PICKED||null}}',
+ ' actionPicker(){const root=document.getElementById("view-root"); const select=document.createElement("select");select.innerHTML="<option value=>Set priority…</option><option value=low>Low</option><option value=medium>Medium</option><option value=high>High</option>";select.onchange=function(){window.__MF_ACTION_PICKED=this.value};root.append(select);mfp412ActionScan();return {upgraded:!!root.querySelector(".mfp412-action-wrap"),initial:window.__MF_ACTION_PICKED||null}}',
  ' corruptVolatileState(){S.settings=null;}',
  '};'
  ].join('\n');
