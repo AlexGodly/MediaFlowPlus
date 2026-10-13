@@ -21,6 +21,24 @@ const {chromium}=require('playwright');
  '  await v115StartWithData(undefined);',
  ' },',
  ' snapshot(){return {view:S.view,root:document.getElementById("view-root")?.innerText||"",nav:[...document.querySelectorAll(".nav-item")].map(x=>x.dataset.view)}},',
+ '  membershipTest(){',
+'   const priorLibrary=S.library,priorPlan=S.orderPlan;',
+'   const categoryId=String(S.categories?.[0]?.id||\'\');',
+'   S.library=[',
+'    {id:\'mf412-test-1\',title:\'Already In Order\',categoryId,status:\'active\',priority:\'medium\',progress:0,total:12},',
+'    {id:\'mf412-test-2\',title:\'Not Yet In Order\',categoryId,status:\'active\',priority:\'medium\',progress:0,total:12}',
+'   ];',
+'   S.orderPlan={...priorPlan,titleIds:[\'mf412-test-1\']};',
+'   const ui=v140EnsureOrderPickerUI();ui.search=\'\';ui.categories=[];ui.status=\'all\';ui.priority=\'all\';',
+'   const out={};',
+'   for(const show of [\'all\',\'not\',\'added\']){',
+'    App.mf412SetMembership(\'titles\',show);',
+'    out[show]=v138PickerMatches().map(x=>x.id);',
+'   }',
+'   App.mf412SetMembership(\'titles\',\'all\');',
+'   S.library=priorLibrary;S.orderPlan=priorPlan;',
+'   return out;',
+'  },',
  ' dropAuth(){AUTH_USER=null;},',
  ' corruptVolatileState(){S.settings=null;}',
  '};'
@@ -51,24 +69,7 @@ const {chromium}=require('playwright');
  assert(!/Loading community/i.test(snapshots.community.root),'Community spinner never settled');
  assert(/conversations|Messages/i.test(snapshots.inbox.root),'Inbox missing');
  
- const membership=await page.evaluate(()=>{
-  const priorLibrary=S.library,priorPlan=S.orderPlan;
-  const categoryId=String(S.categories?.[0]?.id||'');
-  S.library=[
-   {id:'mf412-test-1',title:'Already In Order',categoryId,status:'active',priority:'medium',progress:0,total:12},
-   {id:'mf412-test-2',title:'Not Yet In Order',categoryId,status:'active',priority:'medium',progress:0,total:12}
-  ];
-  S.orderPlan={...priorPlan,titleIds:['mf412-test-1']};
-  const ui=v140EnsureOrderPickerUI();ui.search='';ui.categories=[];ui.status='all';ui.priority='all';
-  const out={};
-  for(const show of ['all','not','added']){
-   App.mf412SetMembership('titles',show);
-   out[show]=v138PickerMatches().map(x=>x.id);
-  }
-  App.mf412SetMembership('titles','all');
-  S.library=priorLibrary;S.orderPlan=priorPlan;
-  return out;
- });
+ const membership=await page.evaluate(()=>window.__MF_SMOKE.membershipTest());
  console.log('MEMBERSHIP',JSON.stringify(membership));
  assert.deepEqual(membership.all.sort(),['mf412-test-1','mf412-test-2'],'All titles should show eligible and added');
  assert.deepEqual(membership.not,['mf412-test-2'],'Not added filter should exclude assigned title');
