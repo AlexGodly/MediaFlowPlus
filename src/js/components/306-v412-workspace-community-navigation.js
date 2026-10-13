@@ -73,6 +73,7 @@ function mfp412WorkspaceNavHtml(){
 function mfp412NavSync(){
  if(!AUTH_USER)return;
  const nav=document.querySelector('#app .sidebar .nav');if(!nav)return;
+ mfp412ObserveNav();
  // This label is only a navigation landmark; Workspace itself stays the real
  // Dashboard/Library/History app, with the user's v161 order & visibility.
  let marker=nav.querySelector(':scope > .mf412n-workspace-top');
@@ -243,12 +244,22 @@ render=function(){
  mfp412NavSync();
  return out;
 };
-const mfp412SidebarRefreshBase=v265RefreshSidebarNav;
-v265RefreshSidebarNav=function(){
- const out=mfp412SidebarRefreshBase.apply(this,arguments);
- mfp412NavSync();
- return out;
-};
+// v265RefreshSidebarNav is intentionally scoped inside v265's IIFE.
+// Watch only the sidebar navigation's immediate child list instead of
+// referencing private functions or observing the entire application.
+let mfp412ObservedNav=null,mfp412NavObserver=null,mfp412NavQueued=false;
+function mfp412ObserveNav(){
+ const nav=document.querySelector('#app .sidebar .nav');
+ if(!nav||nav===mfp412ObservedNav)return;
+ mfp412NavObserver?.disconnect();
+ mfp412ObservedNav=nav;
+ mfp412NavObserver=new MutationObserver(()=>{
+  if(mfp412NavQueued)return;
+  mfp412NavQueued=true;
+  queueMicrotask(()=>{mfp412NavQueued=false;mfp412NavSync();});
+ });
+ mfp412NavObserver.observe(nav,{childList:true});
+}
 MediaFlowRuntime.registerPageEnhancer('community',mfp412NavSync);
 MediaFlowRuntime.registerPageEnhancer('inbox',mfp412NavSync);
 MediaFlowRuntime.registerPageEnhancer('settings',mfp412NavSync);
