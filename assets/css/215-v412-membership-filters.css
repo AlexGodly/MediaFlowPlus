@@ -1,0 +1,12 @@
+/* v412 Membership selection is a view-only control in existing Tools & Filters. */
+.mfp412-show-field{display:flex;align-items:center;gap:8px;min-width:155px;max-width:100%;font-size:12px;font-weight:700;color:var(--text)}
+.mfp412-show-field>span{white-space:nowrap;color:var(--text-mute,var(--text))}
+.mfp412-show-field select{height:37px;min-width:125px;max-width:100%;border:1px solid var(--border);border-radius:9px;background:var(--card,var(--bg));color:var(--text);padding:6px 29px 6px 10px;font:inherit;font-weight:600;cursor:pointer}
+.mfp412-show-field select:focus-visible{outline:2px solid var(--flow,var(--accent));outline-offset:2px}
+.mf358-filters-grid .mfp412-show-field{display:grid;align-content:start;gap:7px;width:100%;min-width:0}
+.mf358-filters-grid .mfp412-show-field select{width:100%}
+.v140-order-filterbar>.mfp412-show-field{flex:0 0 auto}
+.v224-log-tools>.mfp412-show-field{flex:0 0 auto}
+.mfp412-already-added{opacity:.73}
+.mfp412-added-tag{display:inline-flex;font:inherit;font-style:normal;margin-left:8px;border:1px solid color-mix(in srgb,var(--flow,var(--accent)) 35%,var(--border));padding:2px 6px;border-radius:8px;color:var(--flow,var(--accent));font-size:11px;font-weight:700}
+@media(max-width:650px){.mfp412-show-field{width:100%;min-width:0;justify-content:space-between}.mfp412-show-field select{min-width:0;flex:1}.v140-order-filterbar>.mfp412-show-field,.v224-log-tools>.mfp412-show-field{flex:1 1 100%}}
