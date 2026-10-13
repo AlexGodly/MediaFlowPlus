@@ -101,7 +101,7 @@ Deno.serve(async req=>{
   if(type==="collection"){
    const owner=String(u.searchParams.get("owner")||"");
    const id=String(u.searchParams.get("id")||"");
-   if(!uuid(owner)||!id||id.length>160)return json({error:"Invalid collection reference"},400);
+   if(!uuid(owner)||!(/^[A-Za-z0-9_-]{1,160}$/).test(id))return json({error:"Invalid collection reference"},400);
    const offset=Math.min(100000,Math.max(0,Number.parseInt(String(u.searchParams.get("offset")||"0"),10)||0));
    const limit=Math.min(80,Math.max(1,Number.parseInt(String(u.searchParams.get("limit")||"40"),10)||40));
    return await showCollection(owner,id,offset,limit);
