@@ -6,7 +6,7 @@ assert(order.at(-1)==='components/309-v414-community-home-navigation.js');
 assert(fs.readFileSync('index.html','utf8').includes('306-v414-community-home-navigation.css'));
 for(const v of ['function guestMount','function workspace','function navSync','function mobileLinks',
  'function navSettings','function directory','mfp414CommunityMenu',
- 'MediaFlowRuntime.registerPageRenderer(\\'community\\'','App.lb413Tab','App.ps412Explore',
+ "MediaFlowRuntime.registerPageRenderer('community'",'App.lb413Tab','App.ps412Explore',
  "'friends':'inbox'","App.setView('dashboard')", "type=browse", "kind=discover", "stored"] .filter(Boolean)){
  // Backend projection does not have to mirror a stored catalog.
  if(v==='stored')continue;
