@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - 'tests/community-critical-pages-smoke.cjs'
+      - 'tests/live-public-projection.cjs'
+      - 'supabase/functions/mfp-public-workspace/**'
+      - 'assets/css/**'
+      - 'index.html'
       - '.github/workflows/ui-regression-smoke.yml'
       - 'src/js/**'
       - 'VERSION'
@@ -27,6 +31,8 @@ jobs:
           python-version: '3.12'
       - name: Build production bundle
         run: python scripts/build.py
+      - name: Verify live owner-native projection privacy (synthetic)
+        run: node tests/live-public-projection.cjs
       - name: Install browser test runtime
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
