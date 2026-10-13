@@ -61,6 +61,7 @@ const APP_SHELL=[
   "./assets/css/216-v404-smart-engine-controls.css",
   "./assets/css/217-v405-floating-settings-layering.css",
   "./assets/css/299-v408-community.css",
+  "./assets/css/300-v412-inbox.css",
   "./assets/css/60-statistics.css",
   "./assets/css/155-v295-responsive-default-categories.css",
   "./assets/css/156-v296-category-recovery-responsive-more.css",
