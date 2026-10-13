@@ -279,8 +279,8 @@ const v267RenderShellBase=renderShell;
 renderShell=function(){
   const out=v267RenderShellBase.apply(this,arguments);
   if(String(S.view||'')==='dashboard'){
-    queueMicrotask(()=>{try{App.v265EnhanceBalance?.();}catch(_){ }});
-    requestAnimationFrame(()=>{try{App.v265EnhanceBalance?.();v267UpdateVersionChrome();}catch(_){ }});
+    queueMicrotask(()=>{try{v265EnhanceBalance();}catch(_){ }});
+    requestAnimationFrame(()=>{try{v265EnhanceBalance();v267UpdateVersionChrome();}catch(_){ }});
   }
   return out;
 };
@@ -290,10 +290,10 @@ render=function(){
   v267CloseAllOrderPortals();
   const out=v267RenderBase.apply(this,arguments);
   if(String(S.view||'')==='dashboard'){
-    try{App.v265EnhanceBalance?.();}catch(_){ }
-    queueMicrotask(()=>{try{App.v265EnhanceBalance?.();}catch(_){ }});
+    try{v265EnhanceBalance();}catch(_){ }
+    queueMicrotask(()=>{try{v265EnhanceBalance();}catch(_){ }});
   }
-  requestAnimationFrame(()=>{try{v267EnhanceOrder();v267UpdateVersionChrome();if(String(S.view||'')==='dashboard')App.v265EnhanceBalance?.();}catch(error){console.error('MediaFlow v267 enhancement failed',error);}});
+  requestAnimationFrame(()=>{try{v267EnhanceOrder();v267UpdateVersionChrome();if(String(S.view||'')==='dashboard')v265EnhanceBalance();}catch(error){console.error('MediaFlow v267 enhancement failed',error);}});
   return out;
 };
 

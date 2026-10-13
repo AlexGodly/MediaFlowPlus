@@ -153,15 +153,7 @@
   "components/296-v403-single-source-airing-evidence.js",
   "components/297-v404-smart-engine-and-about.js",
   "components/298-v405-cloud-floating-experience.js",
-  "components/299-v408-community-ecosystem.js",
-  "components/300-v411-critical-pages-recovery.js",
-  "components/301-v412-smart-filters-actions.js",
-  "components/302-v412-bulk-picker-cleanup.js",
-  "components/303-v412-performance-stability-ui.js",
-  "components/304-v412-about-parity.js",
-  "components/305-v412-inbox.js",
-  "components/306-v412-live-public-workspaces.js",
-  "components/307-v412-friends-and-no-copy-community.js",
-  "components/308-v413-live-browse-top.js",
-  "components/309-v414-community-home-navigation.js"
+  "components/299-v406-smart-filters-actions.js",
+  "components/300-v407-bulk-picker-cleanup.js",
+  "components/301-v408-performance-stability-ui.js"
 ]

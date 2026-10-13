@@ -21,15 +21,14 @@ v406PickerHtml=function(kind,scope){
   if(!['library','collection'].includes(scope))return '';
   const title=kind==='category'?'Move to category':kind==='status'?'Set status':'Set priority';
   const summarySymbol=kind==='category'?'▦':kind==='status'?'◉':'⚑';
-  const searchable=true; // v412 Plus user requirement: search Category, Status AND Priority.
+  const searchable=kind==='category';
   const items=v406ActionItems(kind); // canonical Settings order and visibility
   const options=items.map(item=>
     `<button type="button" class="mf406-picker-option mf407-picker-option" data-v225-iconified="1" role="option" data-v406-search="${escapeHtml(item.label.toLocaleLowerCase())}" data-v406-value="${escapeHtml(item.id)}" onclick="App.v406Choose(this)">`+
       `<span class="mf406-picker-icon mf407-option-icon" aria-hidden="true">${item.icon||summarySymbol}</span>`+
       `<span class="mf407-option-label">${escapeHtml(item.label)}</span>`+
     `</button>`).join('');
-  const noun=kind==='category'?'categories':kind==='status'?'statuses':'priorities';
-  const search=searchable?`<input type="search" autocomplete="off" aria-label="Search ${noun}" placeholder="Search ${noun}…" oninput="App.v406Search(this)">`:'';
+  const search=searchable?`<input type="search" autocomplete="off" aria-label="Search categories" placeholder="Search categories…" oninput="App.v406Search(this)">`:'';
   return `<details class="mf406-action-picker mf407-action-picker mf407-${kind}" data-v406-kind="${kind}" data-v406-scope="${scope}" ontoggle="App.v406Position(this)">`+
     `<summary aria-label="${title}"><span class="mf406-summary-symbol" aria-hidden="true">${summarySymbol}</span><span>${title}…</span><span aria-hidden="true">⌄</span></summary>`+
     `<div class="mf406-picker-panel mf407-picker-panel">${search}`+
@@ -41,6 +40,6 @@ v406PickerHtml=function(kind,scope){
 MediaFlowRuntime.version=V407_RELEASE;
 window.MediaFlowV407={
   version:V407_RELEASE,
-  features:['Single semantic icon per action option','Left-aligned bulk action rows','Search all three action types','Settings-based option order and visibility'],
-  audit:()=>({version:V407_RELEASE,searchable:['category','status','priority'],status:v406ActionItems('status').map(x=>x.id),priority:v406ActionItems('priority').map(x=>x.id),category:v406ActionItems('category').map(x=>x.id)})
+  features:['Single semantic icon per action option','Left-aligned bulk action rows','Category-only search','Settings-based option order and visibility'],
+  audit:()=>({version:V407_RELEASE,searchable:['category'],status:v406ActionItems('status').map(x=>x.id),priority:v406ActionItems('priority').map(x=>x.id),category:v406ActionItems('category').map(x=>x.id)})
 };

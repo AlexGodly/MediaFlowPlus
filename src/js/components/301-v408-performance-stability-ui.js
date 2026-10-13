@@ -1,7 +1,7 @@
 /* MediaFlow v408 — performance and responsive controls.
  * Stable source data and existing handlers remain authoritative. No backend
  * schema, History, XP or recommendation calculations are changed. */
-const V408_RELEASE=Number(document.querySelector('meta[name="mediaflow-version"]')?.content)||412;
+const V408_RELEASE=408;
 const V408_METRICS={repeatComputes:0,repeatReuses:0,categorySearches:0};
 
 // One repeat-total computation per synchronous render/event. The snapshot is
@@ -189,5 +189,5 @@ function v408AuditDataIntegrity(){
     versionStamps:versions,actualLiveCloudChecked:false,actualInstalledPwaChecked:false};
 }
 App.v408AuditDataIntegrity=v408AuditDataIntegrity;
-window.MediaFlowV408={version:V408_RELEASE,features:['Linear repeat-history library lookup','Render-turn repeat result reuse','Searchable Collections category checklists','Responsive Logging Library toolbar'],audit:()=>({version:V408_RELEASE,...V408_METRICS}),transferAudit:v408AuditDataIntegrity};
+window.MediaFlowV408={version:V408_RELEASE,features:['Linear repeat-history library lookup','Render-turn repeat result reuse','Searchable Collections category checklists','Responsive Logging Library toolbar'],audit:()=>({version:408,...V408_METRICS}),transferAudit:v408AuditDataIntegrity};
 MediaFlowRuntime.version=V408_RELEASE;
