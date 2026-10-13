@@ -160,5 +160,6 @@
   "components/303-v412-performance-stability-ui.js",
   "components/304-v412-about-parity.js",
   "components/305-v412-inbox.js",
-  "components/306-v412-live-public-workspaces.js"
+  "components/306-v412-live-public-workspaces.js",
+  "components/307-v412-friends-and-no-copy-community.js"
 ]
