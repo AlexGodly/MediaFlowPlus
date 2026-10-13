@@ -66,7 +66,7 @@ const {chromium}=require('playwright');
  const boot=await page.evaluate(async()=>{await window.__MF_SMOKE.boot();return window.__MF_SMOKE.snapshot()});
  console.log('BOOT',JSON.stringify({view:boot.view,rootLength:boot.root.length,nav:boot.nav}));
  const snapshots={};
- for(const v of ['dashboard','library','history','community','inbox','dashboard','library']){
+ for(const v of ['dashboard','library','history','community','friends','inbox','dashboard','library']){
   await page.evaluate(view=>window.App.setView(view),v);
   await page.waitForTimeout(v==='community'?1000:200);
   const snap=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
@@ -77,8 +77,16 @@ const {chromium}=require('playwright');
  }
  assert(!/Loading community/i.test(snapshots.community.root),'Community spinner never settled');
  assert(/conversations|Messages/i.test(snapshots.inbox.root),'Inbox missing');
+ assert(/Following|Followers|Mutuals/i.test(snapshots.friends.root),'Restored Friends tabs missing');
+ assert(boot.nav.includes('friends'),'Friends missing from app navigation');
+
  
- const membership=await page.evaluate(()=>window.__MF_SMOKE.membershipTest());
+ await page.evaluate(()=>{window.App.setView('community');window.App.mfp408Tab('reviews');});
+ await page.waitForTimeout(350);
+ const reviewsText=await page.locator('#view-root').innerText();
+ assert(/One source of truth|Ratings · Live from your Library/i.test(reviewsText),'Reviews still use duplicated public media table');
+ assert(!reviewsText.includes('Publish review'),'Duplicate rating publisher was not removed');
+  const membership=await page.evaluate(()=>window.__MF_SMOKE.membershipTest());
  console.log('MEMBERSHIP',JSON.stringify(membership));
  assert.deepEqual(membership.all.sort(),['mf412-test-1','mf412-test-2'],'All titles should show eligible and added');
  assert.deepEqual(membership.available,['mf412-test-2'],'Not added filter should exclude assigned title');
