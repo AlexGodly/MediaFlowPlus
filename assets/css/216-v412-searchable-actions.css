@@ -1,0 +1,19 @@
+/* v412 Searchable action controls; original selects remain canonical handlers. */
+.mfp412-action-wrap{display:inline-flex;align-items:center;position:relative;min-width:125px;max-width:100%;vertical-align:middle}
+.mfp412-original-select{display:none!important}
+.mfp412-action-trigger{min-height:37px;width:100%;padding:7px 29px 7px 11px;border:1px solid var(--border);border-radius:10px;background:var(--card,var(--bg));color:var(--text);font:inherit;font-size:12px;font-weight:650;cursor:pointer;white-space:nowrap;text-align:left;position:relative}
+.mfp412-action-trigger:after{content:"⌄";position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.65}
+.mfp412-action-trigger:hover,.mfp412-action-trigger[aria-expanded=true]{border-color:var(--flow,var(--accent))}
+.mfp412-action-trigger:focus-visible{outline:2px solid var(--flow,var(--accent));outline-offset:2px}
+.mfp412-action-menu{position:fixed;z-index:15000;max-height:min(55dvh,360px);min-height:170px;border:1px solid var(--border);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;background:var(--card,var(--bg));color:var(--text);box-shadow:0 18px 50px #0006}
+.mfp412-action-search{display:flex;flex-direction:column;gap:7px;padding:12px 12px 9px;border-bottom:1px solid var(--border);font-size:12px;font-weight:800;color:var(--text)}
+.mfp412-action-search input{font:inherit;font-weight:500;font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:10px;min-width:0;width:100%;box-sizing:border-box}
+.mfp412-action-search input:focus-visible{outline:2px solid var(--flow,var(--accent));outline-offset:1px}
+.mfp412-action-options{overflow-y:auto;flex:1;padding:6px}
+.mfp412-action-option{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;text-align:left;border:0;border-radius:9px;background:transparent;color:var(--text);padding:8px;font:inherit;font-size:12px;font-weight:650;cursor:pointer}
+.mfp412-action-option:hover,.mfp412-action-option:focus-visible{background:color-mix(in srgb,var(--flow,var(--accent)) 16%,var(--card))}
+.mfp412-action-option[hidden]{display:none!important}
+.mfp412-action-icon{flex:0 0 22px;width:22px;height:22px;display:grid;place-items:center}
+.mfp412-action-icon svg,.mfp412-action-icon img{width:20px;height:20px;object-fit:contain;max-width:100%}
+.mfp412-action-empty{padding:0 14px;font-size:12px;color:var(--text-mute)}
+@media(max-width:650px){.mfp412-action-wrap{min-width:0;flex:1 1 125px}.mfp412-action-trigger{min-height:40px}.mfp412-action-menu{max-height:min(57dvh,400px)}}
