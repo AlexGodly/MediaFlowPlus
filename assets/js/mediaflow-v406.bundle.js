@@ -410,7 +410,8 @@ function localSetRaw(key,value){try{localStorage.setItem(key,JSON.stringify(valu
    - Keeps a per-account local safety cache and can recover newer unsynced state.
    - Requires an explicit user decision before replacing suspicious cloud state.
    ============================================================ */
-const V115_USER_CACHE_PREFIX='mf_cloud_cache_v2_';
+const V115_USER_CACHE_PREFIX='mfplus_puaqaobplyrdrujapznp_cloud_cache_v2_';
+const V407_PLUS_CACHE_KEY='mfplus_puaqaobplyrdrujapznp_cloud_cache';
 let V115_STARTUP_GUARD=true;
 let V115_BOOTSTRAP_OVERRIDE=false;
 let V115_BOOTSTRAP_DATA=undefined;
@@ -449,7 +450,7 @@ function v115WriteRecoveryCache(state,serializedState){
     let ok=false;
     try{localStorage.setItem(v115UserCacheKey(),wrappedJson);ok=true;}catch(_){}
     // Keep the legacy cache updated for backward compatibility with older builds.
-    try{localStorage.setItem(CLOUD_CACHE_KEY,stateJson);}catch(_){}
+    try{localStorage.setItem(V407_PLUS_CACHE_KEY,stateJson);}catch(_){}
     return ok;
   }catch(_){
     return false;
@@ -463,7 +464,7 @@ async function v115ReadRecoveryCache(){
     }
   }catch(_){}
   try{
-    const legacy=await localRawGet(CLOUD_CACHE_KEY);
+    const legacy=await localRawGet(V407_PLUS_CACHE_KEY);
     if(legacy&&typeof legacy==='object')return {state:legacy,source:'legacy',cachedAt:Number(legacy.savedAt)||0};
   }catch(_){}
   return null;
