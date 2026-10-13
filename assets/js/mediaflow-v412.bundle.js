@@ -66438,7 +66438,7 @@ window.MediaFlowPlusInbox412={release:412,refresh:in412Fetch,state:()=>({loaded:
 (function(){
 'use strict';
 const PS412={route:null,publicData:null,error:'',discover:[],subs:[],pubs:new Set(),profiles:[],
- lastSubs:0,publicBusy:false,shareBusy:false,discoverFilter:'',offset:0,publicToken:0};
+ lastSubs:0,publicBusy:false,shareBusy:false,discoverFilter:'',offset:0,publicToken:0,section:'',sectionOffset:0,sectionSeq:0,sectionData:null};
 const psEsc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const psHandle=x=>String(x||'').toLowerCase().trim();
 const psPublicUrl=username=>location.origin+location.pathname+'#/u/'+encodeURIComponent(username);
@@ -66457,7 +66457,7 @@ async function psProfile(){
 }
 async function psPublicRequest(kind,username='',id='',offset=0,limit=60){
  const q=new URLSearchParams({kind});if(username)q.set('username',username);
- if(id){q.set('collection_id',id);q.set('offset',String(offset));q.set('limit',String(limit));}
+ if(id){q.set(kind==='section'?'section':'collection_id',id);q.set('offset',String(offset));q.set('limit',String(limit));}
  const headers={'apikey':SUPABASE_PUBLISHABLE_KEY};
  if(AUTH_USER&&supabase){const r=await supabase.auth.getSession();if(r.data?.session?.access_token)headers.authorization='Bearer '+r.data.session.access_token;}
  const result=await fetch(SUPABASE_URL+'/functions/v1/mfp-public-workspace?'+q.toString(),{headers,cache:'no-store'});
@@ -66517,7 +66517,7 @@ async function psShareCollection(id){
 }
 function psGuestShell(){
  const route=psRoute();if(!route)return;
- PS412.route=route;PS412.publicData=null;PS412.error='';PS412.offset=0;
+ PS412.route=route;PS412.publicData=null;PS412.error='';PS412.offset=0;PS412.section='';PS412.sectionOffset=0;PS412.sectionSeq++;
  const app=document.getElementById('app');if(!app)return;
  app.innerHTML='<div class="ps412-guest-shell"><header class="ps412-public-head"><strong>MediaFlow Plus</strong><a href="'+location.pathname+'" class="btn btn-sm">Open MediaFlow Plus</a></header><main class="ps412-public-guest-content"><div id="ps412-public-host" role="main"><p>Loading public workspace…</p></div></main><footer>Shared live from the owner’s MediaFlow Plus workspace. Unpublished content remains private.</footer></div>';
  void psFetchRoute();
@@ -66534,6 +66534,88 @@ async function psFetchRoute(){
   psShowRoute();
  }catch(e){if(epoch!==PS412.publicToken)return;PS412.error=String(e?.message||e);psShowRoute();}
 }
+
+/* Owner-native read-only Community sections inspired by Personal v327-v329.
+ * All content arrives from the Plus Edge allowlist; no private workspace
+ * rows or copied public media are requested by the browser.
+ */
+const PS412_PUBLIC_TABS=[
+ ['library','Library'],['history','History'],['order','Personal Order'],
+ ['old','Old System'],['statistics','Statistics'],['ratings','Ratings'],
+ ['levels','Level & XP']
+];
+function psPublicTabsHtml(flags){
+ const enabled=PS412_PUBLIC_TABS.filter(([key])=>flags?.[key]===true);
+ if(!enabled.length)return '<div class="ps412-panel"><h2>Workspace visibility</h2><p>This member has not published any additional workspace sections.</p></div>';
+ return '<section class="ps412-panel ps412-live-workspace">'+
+ '<div class="ps412-panel-top"><div><h2>Live workspace</h2><p>Read-only views of the owner’s latest shared Workspace data — not duplicated Community records.</p></div><button type="button" class="btn btn-sm" onclick="App.ps412RefreshSection()">Refresh</button></div>'+
+ '<div class="ps412-live-tabs" role="tablist" aria-label="Published workspace sections">'+
+ enabled.map(([id,label],i)=>'<button type="button" role="tab" aria-selected="'+String(i===0)+'" data-ps412-tab="'+id+'" onclick="App.ps412Tab(\''+id+'\')">'+psEsc(label)+'</button>').join('')+
+ '</div><div id="ps412-live-section" aria-live="polite">Select a tab to load the latest published records.</div></section>';
+}
+function psPublicItemHtml(section,x,i){
+ const pos=PS412.sectionOffset+i+1;
+ if(section==='old')return '<div class="ps412-title"><span>'+pos+'.</span><strong>'+psEsc(x.category||'Category')+'</strong><small>Balance: '+psEsc(Number(x.balance||0).toLocaleString())+'</small></div>';
+ if(section==='history'){
+  return '<article class="ps412-history-row"><div class="ps412-history-head"><strong>'+psEsc(x.category||'Consumption')+'</strong><small>'+psEsc(x.date||'')+' · '+Number(x.minutes||0).toLocaleString()+' min · '+Number(x.amount||0).toLocaleString()+' '+psEsc(x.unit||'units')+'</small></div>'+
+  (x.titles?.length?'<p>'+x.titles.map(t=>psEsc(t.title)).join(' · ')+'</p>':'<p>No title details shared for this session</p>')+'</article>';
+ }
+ const meta=[x.category,x.status,x.priority].filter(Boolean).map(psEsc);
+ if(Number.isFinite(Number(x.progress))&&Number(x.total)>0)meta.push(Number(x.progress).toLocaleString()+' / '+Number(x.total).toLocaleString());
+ if(x.rating!=null)meta.push('★ '+Number(x.rating).toFixed(1)+'/10');
+ return '<article class="ps412-workspace-title"><span class="ps412-workspace-position">'+pos+'</span>'+
+ (x.cover_url?'<img src="'+psEsc(x.cover_url)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':'<span class="ps412-cover-fallback">▤</span>')+
+ '<div><strong>'+psEsc(x.title||'Untitled')+'</strong><p>'+meta.join(' · ')+'</p></div></article>';
+}
+function psSummaryHtml(section,summary){
+ if(section==='levels')return '<div class="ps412-panel"><p>'+psEsc(summary?.note||'Level comparison is not available until XP parity is verified.')+'</p></div>';
+ if(section!=='statistics'||!summary)return '<p>No public summary available.</p>';
+ const tiles=[['Library titles',summary.total_titles],['History entries',summary.total_sessions],
+  ['Minutes recorded',summary.total_minutes],['Completed titles',summary.completed_titles]];
+ const counts=rows=>Array.isArray(rows)?rows.slice(0,35).map(x=>'<div class="ps412-summary-entry"><span>'+psEsc(x.name||'Other')+'</span><b>'+Number(x.count||0).toLocaleString()+'</b></div>').join(''):'';
+ return '<div class="ps412-stats">'+tiles.map(([name,value])=>'<div><b>'+Number(value||0).toLocaleString()+'</b><small>'+psEsc(name)+'</small></div>').join('')+'</div>'+
+ '<div class="ps412-summary-columns"><div><h3>Titles by status</h3>'+counts(summary.by_status)+'</div><div><h3>Titles by category</h3>'+counts(summary.by_category)+'</div></div>';
+}
+function psRenderSection(){
+ const host=document.getElementById('ps412-live-section');if(!host)return;
+ const data=PS412.sectionData,section=PS412.section;
+ if(!data){host.innerHTML='<p>Loading live workspace data…</p>';return;}
+ if(data.error){host.innerHTML='<p role="alert">'+psEsc(data.error)+'</p><button type="button" class="btn" onclick="App.ps412RefreshSection()">Retry section</button>';return;}
+ let body='';
+ if(section==='statistics'||section==='levels')body=psSummaryHtml(section,data.summary);
+ else body='<div class="ps412-workspace-rows">'+((data.items||[]).length?data.items.map((x,i)=>psPublicItemHtml(section,x,i)).join(''):'<p>No publicly visible entries in this section yet.</p>')+'</div>';
+ const next=data.next_offset,previous=PS412.sectionOffset>0;
+ const pager=(previous||next!==null)?'<div class="ps412-pager">'+(previous?'<button type="button" class="btn" onclick="App.ps412SectionPage(-1)">← Previous</button>':'')+
+ '<small>'+Math.min(PS412.sectionOffset+1,Number(data.total||0)).toLocaleString()+'–'+Math.min(Number(data.total||0),PS412.sectionOffset+(data.items?.length||0)).toLocaleString()+' of '+Number(data.total||0).toLocaleString()+'</small>'+
+ (next!==null?'<button type="button" class="btn" onclick="App.ps412SectionPage(1)">Next →</button>':'')+'</div>':'';
+ host.innerHTML='<div class="ps412-live-status"><span>Viewing the owner’s current Workspace</span><span>Read-only · No copies</span></div>'+body+pager;
+}
+async function psFetchSection(){
+ const route=PS412.route||psRoute(),section=PS412.section;
+ if(!route||route.kind!=='profile'||!section)return;
+ if(PS412.publicData?.sections?.[section]!==true)return;
+ const seq=++PS412.sectionSeq;PS412.sectionData=null;psRenderSection();
+ try{
+  const data=await psPublicRequest('section',route.username,section,PS412.sectionOffset,40);
+  if(seq!==PS412.sectionSeq||PS412.section!==section)return;
+  if(data.source!=='current_owner_workspace'||data.stored_public_copy!==false)throw Error('Unexpected public sharing source');
+  PS412.sectionData=data;psRenderSection();
+ }catch(e){if(seq!==PS412.sectionSeq)return;PS412.sectionData={error:String(e?.message||'Section unavailable')};psRenderSection();}
+}
+function psSelectTab(tab){
+ if(!PS412_PUBLIC_TABS.some(([x])=>x===tab)||PS412.publicData?.sections?.[tab]!==true)return;
+ PS412.section=tab;PS412.sectionOffset=0;
+ for(const b of document.querySelectorAll('[data-ps412-tab]'))b.setAttribute('aria-selected',String(b.dataset.ps412Tab===tab));
+ void psFetchSection();
+}
+function psSectionPage(direction){
+ const d=PS412.sectionData;if(!d)return;
+ const step=40,offset=PS412.sectionOffset;
+ PS412.sectionOffset=direction>0&&d.next_offset!==null?d.next_offset:Math.max(0,offset-step);
+ void psFetchSection();
+}
+function psRefreshSection(){if(PS412.section)void psFetchSection();else if(PS412.route?.kind==='profile')void psFetchRoute();}
+
 function psShowRoute(){
  const host=document.getElementById('ps412-public-host');if(!host)return;
  const route=PS412.route;const data=PS412.publicData;
@@ -66544,7 +66626,9 @@ function psShowRoute(){
   host.innerHTML='<div class="ps412-profile-hero"><div class="ps412-avatar">'+psEsc((p.display_name||p.username||'?').charAt(0).toUpperCase())+'</div><div><h1>'+psEsc(p.display_name||p.username)+'</h1><p>@'+psEsc(p.username)+'</p><p>'+psEsc(p.bio||'')+'</p></div></div>'+
   (data.workspace?'<div class="ps412-stats"><div><b>'+Number(data.workspace.title_count||0).toLocaleString()+'</b><small>Titles in workspace</small></div><div><b>'+Number(data.workspace.collection_count||0).toLocaleString()+'</b><small>Personal collections</small></div><div><b>'+Number(data.workspace.category_count||0).toLocaleString()+'</b><small>Categories</small></div></div>':'')+
   (data.categories?.length?'<div class="ps412-panel"><h2>Shared workspace categories</h2><div class="ps412-chips">'+data.categories.map(x=>'<span>'+psEsc(x.name)+'</span>').join('')+'</div></div>':'')+
-  '<section class="ps412-panel"><h2>Published collections</h2>'+psCards(data.collections||[])+'</section>';
+  '<section class="ps412-panel"><h2>Published collections</h2>'+psCards(data.collections||[])+'</section>'+psPublicTabsHtml(data.sections||{});
+  if(!PS412.section||data.sections?.[PS412.section]!==true){PS412.section=PS412_PUBLIC_TABS.find(([key])=>data.sections?.[key]===true)?.[0]||'';PS412.sectionOffset=0;}
+  if(PS412.section){document.querySelectorAll('[data-ps412-tab]').forEach(el=>el.setAttribute('aria-selected',String(el.dataset.ps412Tab===PS412.section)));void psFetchSection();}
  }else{
   const c=data.collection||{},o=data.owner||{},rows=data.titles||[];
   host.innerHTML='<div class="ps412-profile-hero"><div><span>Live shared collection</span><h1>'+psEsc(c.title)+'</h1><p>by <a href="#/u/'+encodeURIComponent(o.username||route.username)+'">@'+psEsc(o.username||route.username)+'</a> · '+Number(data.total||0).toLocaleString()+' titles</p><p>'+psEsc(c.description||'')+'</p></div></div>'+
@@ -66566,7 +66650,7 @@ function psCopyCurrent(){void psCopy(location.href);}
 function psHashChanged(){
  const route=psRoute();
  if(!route)return;
- PS412.route=route;PS412.publicData=null;PS412.error='';PS412.offset=0;
+ PS412.route=route;PS412.publicData=null;PS412.error='';PS412.offset=0;PS412.section='';PS412.sectionOffset=0;PS412.sectionSeq++;
  if(AUTH_USER&&AUTH_READY&&document.querySelector('.sidebar')){
   S.view='publicshare';render();
  }else psGuestShell();
@@ -66681,7 +66765,14 @@ mfp408RenderRows=function(){
  if(MFP408.tab==='profile'){
   const p=MFP408.profile||{};
   const fields='<label class="ps412-showcase-setting"><input name="ps412_workspace_stats" type="checkbox" '+(p.show_workspace_stats?'checked':'')+'> Show workspace totals publicly</label>'+
-   '<label class="ps412-showcase-setting"><input name="ps412_workspace_categories" type="checkbox" '+(p.show_workspace_categories?'checked':'')+'> Show category names publicly</label>';
+   '<label class="ps412-showcase-setting"><input name="ps412_workspace_categories" type="checkbox" '+(p.show_workspace_categories?'checked':'')+'> Show category names publicly</label>'+
+   '<label class="ps412-showcase-setting"><input name="ps412_show_library" type="checkbox" '+(p.show_library?'checked':'')+'> Share Library (read-only)</label>'+
+   '<label class="ps412-showcase-setting"><input name="ps412_show_history" type="checkbox" '+(p.show_history?'checked':'')+'> Share History (read-only)</label>'+
+   '<label class="ps412-showcase-setting"><input name="ps412_show_personal_order" type="checkbox" '+(p.show_personal_order?'checked':'')+'> Share Personal Order (read-only)</label>'+
+   '<label class="ps412-showcase-setting"><input name="ps412_show_old_system" type="checkbox" '+(p.show_old_system?'checked':'')+'> Share Old System (read-only)</label>'+
+   '<label class="ps412-showcase-setting"><input name="ps412_show_statistics" type="checkbox" '+(p.show_statistics?'checked':'')+'> Share Statistics (read-only)</label>'+
+   '<label class="ps412-showcase-setting"><input name="ps412_show_ratings" type="checkbox" '+(p.show_ratings?'checked':'')+'> Share Ratings (read-only)</label>'+
+   '<label class="ps412-showcase-setting"><input name="ps412_show_levels" type="checkbox" '+(p.show_levels?'checked':'')+'> Share Level & XP (read-only)</label>';
   html=html.replace('<button type="submit">Save profile</button>',fields+'<button type="submit">Save profile</button>');
   if(!MFP408.profile)html=html.replace('name="is_public" type="checkbox" checked','name="is_public" type="checkbox"');
   html+='<div class="mfp408-card"><h3>Share your live workspace profile</h3><p>Only your explicitly enabled public sections and published collections are visible. Your private Library snapshot is never shared.</p>'+
@@ -66697,7 +66788,8 @@ App.mfp408SaveProfile=async function(e){
  await mfp408Mutation('mfp_profiles','upsert',{
   user_id:AUTH_USER.id,username,display_name:String(f.get('display_name')||'').slice(0,100),
   bio:String(f.get('bio')||'').slice(0,500),avatar_url:avatar||null,is_public:f.has('is_public'),
-  show_workspace_stats:f.has('ps412_workspace_stats'),show_workspace_categories:f.has('ps412_workspace_categories')
+  show_workspace_stats:f.has('ps412_workspace_stats'),show_workspace_categories:f.has('ps412_workspace_categories'),
+  show_library:f.has('ps412_show_library'), show_history:f.has('ps412_show_history'), show_personal_order:f.has('ps412_show_personal_order'), show_old_system:f.has('ps412_show_old_system'), show_statistics:f.has('ps412_show_statistics'), show_ratings:f.has('ps412_show_ratings'), show_levels:f.has('ps412_show_levels')
  });
 };
 const psCommunityTabBase=App.mfp408Tab;
@@ -66726,7 +66818,7 @@ MediaFlowRuntime.registerPageEnhancer('explorecollections',psDiscover);
 Object.assign(App,{ps412ShareProfile:psShareProfile,ps412TogglePublish:psTogglePublish,ps412ShareCollection:psShareCollection,
  ps412Unsubscribe:psUnsubscribe,ps412RefreshSubscriptions:()=>psLoadSubs(true),ps412Subscribe:psSubscribe,
  ps412Open:psOpen,ps412Back:psBack,ps412More:psMore,ps412Retry:psRetry,ps412CopyCurrent:psCopyCurrent,
- ps412Convert:psConvert,ps412Explore:psExplore,ps412FilterExplore:psFilterExplore});
+ ps412Convert:psConvert,ps412Explore:psExplore,ps412FilterExplore:psFilterExplore,ps412Tab:psSelectTab,ps412SectionPage:psSectionPage,ps412RefreshSection:psRefreshSection});
 setInterval(()=>{if(AUTH_USER&&String(S.view||'')==='collections'&&!V274_UI.activeId&&document.visibilityState==='visible')void psLoadSubs(true);},60000);
 window.MediaFlowPlusSharing412={release:412,live:true,canonical:'mediaflow_states',publicationRowsOnly:true,refreshSubscriptions:psLoadSubs};
 })();/* MediaFlow Plus — restored v320-inspired Friends workspace.
