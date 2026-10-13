@@ -7,7 +7,7 @@ assert(fs.readFileSync('index.html','utf8').includes('306-v414-community-home-na
 for(const v of ['function guestMount','function workspace','function navSync','function mobileLinks',
  'function navSettings','function directory','mfp414CommunityMenu',
  'MediaFlowRuntime.registerPageRenderer(\\'community\\'','App.lb413Tab','App.ps412Explore',
- 'App.setView(\\'inbox\\')',"App.setView('dashboard')", "type=browse", "kind=discover", "stored"] .filter(Boolean)){
+ "'friends':'inbox'","App.setView('dashboard')", "type=browse", "kind=discover", "stored"] .filter(Boolean)){
  // Backend projection does not have to mirror a stored catalog.
  if(v==='stored')continue;
  assert(source.includes(v),'Required Community navigation feature missing: '+v);
