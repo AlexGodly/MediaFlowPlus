@@ -3,7 +3,7 @@
  */
 const MFP412_INBOX={
   items:[],people:[],selected:'',search:'',mini:false,loading:false,ready:false,
-  error:'',lastFetch:0,requested:0,activeFetch:null,channel:null,timer:null
+  error:'',lastFetch:0,requested:0,activeFetch:null,channel:null,timer:null,ownerId:''
 };
 const mfp412Escape=value=>String(value==null?'':value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function mfp412InboxNav(){
@@ -164,6 +164,7 @@ function mfp412Pick(id){
  void mfp412InboxMarkRead(MFP412_INBOX.selected);
 }
 function mfp412ToggleMini(){
+ if(AUTH_USER)mfp412InboxStart();
  MFP412_INBOX.mini=!MFP412_INBOX.mini;
  if(MFP412_INBOX.mini){MFP412_INBOX.selected='';void mfp412InboxLoad(true);}
  mfp412InboxSyncWidget();
@@ -211,6 +212,11 @@ async function mfp412Send(event){
  return false;
 }
 function mfp412InboxStart(){
+ const current=mfp412InboxMe();
+ if(MFP412_INBOX.ownerId!==current){
+  if(MFP412_INBOX.channel&&supabase?.removeChannel)void supabase.removeChannel(MFP412_INBOX.channel);
+  MFP412_INBOX.channel=null;MFP412_INBOX.ownerId=current;MFP412_INBOX.items=[];MFP412_INBOX.people=[];MFP412_INBOX.selected='';MFP412_INBOX.lastFetch=0;MFP412_INBOX.ready=false;
+ }
  mfp412InboxSyncWidget();
  if(!MFP412_INBOX.timer)MFP412_INBOX.timer=setInterval(()=>{
   if(AUTH_READY&&AUTH_USER&&document.visibilityState==='visible')void mfp412InboxLoad(true);
@@ -230,7 +236,13 @@ function mfp412InboxStart(){
 const mfp412RenderBase=render;
 render=function(){const result=mfp412RenderBase.apply(this,arguments);requestAnimationFrame(mfp412InboxSyncWidget);return result;};
 const mfp412RenderShellBase=renderShell;
-renderShell=function(){const result=mfp412RenderShellBase.apply(this,arguments);requestAnimationFrame(mfp412InboxSyncWidget);return result;};
+renderShell=function(){const result=mfp412RenderShellBase.apply(this,arguments);requestAnimationFrame(()=>{mfp412InboxSyncWidget();if(AUTH_USER)mfp412InboxStart();});return result;};
+// Existing Community messages open the canonical Inbox rather than a second thread list.
+const mfp412CommunityTabBase=App.mfp408Tab;
+App.mfp408Tab=function(tab){if(tab==='messages'){mfp412OpenFull();return;}return mfp412CommunityTabBase.apply(this,arguments);};
+App.mfp408MessageTo=function(id){MFP412_INBOX.selected=String(id||'');mfp412OpenFull();};
+const mfp412AuthScreenBase=renderAuthScreen;
+renderAuthScreen=function(){const result=mfp412AuthScreenBase.apply(this,arguments);mfp412InboxStart();return result;};
 MediaFlowRuntime.registerPageRenderer('inbox',mfp412InboxPage);
 MediaFlowRuntime.registerPageEnhancer('inbox',mfp412InboxStart);
 Object.assign(App,{mfp412Pick,mfp412ToggleMini,mfp412MiniBack,mfp412OpenFull,mfp412Filter,mfp412Find,mfp412Send});
