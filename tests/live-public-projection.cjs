@@ -13,8 +13,8 @@ const profile={user_id:ownerId,username:'creator',display_name:'Demo Creator',bi
  show_statistics:false,show_ratings:false,show_levels:false};
 const SECRET='NEVER_RETURN_PRIVATE_NOTES_4398';
 const state={library:[
- {id:'alpha',title:'Alpha Series',categoryId:'cat1',rating:9.1,status:'active',priority:'high',progress:8,total:24,privateNotes:SECRET,coverUrl:'https://example.test/alpha.jpg'},
- {id:'beta',title:'Beta Series',categoryId:'cat1',rating:5,status:'completed',priority:'low',progress:12,total:12,privateNotes:SECRET},
+ {id:'alpha',title:'Alpha Series',malId:'1001',categoryId:'cat1',rating:9.1,status:'active',priority:'high',progress:8,total:24,privateNotes:SECRET,coverUrl:'https://example.test/alpha.jpg'},
+ {id:'beta',title:'Beta Series',simklId:'s02',categoryId:'cat1',rating:5,status:'completed',priority:'low',progress:12,total:12,privateNotes:SECRET},
  {id:'gamma',title:'Gamma',categoryId:'cat1',progress:0,total:20}
  ],categories:[{id:'cat1',name:'Anime',privateTag:SECRET}],sessions:[{date:'2026-10-12',timestamp:1791763200000,categoryId:'cat1',minutes:53,actualAmount:2,unit:'episodes',notes:SECRET,titles:[{title:'Alpha Series',libraryId:'alpha',qty:2,privateNote:SECRET}]}],
  collections:[{id:'c1',title:'Creator Picks',description:'Published list',titleIds:['alpha','beta'],privateNotes:SECRET}],
@@ -99,6 +99,22 @@ async function request(params,viewer=false){
  assert.equal(r.json.summary.available,false,'Do not invent unverifiable XP parity');
  r=await request({kind:'section',username:'creator',section:'madeup'});
  assert.equal(r.status,400);
+ // Community Browse and Top are computed live from opted-in original Library entries.
+ r=await request({kind:'catalog',scope:'titles'},false);
+ assert.equal(r.status,401,'Global live catalog must verify logged-in viewer');
+ r=await request({kind:'catalog',scope:'titles'},true);
+ assert.equal(r.status,200);assert.equal(r.json.items.length,2,'Provider-ID titles missing');
+ assert.equal(r.json.items[0].media_key,'mal:1001');
+ assert.equal(r.json.partial,false);assert.equal(r.json.stored_public_copy,false);
+ r=await request({kind:'catalog',scope:'top'},true);
+ assert.equal(r.status,200);assert.equal(r.json.items[0].average_rating,9.1);
+ profile.show_library=false;
+ r=await request({kind:'catalog',scope:'titles'},true);
+ assert.equal(r.json.items.length,0,'Private Library leaked into global Browse');
+ r=await request({kind:'catalog',scope:'top'},true);
+ assert.equal(r.json.items.length,2,'Independent opted-in ratings should remain available');
+ profile.show_library=true;
+
  blocked=true;
  r=await request({kind:'section',username:'creator',section:'library'},true);
  assert.equal(r.status,404,'Blocked viewer must not see public owner data');
