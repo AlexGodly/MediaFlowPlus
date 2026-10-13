@@ -52,6 +52,15 @@ const {chromium}=require('playwright');
  page.on('pageerror',err=>errors.push(err.message));
  page.on('console',msg=>{if(msg.type()==='error')console.error('[BROWSER]',msg.text().slice(0,700))});
  await page.route(/mediaflow-v\d+\.bundle\.js/,route=>route.fulfill({contentType:'application/javascript',body:patched}));
+ await page.route('**/functions/v1/mfp-public-workspace?*',route=>{
+  const url=new URL(route.request().url());
+  const kind=url.searchParams.get('kind');
+  const base={owner:{username:'demo',display_name:'Demo'},collection:{id:'c1',title:'Shared Example',description:'A public collection',count:1},titles:[{title:'A Public Title',category:'Anime'}],total:1,next_offset:null};
+  const payload=kind==='discover'?{collections:[{...base.collection,owner:base.owner}]}:
+    kind==='profile'?{profile:{username:'demo',display_name:'Demo',bio:'A public profile'},collections:[{...base.collection,owner:base.owner}],workspace:{title_count:12,collection_count:1,category_count:3}}:base;
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+ });
+
  await page.goto('http://127.0.0.1:8765/',{waitUntil:'domcontentloaded',timeout:45000});
  console.log('STARTUP DIAGNOSTICS',JSON.stringify({errors,html:await page.evaluate(()=>document.getElementById('app')?.textContent?.slice(0,180)),bundleLoaded:await page.evaluate(()=>!!window.__MF_SMOKE),version}));
  const boot=await page.evaluate(async()=>{await window.__MF_SMOKE.boot();return window.__MF_SMOKE.snapshot()});
@@ -85,6 +94,24 @@ const {chromium}=require('playwright');
  assert.equal(await page.evaluate(()=>window.__MF_SMOKE.snapshot().view),'inbox','Mini Inbox to full Inbox navigation failed');
  assert(snapshots.dashboard.root.match(/session|dashboard|recommend|today/i),'Dashboard UI absent');
  assert(snapshots.library.root.match(/library|add|title/i),'Library UI absent');
+ await page.evaluate(()=>window.App.setView('about'));
+ const about=await page.locator('#view-root').innerText();
+ assert(about.includes('What MediaFlow does')&&about.includes('FAQ')&&about.includes('Developer'),'Personal parity About content absent');
+ const aboutHref=await page.locator('#view-root a').filter({hasText:'Open latest web app'}).getAttribute('href');
+ assert(aboutHref?.includes('/MediaFlowPlus/'),'Plus About accidentally points at Personal edition');
+ await page.evaluate(()=>window.App.setView('explorecollections'));
+ await page.waitForTimeout(300);
+ assert(/Community Collections/i.test(await page.locator('#view-root').innerText()),'Community collection discovery absent');
+
+ await page.setViewportSize({width:390,height:760});
+ await page.evaluate(()=>window.App.setView('inbox'));
+ await page.waitForTimeout(150);
+ await page.evaluate(()=>window.App.in412Toggle());
+ const miniRect=await page.locator('#in412-float-wrap .in412-mini-panel').boundingBox();
+ assert(miniRect&&miniRect.x>=-1&&miniRect.x+miniRect.width<=392,'Mini Inbox clipped on mobile');
+ await page.evaluate(()=>window.App.in412Toggle());
+ await page.setViewportSize({width:1440,height:900});
+
  // Expired authentication must never leave Community stuck on Loading.
  await page.evaluate(()=>{window.__MF_SMOKE.dropAuth();window.App.setView('community')});
  await page.waitForTimeout(400);
@@ -99,6 +126,17 @@ const {chromium}=require('playwright');
  const recovery=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
  console.log('DASHBOARD RECOVERY',recovery.root.slice(0,400).replace(/\\n/g,' '));
  assert(/workspace has not loaded|PAGE RECOVERY|Start a session|Today/i.test(recovery.root),'Missing-state navigation produced a blank Dashboard instead of a working or recoverable view');
+
+ // Signed-out shared links must show public allowed data, not the Login wall.
+ await page.evaluate(()=>{window.location.hash='#/u/demo'});
+ await page.waitForTimeout(600);
+ const guestProfile=await page.locator('#ps412-public-host').innerText();
+ assert(/Demo|Published collections/i.test(guestProfile),'Guest public profile does not render');
+ await page.evaluate(()=>{window.location.hash='#/collection/demo/c1'});
+ await page.waitForTimeout(600);
+ const guestCollection=await page.locator('#ps412-public-host').innerText();
+ assert(/Shared Example|A Public Title/i.test(guestCollection),'Guest shared collection does not render');
+ assert(!guestCollection.includes('rawStateMarker'),'Guest public page disclosed private workspace');
 
  console.log('PAGE ERRORS',JSON.stringify(errors.slice(0,8)));
  assert.equal(errors.length,0,'Browser runtime errors encountered');
