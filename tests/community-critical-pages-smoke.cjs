@@ -39,7 +39,7 @@ const {chromium}=require('playwright');
  const boot=await page.evaluate(async()=>{await window.__MF_SMOKE.boot();return window.__MF_SMOKE.snapshot()});
  console.log('BOOT',JSON.stringify({view:boot.view,rootLength:boot.root.length,nav:boot.nav}));
  const snapshots={};
- for(const v of ['dashboard','library','history','community','dashboard','library']){
+ for(const v of ['dashboard','library','history','community','inbox','dashboard','library']){
   await page.evaluate(view=>window.App.setView(view),v);
   await page.waitForTimeout(v==='community'?1000:200);
   const snap=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
@@ -49,6 +49,15 @@ const {chromium}=require('playwright');
   assert(snap.root.trim().length>80,v+' unexpectedly blank');
  }
  assert(!/Loading community/i.test(snapshots.community.root),'Community spinner never settled');
+ assert(/conversations|Messages/i.test(snapshots.inbox.root),'Inbox missing');
+ await page.waitForTimeout(4300);
+ const floating=await page.evaluate(()=>!!document.getElementById('mf412-toggle'));
+ console.log('FLOATING INBOX',floating);
+ assert(floating,'Floating inbox button not mounted');
+ await page.evaluate(()=>window.App.mf412Toggle(true));
+ assert(await page.evaluate(()=>!document.getElementById('mf412-mini')?.hidden),'Mini Inbox does not open');
+ await page.evaluate(()=>window.App.mf412OpenPage());
+ assert.equal(await page.evaluate(()=>window.__MF_SMOKE.snapshot().view),'inbox','Mini Inbox to full Inbox navigation failed');
  assert(snapshots.dashboard.root.match(/session|dashboard|recommend|today/i),'Dashboard UI absent');
  assert(snapshots.library.root.match(/library|add|title/i),'Library UI absent');
  // Expired authentication must never leave Community stuck on Loading.
