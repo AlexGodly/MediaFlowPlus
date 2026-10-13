@@ -64,7 +64,7 @@ async function get(type,args={}){
  let b=await get('browse');
  assert.equal(b.data.total,0,'A private Library is excluded from discovery');
  let sec=await get('section',{username:'sample',section:'library'});
- assert.equal(sec.status,403,'A private Library page cannot be read');
+ assert.equal(sec.status,404,'Private profiles are not discoverable, including by workspace sections');
  assert.equal(stateRead,0,'No canonical state is fetched before privacy checks');
 
  meta.mfp_profiles[0].is_public=true;meta.mfp_profile_showcase[0].enabled=true;
@@ -77,6 +77,8 @@ async function get(type,args={}){
  b=await get('browse');
  assert.equal(b.data.total,0,'Public profile alone does not publish Library titles');
 
+ sec=await get('section',{username:'sample',section:'library'});
+ assert.equal(sec.status,403,'Public profile alone does not grant private Library page access');
  meta.mfp_profiles[0].show_library=true;
  b=await get('browse',{query:'Only',sort:'rated'});
  assert.equal(b.status,200);assert.equal(b.data.total,1);

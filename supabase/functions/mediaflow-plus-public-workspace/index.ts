@@ -85,7 +85,7 @@ async function browseDirectory(){
   const p=profiles.get(ref.owner_id);if(!p)continue;
   let s=states.get(ref.owner_id);
   if(!s){try{s=await stateFor(ref.owner_id)||{};}catch{continue;}states.set(ref.owner_id,s);}
-  const c=canonicalCollection(s,String(ref.collection_id));if(!c)continue;
+  const c=canonicalCollection(s,String(ref.collection_id));if(!c||!/^[A-Za-z0-9_-]{1,160}$/.test(String(c.id)))continue;
   collections.push({...safeCollectionHeader(c,ref.owner_id),username:text(p.username,24),display_name:text(p.display_name,100)});
  }
  return json({collections,source:"live",stored_public_copy:false});
@@ -107,7 +107,10 @@ async function browseVerified(query,sort,offset,limit){
   const seen=new Set();
   for(const t of Array.isArray(s?.library)?s.library:[]){
    if(!t||typeof t!=="object")continue;
-   const mal=text(t.malId||t.mal_id,80),simkl=text(t.simklId||t.simkl_id,80),title=text(t.title,250).trim();
+   const malRaw=text(t.malId||t.mal_id,80),simklRaw=text(t.simklId||t.simkl_id,80),
+    mal=/^[0-9]{1,80}$/.test(malRaw)?malRaw:"",
+    simkl=/^[A-Za-z0-9_-]{1,80}$/.test(simklRaw)?simklRaw:"",
+    title=text(t.title,250).trim();
    if((!mal&&!simkl)||!title||(term&&!title.toLowerCase().includes(term)))continue;
    const key=mal?"mal:"+mal:"simkl:"+simkl;
    if(seen.has(key))continue;seen.add(key);

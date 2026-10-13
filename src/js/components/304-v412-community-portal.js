@@ -70,8 +70,8 @@ mfp408RenderRows=function(){
   '<p>Optional: share verified title names, covers and media IDs from your current Library. Your Library is never copied to a Community catalog. Requires an enabled public showcase. Ratings appear only with separate ratings permission.</p>'+
   '<label><input id="mf412c-optin" type="checkbox" '+(MFP408.profile?.show_library===true?'checked':'')+'> Let Community Browse read verified titles from my live Library</label>'+
   '<button onclick="App.mf412SaveBrowseVisibility()">Save visibility</button></section>';
- if(MFP408.tab==='collections')html+='<section class="mfp408-card"><h3>Published live workspace collections</h3><p>Only collections published by their owners appear below. No duplicated titles.</p>'+
-  ((MF412_PORTAL.home?.collections||[]).length?(MF412_PORTAL.home.collections.map(mf412CollectionCard).join('')):'<p id="mf412c-collections-msg">Loading current shares…</p>')+'</section>';
+ if(MFP408.tab==='collections')return '<section class="mf412c-page"><header class="mf412c-pagehead"><span class="mf412c-kicker">PUBLIC WORKSPACE COLLECTIONS</span><h2>Community Collections</h2><p>Discover original collections, displayed live from their owners. Share your own from My Collections; no copied Community catalog.</p></header>'+
+  ((MF412_PORTAL.home?.collections||[]).length?(MF412_PORTAL.home.collections.map(mf412CollectionCard).join('')):'<p class="mf412c-empty">No public collections yet, or the live directory has not loaded.</p>')+'</section>';
  return html;
 };
 async function mf412Load(){
