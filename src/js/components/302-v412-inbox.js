@@ -2,7 +2,7 @@
  * One canonical Supabase mfp_messages table and one in-memory conversation store.
  * No shadow message table, no publication of private Library data.
  */
-const MFP412_INBOX={messages:[],profiles:new Map(),active:'',search:'',mini:false,loading:false,ready:false,error:'',draft:'',busy:false,lastFetch:0,channel:null,sessionUser:''};
+const MFP412_INBOX={messages:[],profiles:new Map(),active:'',search:'',mini:false,loading:false,ready:false,error:'',draft:'',busy:false,lastFetch:0,channel:null,sessionUser:'',refreshPending:false,refreshToken:0};
 const mfp412Esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const mfp412Who=id=>{
  const p=MFP412_INBOX.profiles.get(String(id||''));
@@ -84,6 +84,8 @@ function mfp412InboxEnsureFloating(){
   MFP412_INBOX.channel=null;MFP412_INBOX.messages=[];MFP412_INBOX.profiles=new Map();
   MFP412_INBOX.active='';MFP412_INBOX.draft='';MFP412_INBOX.search='';
   MFP412_INBOX.ready=false;MFP412_INBOX.lastFetch=0;MFP412_INBOX.error='';
+  // Invalidate any in-flight request before another account can render.
+  MFP412_INBOX.refreshToken++;MFP412_INBOX.refreshPending=false;MFP412_INBOX.loading=false;
   MFP412_INBOX.mini=false;MFP412_INBOX.sessionUser=currentUser;
  }
 
@@ -125,8 +127,10 @@ function mfp412SelectThread(id){
  if(id)void mfp412MarkRead();
 }
 async function mfp412InboxRefresh(){
- if(MFP412_INBOX.loading||!AUTH_USER||!supabase)return;
- const me=mfp412InboxMe();MFP412_INBOX.loading=true;
+ if(!AUTH_USER||!supabase)return;
+ if(MFP412_INBOX.loading){MFP412_INBOX.refreshPending=true;return;}
+ const me=mfp412InboxMe(),token=++MFP412_INBOX.refreshToken;
+ MFP412_INBOX.loading=true;
  try{
   const [messages,profiles]=await Promise.all([
    supabase.from('mfp_messages').select('id,sender_id,recipient_id,body,read_at,created_at').or('sender_id.eq.'+me+',recipient_id.eq.'+me).order('created_at',{ascending:false}).limit(500),
@@ -134,14 +138,27 @@ async function mfp412InboxRefresh(){
   ]);
   if(messages.error)throw messages.error;
   if(profiles.error)throw profiles.error;
-  if(me!==mfp412InboxMe())return; // an account switch must never show another user's messages
+  if(token!==MFP412_INBOX.refreshToken||me!==mfp412InboxMe())return; // stale account/refresh results must never render
   MFP412_INBOX.messages=messages.data||[];
   MFP412_INBOX.profiles=new Map((profiles.data||[]).map(p=>[String(p.user_id),p]));
   MFP412_INBOX.error='';MFP412_INBOX.ready=true;MFP412_INBOX.lastFetch=Date.now();
   mfp412DrawInbox();
   if(MFP412_INBOX.active)void mfp412MarkRead();
- }catch(e){MFP412_INBOX.error=String(e?.message||'Could not load messages. Please retry.');console.warn('MediaFlow Plus Inbox',e);mfp412DrawInbox();}
- finally{MFP412_INBOX.loading=false;}
+ }catch(e){
+  if(token===MFP412_INBOX.refreshToken&&me===mfp412InboxMe()){
+   MFP412_INBOX.error=String(e?.message||'Could not load messages. Please retry.');
+   console.warn('MediaFlow Plus Inbox',e);mfp412DrawInbox();
+  }
+ }finally{
+  if(token===MFP412_INBOX.refreshToken){
+   MFP412_INBOX.loading=false;
+   // Realtime notifications during a fetch must not be silently discarded.
+   if(MFP412_INBOX.refreshPending){
+    MFP412_INBOX.refreshPending=false;
+    if(me===mfp412InboxMe())void mfp412InboxRefresh();
+   }
+  }
+ }
 }
 async function mfp412MarkRead(){
  if(!MFP412_INBOX.active||!AUTH_USER||!supabase)return;
