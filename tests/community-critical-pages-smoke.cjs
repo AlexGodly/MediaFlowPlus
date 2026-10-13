@@ -21,6 +21,15 @@ const {chromium}=require('playwright');
  '  await v115StartWithData(undefined);',
  ' },',
  ' snapshot(){return {view:S.view,root:document.getElementById("view-root")?.innerText||"",nav:[...document.querySelectorAll(".nav-item")].map(x=>x.dataset.view)}},',
+ ' titleMembership(){',
+ ' const saved={library:S.library,plan:S.orderPlan,ui:S.orderPlannerUI};',
+ ' const cat=S.categories[0].id;',
+ ' S.library=[{id:"mf412-a",title:"Example A",categoryId:cat,status:"active",priority:"high"},{id:"mf412-b",title:"Example B",categoryId:cat,status:"active",priority:"medium"}];',
+ ' S.orderPlan={titleIds:["mf412-a"],viewMode:"all",categoryMode:"default",categoryOrder:[],hiddenCategories:[]};',
+ ' S.orderPlannerUI={search:"",picks:new Set(),page:0,pageSize:20,categories:[],status:"all",priority:"all",sort:"title-asc"};',
+ ' const counts={};for(const mode of ["all","notadded","added"]){S.orderPlannerUI.v412Show=mode;counts[mode]=v138PickerMatches().map(x=>x.id)}',
+ ' S.library=saved.library;S.orderPlan=saved.plan;S.orderPlannerUI=saved.ui;return counts;',
+ ' },',
  ' dropAuth(){AUTH_USER=null;},',
  ' corruptVolatileState(){S.settings=null;}',
  '};'
@@ -39,7 +48,7 @@ const {chromium}=require('playwright');
  const boot=await page.evaluate(async()=>{await window.__MF_SMOKE.boot();return window.__MF_SMOKE.snapshot()});
  console.log('BOOT',JSON.stringify({view:boot.view,rootLength:boot.root.length,nav:boot.nav}));
  const snapshots={};
- for(const v of ['dashboard','library','history','community','dashboard','library']){
+ for(const v of ['dashboard','library','history','community','inbox','dashboard','library']){
   await page.evaluate(view=>window.App.setView(view),v);
   await page.waitForTimeout(v==='community'?1000:200);
   const snap=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
@@ -49,6 +58,16 @@ const {chromium}=require('playwright');
   assert(snap.root.trim().length>80,v+' unexpectedly blank');
  }
  assert(!/Loading community/i.test(snapshots.community.root),'Community spinner never settled');
+ assert(/Inbox|conversations/i.test(snapshots.inbox.root),'Inbox missing from page');
+ assert(boot.nav.includes('inbox'),'Inbox missing from desktop navigation');
+ const show=await page.evaluate(()=>window.__MF_SMOKE.titleMembership());
+ console.log('TITLE MEMBERSHIP',JSON.stringify(show));
+ assert.deepEqual(show.all,['mf412-a','mf412-b'],'All titles must include assigned/unassigned');
+ assert.deepEqual(show.notadded,['mf412-b'],'Not added must exclude assigned');
+ assert.deepEqual(show.added,['mf412-a'],'Already added must show assigned');
+ const fab=await page.locator('#mfp412-inbox-widget .mfp412-fab').count();
+ assert.equal(fab,1,'Floating Inbox shortcut missing');
+
  assert(snapshots.dashboard.root.match(/session|dashboard|recommend|today/i),'Dashboard UI absent');
  assert(snapshots.library.root.match(/library|add|title/i),'Library UI absent');
  // Expired authentication must never leave Community stuck on Loading.
