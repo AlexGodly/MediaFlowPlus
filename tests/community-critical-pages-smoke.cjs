@@ -17,7 +17,7 @@ const {chromium}=require('playwright');
  '   if(key==="maybeSingle"||key==="single")return async()=>({data:null,error:null});',
  '   return (..._args)=>q();',
  '  }});',
- '  supabase={from:()=>q(),auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>{}}};',
+ '  supabase={from:()=>q(),auth:{getSession:async()=>({data:{session:{access_token:"synthetic-smoke-token"}}}),onAuthStateChange:()=>{}}};',
  '  await v115StartWithData(undefined);',
  ' },',
  ' snapshot(){return {view:S.view,root:document.getElementById("view-root")?.innerText||"",nav:[...document.querySelectorAll(".nav-item")].map(x=>x.dataset.view)}},',
@@ -58,7 +58,8 @@ const {chromium}=require('playwright');
   const base={owner:{username:'demo',display_name:'Demo'},collection:{id:'c1',title:'Shared Example',description:'A public collection',count:1},titles:[{title:'A Public Title',category:'Anime'}],total:1,next_offset:null};
   const payload=kind==='discover'?{collections:[{...base.collection,owner:base.owner}]}:
     kind==='profile'?{profile:{username:'demo',display_name:'Demo',bio:'A public profile'},collections:[{...base.collection,owner:base.owner}],workspace:{title_count:12,collection_count:1,category_count:3},sections:{library:true,history:true,order:false,old:false,statistics:true,ratings:true,levels:false}}:
-    kind==='section'?{section:url.searchParams.get('section'),source:'current_owner_workspace',stored_public_copy:false,items:[{id:'live-title-1',title:'Live Owner Title',category:'Seasonal Anime',status:'active',progress:1,total:12}],total:1,offset:0,next_offset:null,summary:null}:base;
+    kind==='section'?{section:url.searchParams.get('section'),source:'current_owner_workspace',stored_public_copy:false,items:[{id:'live-title-1',title:'Live Owner Title',category:'Seasonal Anime',status:'active',progress:1,total:12}],total:1,offset:0,next_offset:null,summary:null}:
+    kind==='catalog'?{source:'current_owner_workspace',stored_public_copy:false,scope:url.searchParams.get('scope'),partial:false,scanned_profiles:1,total:1,items:[{media_key:'mal:1001',title:'Demo Catalog Title',users_count:1,ratings_count:1,average_rating:9.1,cover_url:''}],offset:0,next_offset:null}:base;
   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
  });
 
@@ -67,7 +68,7 @@ const {chromium}=require('playwright');
  const boot=await page.evaluate(async()=>{await window.__MF_SMOKE.boot();return window.__MF_SMOKE.snapshot()});
  console.log('BOOT',JSON.stringify({view:boot.view,rootLength:boot.root.length,nav:boot.nav}));
  const snapshots={};
- for(const v of ['dashboard','library','history','community','friends','inbox','dashboard','library']){
+ for(const v of ['dashboard','library','history','community','friends','inbox','browse','dashboard','library']){
   await page.evaluate(view=>window.App.setView(view),v);
   await page.waitForTimeout(v==='community'?1000:200);
   const snap=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
@@ -80,13 +81,17 @@ const {chromium}=require('playwright');
  assert(/conversations|Messages/i.test(snapshots.inbox.root),'Inbox missing');
  assert(/Following|Followers|Mutuals/i.test(snapshots.friends.root),'Restored Friends tabs missing');
  assert(boot.nav.includes('friends'),'Friends missing from app navigation');
+ assert(boot.nav.includes('browse'),'Live Browse missing from app navigation');
 
  
  await page.evaluate(()=>{window.App.setView('community');window.App.mfp408Tab('reviews');});
  await page.waitForTimeout(350);
  const reviewsText=await page.locator('#view-root').innerText();
- assert(/One source of truth|Ratings · Live from your Library/i.test(reviewsText),'Reviews still use duplicated public media table');
+ assert(/Top Rated|Demo Catalog Title/i.test(reviewsText),'Community Top does not show the live canonical ratings directory');
  assert(!reviewsText.includes('Publish review'),'Duplicate rating publisher was not removed');
+ await page.evaluate(()=>window.App.lb413StartAdd('mal:1001'));
+ assert(await page.evaluate(()=>!!document.querySelector('#lb413-add-overlay .lb413-category-list button')),'Live Browse private Quick Add category dialog missing');
+ await page.evaluate(()=>window.App.lb413CloseAdd());
   const membership=await page.evaluate(()=>window.__MF_SMOKE.membershipTest());
  console.log('MEMBERSHIP',JSON.stringify(membership));
  assert.deepEqual(membership.all.sort(),['mf412-test-1','mf412-test-2'],'All titles should show eligible and added');
