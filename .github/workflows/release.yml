@@ -1,0 +1,69 @@
+name: Build and release MediaFlow Plus
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - VERSION
+      - 'src/js/**'
+      - 'scripts/build.py'
+      - 'scripts/pwa.py'
+      - 'package.json'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mediaflow-plus-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build release and PWA
+        run: |
+          python scripts/build.py
+          node --check "assets/js/mediaflow-v$(cat VERSION).bundle.js"
+          test "$(grep -o 'mediaflow-version" content="[0-9]*' index.html | head -1 | grep -o '[0-9]*$')" = "$(cat VERSION)"
+          grep -q 'puaqaobplyrdrujapznp.supabase.co' "assets/js/mediaflow-v$(cat VERSION).bundle.js"
+          if grep -q 'wgeijxfdpgehesxialxm.supabase.co' "assets/js/mediaflow-v$(cat VERSION).bundle.js"; then
+            echo "Original MediaFlow Supabase endpoint found in public bundle" >&2
+            exit 1
+          fi
+      - name: Commit generated assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html sw.js version.json "assets/js/mediaflow-v$(cat VERSION).bundle.js"
+          if ! git diff --cached --quiet; then
+            git commit -m "build: generate MediaFlow Plus v$(cat VERSION) production assets"
+            git push
+          fi
+      - name: Publish numeric tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(cat VERSION)"
+          if git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1 || gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists; refusing to move an immutable release."
+            exit 0
+          fi
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          if [ -f "docs/CHANGELOG_v${VERSION}.md" ]; then
+            gh release create "$VERSION" --title "v${VERSION} Stable" --notes-file "docs/CHANGELOG_v${VERSION}.md" --verify-tag
+          else
+            gh release create "$VERSION" --title "v${VERSION} Stable" --generate-notes --verify-tag
+          fi
