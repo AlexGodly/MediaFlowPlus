@@ -31,6 +31,7 @@ const {chromium}=require('playwright');
  ' S.library=saved.library;S.orderPlan=saved.plan;S.orderPlannerUI=saved.ui;return counts;',
  ' },',
  ' dropAuth(){AUTH_USER=null;},',
+ ' actionPicker(){const root=document.getElementById("view-root"); const select=document.createElement("select");select.innerHTML="<option value=\"\">Set priority…</option><option value=\"low\">Low</option><option value=\"medium\">Medium</option><option value=\"high\">High</option>";select.onchange=function(){window.__MF_ACTION_PICKED=this.value};root.append(select);mfp412ActionScan();return {upgraded:!!root.querySelector(".mfp412-action-wrap"),initial:window.__MF_ACTION_PICKED||null}}',
  ' corruptVolatileState(){S.settings=null;}',
  '};'
  ].join('\n');
@@ -67,6 +68,19 @@ const {chromium}=require('playwright');
  assert.deepEqual(show.added.rows,['mf412-a'],'Already added must show assigned');
  const fab=await page.locator('#mfp412-inbox-widget .mfp412-fab').count();
  assert.equal(fab,1,'Floating Inbox shortcut missing');
+ const action=await page.evaluate(()=>window.__MF_SMOKE.actionPicker());
+ assert.equal(action.upgraded,true,'Bulk action picker did not upgrade');
+ assert.equal(action.initial,null,'Picker mutated the canonical action before selection');
+ await page.locator('.mfp412-action-wrap .mfp412-action-trigger').last().click();
+ const search=page.locator('.mfp412-action-menu input[type="search"]');
+ await search.fill('high');
+ const matches=await page.locator('.mfp412-action-menu .mfp412-action-option:visible').count();
+ assert.equal(matches,1,'Searchable priority should show only matching options');
+ assert.equal(await page.evaluate(()=>window.__MF_ACTION_PICKED||null),null,'Typing must not assign priority');
+ await page.locator('.mfp412-action-menu .mfp412-action-option:visible').click();
+ assert.equal(await page.evaluate(()=>window.__MF_ACTION_PICKED),'high','Selected priority must execute original change handler');
+ console.log('SEARCHABLE ACTION PICKER passed');
+
 
  assert(snapshots.dashboard.root.match(/session|dashboard|recommend|today/i),'Dashboard UI absent');
  assert(snapshots.library.root.match(/library|add|title/i),'Library UI absent');
