@@ -396,6 +396,7 @@ function v138PickerResultsHtml(data){
   const page=data||v140OrderPickerPageData();
   const rows=page.rows;
   const picks=page.ui.picks;
+  const already=new Set(v138EnsureOrderPlan().titleIds.map(String));
 
   if(!rows.length){
     return `<div class="hint" style="padding:12px 2px">No Library titles match the current search and filters.</div>`;
@@ -404,10 +405,11 @@ function v138PickerResultsHtml(data){
   return rows.map(item=>{
     const c=v138OrderCategory(item.categoryId);
     const id=String(item.id);
-    return `<label class="v138-picker-row">
-      <input type="checkbox" ${picks.has(id)?'checked':''} onchange="App.v138ToggleOrderPick('${id}',this.checked)">
+    const isAdded=already.has(id);
+    return `<label class="v138-picker-row ${isAdded?'mfp412-already-added':''}">
+      <input type="checkbox" ${isAdded?'disabled aria-label="Already in Personal Order"':(picks.has(id)?'checked':'')} onchange="App.v138ToggleOrderPick('${id}',this.checked)">
       <span class="v138-picker-copy">
-        <b>${escapeHtml(cleanTitle(item.title))}</b>
+        <b>${escapeHtml(cleanTitle(item.title))}</b>${isAdded?'<em class="mfp412-added-tag">Already added</em>':''}
         <small>${v144CategoryIconHtml(c)} ${escapeHtml(c?.name||'Unknown')} · ${escapeHtml(v199StatusLabel(item.status))} · ${escapeHtml(v138ProgressText(item))}</small>
       </span>
     </label>`;
