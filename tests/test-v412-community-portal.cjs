@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const ui=fs.readFileSync('src/js/components/304-v412-community-portal.js','utf8');
+const edge=fs.readFileSync('supabase/functions/mediaflow-plus-public-workspace/index.ts','utf8');
+new vm.Script(ui,{filename:'304-v412-community-portal.js'});
+new vm.Script(edge.replace(/^import .*;$/gm,''),{filename:'public-projector.js'});
+assert(JSON.parse(fs.readFileSync('src/js/runtime-order.json')).includes('components/304-v412-community-portal.js'));
+assert(fs.readFileSync('index.html','utf8').includes('302-v412-community-portal.css'));
+for(const text of ['canPublish(owner)','eq("show_library",true)','eq("enabled",true)','eq("is_public",true)','stored_public_copy:false','if(type==="browse")','if(type==="directory")'])assert(edge.includes(text),text);
+for(const text of ['mf412HomeHtml','mf412BrowseHtml','mf412FriendsHtml','mf412SaveBrowseVisibility','mf412ConfirmAdd'])assert(ui.includes(text),text);
+console.log('v412 Community Home/Browse/Friends live-source privacy contracts passed');

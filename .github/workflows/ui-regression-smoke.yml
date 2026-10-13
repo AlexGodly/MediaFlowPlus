@@ -27,6 +27,8 @@ jobs:
           python-version: '3.12'
       - name: Build production bundle
         run: python scripts/build.py
+      - name: Verify Community live-source contracts
+        run: node tests/test-v412-community-portal.cjs
       - name: Install browser test runtime
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
