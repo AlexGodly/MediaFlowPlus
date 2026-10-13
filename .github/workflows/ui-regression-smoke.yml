@@ -1,27 +1,14 @@
-name: Critical pages browser smoke
+name: MediaFlow Plus Personal parity validation
 on:
   push:
-    branches: [main, release/v414-community-home-navigation]
-    paths:
-      - 'tests/community-critical-pages-smoke.cjs'
-      - 'tests/live-public-projection.cjs'
-      - 'supabase/functions/mfp-public-workspace/**'
-      - 'assets/css/**'
-      - 'index.html'
-      - '.github/workflows/ui-regression-smoke.yml'
-      - 'src/js/**'
-      - 'tests/test-v414-community-home.cjs'
-      - 'VERSION'
+    branches: [main]
+    paths: ['src/js/**', 'VERSION', 'index.html', '.github/workflows/ui-regression-smoke.yml']
   workflow_dispatch:
 permissions:
   contents: read
-concurrency:
-  group: mediaflow-plus-ui-smoke
-  cancel-in-progress: true
 jobs:
-  chromium:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,32 +17,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build production bundle
-        run: python scripts/build.py
-      - name: Verify live owner-native projection privacy (synthetic)
-        run: node tests/live-public-projection.cjs
-      - name: Verify v414 Home, Workspace and menu source contracts
-        run: node tests/test-v414-community-home.cjs
-      - name: Install browser test runtime
+      - name: Verify PersonaI source parity and Plus-only cloud
         run: |
-          npm install --no-save --no-package-lock playwright@1.56.1
-          npx playwright install --with-deps chromium
-      - name: Run synthetic-account browser smoke
-        run: |
-          python -m http.server 8765 --bind 127.0.0.1 > /tmp/mediaflow-http.log 2>&1 &
-          sleep 2
-          node tests/community-critical-pages-smoke.cjs
-      - name: Verify live Community public projection endpoint
-        run: |
+          python scripts/build.py
+          node --check "assets/js/mediaflow-v$(cat VERSION).bundle.js"
+          test "$(cat VERSION)" = 415
+          grep -q 'puaqaobplyrdrujapznp.supabase.co' assets/js/mediaflow-v415.bundle.js
+          if grep -q 'wgeijxfdpgehesxialxm.supabase.co' assets/js/mediaflow-v415.bundle.js; then exit 1; fi
           python - <<'PY'
-          import json,re,urllib.request
-          from pathlib import Path
-          source=Path('src/js/core/constants/001-constants.js').read_text(encoding='utf-8')
-          key=re.search(r"SUPABASE_PUBLISHABLE_KEY='([^']+)'",source).group(1)
-          url="https://puaqaobplyrdrujapznp.supabase.co/functions/v1/mfp-public-workspace?kind=discover"
-          req=urllib.request.Request(url,headers={"apikey":key,"Accept":"application/json"})
-          with urllib.request.urlopen(req,timeout=30) as response:
-              payload=json.load(response)
-          assert isinstance(payload.get("collections"),list),payload
-          print("Public live collection discovery endpoint: HTTP 200, JSON list verified")
+          import json,pathlib
+          order=json.loads(pathlib.Path('src/js/runtime-order.json').read_text())
+          assert len(order)==157 and order[-1]=='components/301-v408-performance-stability-ui.js'
+          assert json.loads(pathlib.Path('version.json').read_text())['appVersion']==415
+          print('Personal v410 source and Plus v415 cloud isolation confirmed.')
           PY

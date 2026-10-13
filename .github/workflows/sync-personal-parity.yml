@@ -1,0 +1,156 @@
+name: Synchronize Plus frontend from Personal (read-only)
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/sync-personal-parity.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: plus-personal-parity
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: github-pages
+      url: https://alexgodly.github.io/MediaFlowPlus/
+    steps:
+      - name: Checkout writable Plus repository
+        uses: actions/checkout@v4
+        with:
+          path: plus
+          fetch-depth: 0
+
+      - name: Read frozen Personal v410 repository (NEVER write Personal)
+        uses: actions/checkout@v4
+        with:
+          repository: AlexGodly/MediaFlow
+          ref: 5799e29fb494318de348c4b6b76843fd3ffe499d
+          path: personal
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /src/
+            /assets/
+            /scripts/
+            /VERSION
+            /index.html
+            /manifest.json
+            /icon.svg
+            /favicon.ico
+            /package.json
+            /vite.v260.config.ts
+            /vite.v261.config.ts
+
+      - name: Guard both edition boundaries
+        run: |
+          set -euo pipefail
+          test "$(cat personal/VERSION)" = 410
+          test "$(cat plus/VERSION)" = 414
+          python - <<'PY'
+          import pathlib,re,json,os
+          text=pathlib.Path('plus/src/js/core/constants/001-constants.js').read_text()
+          def capture(field):
+              m=re.search(r"(?m)^const "+field+r"='([^']+)';",text)
+              if not m: raise ValueError("Missing Plus public config "+field)
+              return m.group(1)
+          url,key=capture('SUPABASE_URL'),capture('SUPABASE_PUBLISHABLE_KEY')
+          assert url=='https://puaqaobplyrdrujapznp.supabase.co' and key.startswith('sb_publishable_')
+          pathlib.Path(os.environ['RUNNER_TEMP'],'plus-config.json').write_text(json.dumps({'url':url,'key':key}))
+          print('Plus project verified. Personal checkout has no credentials for pushing.')
+          PY
+
+      - name: Replace only Plus website files with Personal source
+        run: |
+          set -euo pipefail
+          rsync -a --delete personal/src/ plus/src/
+          rsync -a --delete --exclude='mediaflow-v*.bundle.js' personal/assets/ plus/assets/
+          rsync -a --delete personal/scripts/ plus/scripts/
+          for file in index.html manifest.json icon.svg favicon.ico package.json vite.v260.config.ts vite.v261.config.ts; do cp "personal/$file" "plus/$file"; done
+          python - <<'PY'
+          import pathlib,re,json,os
+          path=pathlib.Path('plus/src/js/core/constants/001-constants.js')
+          source=path.read_text()
+          config=json.loads(pathlib.Path(os.environ['RUNNER_TEMP'],'plus-config.json').read_text())
+          for field,value in [('SUPABASE_URL',config['url']),('SUPABASE_PUBLISHABLE_KEY',config['key'])]:
+              source,count=re.subn(r"(?m)^const "+field+r"='[^']*';",lambda _: "const "+field+"='"+value+"';",source)
+              if count!=1: raise ValueError('Cannot isolate Plus cloud config: '+field)
+          path.write_text(source)
+          pathlib.Path('plus/VERSION').write_text('415\n')
+          PY
+
+      - name: Verify Personal source hashes, build v415, reject cross-project traffic
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib,hashlib
+          base=pathlib.Path('personal')
+          other=pathlib.Path('plus')
+          checked=0
+          for sub in ['src','assets']:
+              for p in (base/sub).rglob('*'):
+                  if not p.is_file(): continue
+                  rel=p.relative_to(base)
+                  if str(rel)=='src/js/core/constants/001-constants.js':continue
+                  if rel.parent==pathlib.Path('assets/js') and p.name.startswith('mediaflow-v') and p.name.endswith('.bundle.js'):continue
+                  q=other/rel
+                  if not q.is_file() or hashlib.sha256(p.read_bytes()).digest()!=hashlib.sha256(q.read_bytes()).digest():
+                      raise RuntimeError('Personal source mismatch: '+str(rel))
+                  checked+=1
+          print('Source parity verified:',checked,'files (+ Plus-only public Supabase settings).')
+          PY
+          cd plus
+          python scripts/build.py
+          node --check assets/js/mediaflow-v415.bundle.js
+          test "$(cat VERSION)" = 415
+          grep -q 'puaqaobplyrdrujapznp.supabase.co' assets/js/mediaflow-v415.bundle.js
+          if grep -q 'wgeijxfdpgehesxialxm.supabase.co' assets/js/mediaflow-v415.bundle.js; then echo 'Personal database reference detected' >&2; exit 1; fi
+          if grep -q 'mfp414CommunityMenu' assets/js/mediaflow-v415.bundle.js; then echo 'Old Plus UI code detected' >&2; exit 1; fi
+          grep -q 'mediaflow-v415.bundle.js' index.html
+          grep -q 'mediaflow-version" content="415"' index.html
+          python - <<'PY'
+          import json,pathlib
+          assert json.loads(pathlib.Path('version.json').read_text())['version']==415
+          m=json.loads(pathlib.Path('manifest.json').read_text())
+          assert m['start_url']=='./' and m['scope']=='./'
+          print('Plus v415 standalone runtime/PWA validated.')
+          PY
+
+      - name: Commit imported files and immutable Plus v415 release
+        working-directory: plus
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A src assets scripts index.html manifest.json icon.svg favicon.ico package.json vite.v260.config.ts vite.v261.config.ts VERSION version.json sw.js
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(v415): exact Personal v410 frontend with independent Plus Supabase"
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
+          fi
+          if ! gh release view 415 >/dev/null 2>&1; then
+            git tag 415
+            git push origin 415
+            gh release create 415 --verify-tag --title "v415 Stable · Personal v410 parity" --notes "MediaFlow Plus frontend is an exact v410 Personal source mirror, with Plus-only Supabase configuration. No Personal files, users or data changed. Roll back using branch backup/plus-v414-before-personal-parity-20261013."
+          fi
+
+      - name: Request Pages branch-source deployment
+        working-directory: plus
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -X POST repos/AlexGodly/MediaFlowPlus/pages/builds >/dev/null
+          echo "Requested MediaFlow Plus GitHub Pages publication."
