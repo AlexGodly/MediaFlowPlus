@@ -249,6 +249,7 @@ function v140EnsureOrderPickerUI(){
   v138EnsureOrderPlan();
   const ui=S.orderPlannerUI=S.orderPlannerUI||{};
   ui.search=String(ui.search||'');
+  if(!['all','not-added','already-added'].includes(ui.v412Show))ui.v412Show='all';
   if(!(ui.picks instanceof Set))ui.picks=new Set(Array.isArray(ui.picks)?ui.picks.map(String):[]);
   ui.page=Math.max(0,Number(ui.page)||0);
   ui.pageSize=v175PageSize('orderLibrary');
@@ -271,7 +272,14 @@ function v138PickerMatches(){
   const existing=new Set(p.titleIds.map(String));
   const q=String(ui.search||'').trim().toLowerCase();
 
-  let rows=(S.library||[]).filter(i=>i?.id&&!existing.has(String(i.id)));
+  // v412: "All" includes every eligible Library title. Filtering membership
+  // never mutates Personal Order or loses the picker selection.
+  const show=['all','not-added','already-added'].includes(ui.v412Show)?ui.v412Show:'all';
+  let rows=(S.library||[]).filter(i=>{
+    if(!i?.id)return false;
+    const added=existing.has(String(i.id));
+    return show==='all'||(show==='already-added'?added:!added);
+  });
 
   // Search remains useful with no query: filters can browse the full Library.
   if(q){
@@ -347,6 +355,7 @@ function v140OrderPickerToolsHtml(data){
   const catLabel=ui.categories.length?`${ui.categories.length} categories selected`:'All categories';
 
   return `<div class="v140-order-filterbar">
+    <label class="mf412-show-filter"><span>Show titles</span><select aria-label="Show titles in Personal Order Add Titles" onchange="App.v412SetMembership('titles',this.value)"><option value="all" ${ui.v412Show==='all'?'selected':''}>All titles</option><option value="not-added" ${ui.v412Show==='not-added'?'selected':''}>Not added</option><option value="already-added" ${ui.v412Show==='already-added'?'selected':''}>Already added</option></select></label>
     <details class="v66-cat-filter">
       <summary class="btn">${escapeHtml(catLabel)} ▾</summary>
       <div class="v66-cat-panel">
@@ -512,6 +521,7 @@ function v140OrderClearFilters(){
   ui.status='all';
   ui.priority='all';
   ui.sort='relevance';
+  ui.v412Show='all';
   ui.page=0;
   v138RefreshPickerDOM();
 }
