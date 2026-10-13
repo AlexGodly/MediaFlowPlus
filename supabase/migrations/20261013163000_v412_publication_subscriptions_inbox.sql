@@ -15,12 +15,12 @@ create table if not exists public.mfp_collection_subscriptions (
  subscriber_id uuid not null references auth.users(id) on delete cascade,
  owner_id uuid not null references auth.users(id) on delete cascade,
  collection_id text not null check (char_length(collection_id) between 1 and 160),
- created_at timestamptz not null default now(),
+ subscribed_at timestamptz not null default now(),
  primary key(subscriber_id,owner_id,collection_id),
  check(subscriber_id<>owner_id)
 );
 create index if not exists mfp_colpub_recent_idx on public.mfp_collection_publications(created_at desc);
-create index if not exists mfp_subscriber_collections_idx on public.mfp_collection_subscriptions(subscriber_id,created_at desc);
+create index if not exists mfp_subscriber_collections_idx on public.mfp_collection_subscriptions(subscriber_id,subscribed_at desc);
 alter table public.mfp_collection_publications enable row level security;
 alter table public.mfp_collection_subscriptions enable row level security;
 revoke all on public.mfp_collection_publications from public,anon,authenticated;
