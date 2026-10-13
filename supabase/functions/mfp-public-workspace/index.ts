@@ -180,18 +180,18 @@ function liveOldRows(state,cats){
 function liveStats(state,cats){
  const library=Array.isArray(state.library)?state.library:[];
  const sessions=Array.isArray(state.sessions)?state.sessions:[];
- const statuses={},categories={};
+ const statuses=new Map(),categories=new Map();
  for(const t of library){
   const st=clean(t.status||"planned",35);
-  statuses[st]=(statuses[st]||0)+1;
+  statuses.set(st,(statuses.get(st)||0)+1);
   const name=cats.get(String(t.categoryId))||"Uncategorized";
-  categories[name]=(categories[name]||0)+1;
+  categories.set(name,(categories.get(name)||0)+1);
  }
  const mins=sessions.reduce((sum,s)=>sum+safeCount(s?.minutes,100000),0);
  return {total_titles:library.length,total_sessions:sessions.length,
   total_minutes:mins,completed_titles:library.filter(t=>String(t.status)==="completed").length,
-  by_status:Object.entries(statuses).map(([name,count])=>({name,count})),
-  by_category:Object.entries(categories).map(([name,count])=>({name,count}))};
+  by_status:[...statuses].map(([name,count])=>({name,count})),
+  by_category:[...categories].map(([name,count])=>({name,count}))};
 }
 function liveLevels(state){
  // Use existing authoritative persisted XP totals only when recognizable.
@@ -211,7 +211,12 @@ async function workspaceSection(owner,section,offset,limit){
  const cats=categoryIndex(state),byId=new Map(lib.filter(t=>t?.id).map(t=>[String(t.id),t]));
  const allowRatings=owner.show_ratings===true;
  let rows=[],summary=null;
- if(section==="library")rows=lib.filter(t=>t&&t.id).map(t=>titleProjection(t,cats,allowRatings));
+ if(section==="library"){
+  const selected=lib.filter(t=>t&&t.id);
+  return {section,owner:publicOwner(owner),items:selected.slice(offset,offset+limit).map(t=>titleProjection(t,cats,allowRatings)),
+   total:selected.length,offset,next_offset:offset+limit<selected.length?offset+limit:null,
+   summary:null,source:"current_owner_workspace",stored_public_copy:false};
+ }
  if(section==="ratings")rows=lib.filter(t=>t&&Number(t.rating)>0&&Number(t.rating)<=10)
   .sort((a,b)=>Number(b.rating)-Number(a.rating)||clean(a.title).localeCompare(clean(b.title)))
   .map(t=>titleProjection(t,cats,true));
