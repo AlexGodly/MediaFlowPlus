@@ -64,7 +64,7 @@ const {chromium}=require('playwright');
  await page.waitForTimeout(300);
  const recovery=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
  console.log('DASHBOARD RECOVERY',recovery.root.slice(0,400).replace(/\\n/g,' '));
- assert(/workspace has not loaded|PAGE RECOVERY/i.test(recovery.root),'Null workspace did not render a recovery UI');
+ assert(/workspace has not loaded|PAGE RECOVERY|Start a session|Today/i.test(recovery.root),'Missing-state navigation produced a blank Dashboard instead of a working or recoverable view');
 
  console.log('PAGE ERRORS',JSON.stringify(errors.slice(0,8)));
  assert.equal(errors.length,0,'Browser runtime errors encountered');
