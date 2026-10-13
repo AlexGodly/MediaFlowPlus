@@ -21,6 +21,7 @@ const {chromium}=require('playwright');
  '  await v115StartWithData(undefined);',
  ' },',
  ' snapshot(){return {view:S.view,root:document.getElementById("view-root")?.innerText||"",nav:[...document.querySelectorAll(".nav-item")].map(x=>x.dataset.view)}},',
+ ' debugBrowse(){try{const fn=V219_PAGE_RENDERERS.get("browse"),html=String(fn?.());return {functionName:fn?.name,preview:html.slice(0,360),length:html.length}}catch(e){return {error:String(e),stack:String(e.stack).slice(0,1100)}}},',
  '  membershipTest(){',
 '   const priorLibrary=S.library,priorPlan=S.orderPlan;',
 '   const categoryId=String(S.categories?.[0]?.id||\'\');',
@@ -74,7 +75,7 @@ const {chromium}=require('playwright');
   const snap=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
   snapshots[v]=snap;
   console.log('VIEW',v,'actual',snap.view,'text length',snap.root.length,'sample',snap.root.slice(0,450).replace(/\n/g,' '));
-  if(v==='browse'&&!snap.root.trim()){const debug=await page.evaluate(()=>({hasRenderer:window.MediaFlowRuntime?.hasPageRenderer('browse'),knownPages:window.MediaFlowRuntime?.getRegisteredPages(),rootHtml:document.getElementById('view-root')?.innerHTML?.slice(0,1200),appContent:document.getElementById('app')?.textContent?.slice(0,400),view:window.__MF_SMOKE.snapshot().view}));console.log('BROWSE CRITICAL DIAGNOSTICS',JSON.stringify(debug));}
+  if(v==='browse'&&!snap.root.trim()){const debug=await page.evaluate(()=>({hasRenderer:window.MediaFlowRuntime?.hasPageRenderer('browse'),knownPages:window.MediaFlowRuntime?.getRegisteredPages(),preview:window.__MF_SMOKE.debugBrowse(),rootHtml:document.getElementById('view-root')?.innerHTML?.slice(0,1200),appContent:document.getElementById('app')?.textContent?.slice(0,400),view:window.__MF_SMOKE.snapshot().view}));console.log('BROWSE CRITICAL DIAGNOSTICS',JSON.stringify(debug));}
   assert.equal(snap.view,v,'Navigation view mismatch for '+v);
   assert(snap.root.trim().length>80,v+' unexpectedly blank');
  }
