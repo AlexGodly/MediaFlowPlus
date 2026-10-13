@@ -69,6 +69,7 @@ const APP_SHELL=[
   "./assets/css/218-v412-live-public-workspaces.css",
   "./assets/css/219-v412-friends-and-source-integrity.css",
   "./assets/css/220-v413-live-workspace-tabs.css",
+  "./assets/css/221-v413-community-live-browse.css",
   "./assets/css/60-statistics.css",
   "./assets/css/155-v295-responsive-default-categories.css",
   "./assets/css/156-v296-category-recovery-responsive-more.css",
