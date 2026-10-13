@@ -101,7 +101,15 @@ function mfp412ToggleMini(open){
  if(MFP412_INBOX.mini){void mfp412InboxRefresh();document.querySelector('#mf412-mini-panel input[type="search"]')?.focus({preventScroll:true});}
 }
 function mfp412OpenFull(){MFP412_INBOX.mini=false;mfp412InboxEnsureFloating();App.setView('inbox');}
-function mfp412InboxSearch(query){MFP412_INBOX.search=String(query||'').slice(0,120);mfp412DrawInbox();}
+function mfp412InboxSearch(query){
+ const source=document.activeElement;
+ const mini=!!source?.closest?.('.mf412-inbox-mini');
+ const caret=typeof source?.selectionStart==='number'?source.selectionStart:String(query||'').length;
+ MFP412_INBOX.search=String(query||'').slice(0,120);
+ mfp412DrawInbox();
+ const target=document.querySelector((mini?'#mf412-mini-panel':'#mf412-inbox-body')+' .mf412-inbox-search input');
+ if(target){target.focus({preventScroll:true});try{target.setSelectionRange(caret,caret);}catch(_){}}
+}
 function mfp412SelectThread(id){
  MFP412_INBOX.active=String(id||'');MFP412_INBOX.draft='';
  mfp412DrawInbox();
