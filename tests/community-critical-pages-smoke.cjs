@@ -27,6 +27,7 @@ const {chromium}=require('playwright');
  ].join('\n');
  const patched=bundle.replace(/\}\)\(\);\s*$/,hook+'\n})();\n');
  assert.notEqual(patched,bundle,'Bundle closure not found');
+ new (require('node:vm').Script)(patched,{filename:'instrumented-mediaflow.js'});
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const page=await browser.newPage({viewport:{width:1440,height:900}});
  const errors=[];
