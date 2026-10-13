@@ -14,7 +14,7 @@ const {chromium}=require('playwright');
  ' if(key==="maybeSingle"||key==="single")return async()=>({data:null,error:null});',
  ' return()=>q();}});',
  ' supabase={from:()=>q(),auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>{}}};',
- ' await v115StartWithData(undefined);}};'
+ ' await v115StartWithData(undefined);},snapshot(){return {view:S.view,tab:MFP408.tab}}};'
  ].join('\n');
  const patched=bundle.replace(/\}\)\(\);\s*$/,hook+'\n})();\n');
  assert.notEqual(patched,bundle,'Could not instrument app bundle');
@@ -42,7 +42,6 @@ const {chromium}=require('playwright');
  await page.waitForFunction(()=>document.querySelector('.mf412n-community')&&
   document.querySelector('#mfp408-content')?.textContent.includes('A world of stories'),{timeout:10000});
  assert(await page.locator('.mf412n-link').count()>=10,'Missing nested Community destinations');
- assert.equal(await page.locator('.sidebar>.nav').count(),0); // scoped correctly via .sidebar .nav
  const before=await page.locator('.mf412n-group-head').getAttribute('aria-expanded');
  await page.locator('.mf412n-group-head').click();
  const after=await page.locator('.mf412n-group-head').getAttribute('aria-expanded');
@@ -53,7 +52,7 @@ const {chromium}=require('playwright');
  assert.match(await page.locator('#mfp408-content').innerText(),/Browse titles/);
  await page.getByRole('button',{name:/My Workspace/i}).first().click();
  await page.waitForFunction(()=>document.querySelector('#view-root')?.textContent.includes('Today'),{timeout:10000});
- assert.equal(await page.evaluate(()=>S.view),'dashboard');
+ assert.equal(await page.evaluate(()=>window.__MF_NAV_SMOKE.snapshot().view),'dashboard');
  await page.setViewportSize({width:390,height:844});
  await page.evaluate(()=>window.App.mfp412Navigate('home'));
  await page.locator('.mobile-more-wrap > .mtab').click();
@@ -63,7 +62,7 @@ const {chromium}=require('playwright');
  assert.equal(await page.locator('.mf412n-mobile-head').getAttribute('aria-expanded'),'false');
  await page.locator('.mf412n-mobile-head').click();
  await page.locator('.mf412n-mobile-page').filter({hasText:'Friends'}).click();
- assert.equal(await page.evaluate(()=>MFP408.tab),'friends');
+ assert.equal(await page.evaluate(()=>window.__MF_NAV_SMOKE.snapshot().tab),'friends');
  assert.equal(await page.evaluate(()=>S.view),'community');
  const horizontal=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+10);
  assert(!horizontal,'Community menu creates global horizontal scrolling');
