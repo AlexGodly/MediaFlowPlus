@@ -61,6 +61,7 @@ function mfp412PublicCollectionView(data){
 }
 async function mfp412Route(){
  const hash=location.hash,stamp=hash;
+ if(hash.startsWith('#/community'))return;
  if(!hash.startsWith('#/u/')&&!hash.startsWith('#/collection/')){mfp412PublicClose();return;}
  mfp412PublicLoading();
  try{

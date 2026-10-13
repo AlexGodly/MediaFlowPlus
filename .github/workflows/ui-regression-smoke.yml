@@ -43,6 +43,8 @@ jobs:
           node tests/test-v412-membership-live.cjs
       - name: Check Workspace and Community menu contract
         run: node tests/test-v412-workspace-nav.cjs
+      - name: Check public Home and Workspace routes
+        run: node tests/test-v412-public-home.cjs
       - name: Install browser test runtime
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1

@@ -160,5 +160,6 @@
   "components/303-v412-live-community.js",
   "components/304-v412-community-portal.js",
   "components/305-v412-live-public-pages.js",
-  "components/306-v412-workspace-community-navigation.js"
+  "components/306-v412-workspace-community-navigation.js",
+  "components/307-v412-public-community-home.js"
 ]
