@@ -65565,7 +65565,28 @@ function mfp408Nav(){
  ICONS.community='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20v-2a6 6 0 0 1 12 0v2M15 15a5 5 0 0 1 7 5"/></svg>';
 }
 mfp408Nav();
+function mfp408Failure(message){
+ if(String(S.view||'')!=='community')return;
+ const root=document.getElementById('mfp408-content');
+ if(!root)return;
+ root.innerHTML='<section class="mfp408-card mfp408-recovery" role="alert"><h3>Community is temporarily unavailable</h3><p>'+mfp408Esc(message||'We could not complete the request. Your Library and cloud data have not been changed.')+'</p><div class="mfp408-actions"><button type="button" onclick="App.mfp408Retry()">Retry community</button>'+(AUTH_USER?'':'<button type="button" onclick="window.MediaFlowAuth.show(\'login\')">Sign in</button>')+'</div></section>';
+}
+function mfp408Retry(){
+ const root=document.getElementById('mfp408-content');
+ if(root)root.innerHTML='<p class="mfp408-muted">Connecting to the community…</p>';
+ void mfp408Fetch();
+}
+function mfp408LoadingWatch(){
+ // The renderer and the Supabase requests may complete at different times.
+ // Never leave a skeleton visible indefinitely if auth or a request stalls.
+ setTimeout(()=>{
+  const root=document.getElementById('mfp408-content');
+  if(String(S.view||'')==='community'&&root&&/^(?:Loading community|Connecting to the community)/.test((root.textContent||'').trim()))
+   mfp408Failure('The Community request took too long or could not start. Retry, or sign in again if your session expired.');
+ },12000);
+}
 function mfp408Renderer(){
+ mfp408LoadingWatch();
  return '<div class="mfp408"><header class="mfp408-hero"><div><span class="mfp408-kicker">MEDIAFLOW PLUS</span><h1>Community</h1><p>Discover people, share what you love, and find your next favorite.</p></div><span class="mfp408-pill">Public edition</span></header><nav class="mfp408-tabs" aria-label="Community sections">'+MFP408_TABS.map(([k,n])=>'<button type="button" class="'+(MFP408.tab===k?'selected':'')+'" onclick="App.mfp408Tab(\''+k+'\')">'+n+'</button>').join('')+'</nav><div id="mfp408-notice" role="status" aria-live="polite"></div><main id="mfp408-content" aria-live="polite"><p class="mfp408-muted">Loading community…</p></main></div>';
 }
 function mfp408RenderRows(){
@@ -65603,7 +65624,7 @@ function mfp408RenderRows(){
 }
 async function mfp408Fetch(){
  const tab=MFP408.tab,me=AUTH_USER?.id,client=supabase;
- if(!client||!me)return;
+ if(!client||!me){mfp408Failure('Your MediaFlow Plus session is unavailable. Sign in again to access Community.');return;}
  try{
   let p=await client.from('mfp_profiles').select('*').eq('user_id',me).maybeSingle();if(p.error)throw p.error;MFP408.profile=p.data;
   let q=client.from('mfp_profiles').select('user_id,username,display_name,bio,is_public').limit(150);let people=await q;if(people.error)throw people.error;MFP408.profiles=people.data||[];
@@ -65619,7 +65640,7 @@ async function mfp408Fetch(){
   MFP408.rows=res.data||[];
   if(tab==='feed'&&MFP408.rows.length){let likes=await client.from('mfp_likes').select('post_id').eq('user_id',me).in('post_id',MFP408.rows.map(x=>x.id));if(!likes.error)MFP408.likes=new Set((likes.data||[]).map(x=>x.post_id));}
   if(S.view==='community'){let root=document.getElementById('mfp408-content');if(root)root.innerHTML=mfp408RenderRows();}
- }catch(e){mfp408Error(e);const el=document.getElementById('mfp408-content');if(el)el.textContent='Community could not load. Check your connection and retry.'}
+ }catch(e){mfp408Error(e);mfp408Failure('Could not load Community. Check your connection or session, then retry.')}
 }
 async function mfp408Mutation(table,method,payload,filter){
  if(MFP408.busy)return;MFP408.busy=true;
@@ -65654,6 +65675,6 @@ function mfp408More(){MFP408.limit=Math.min(120,MFP408.limit+12);mfp408Fetch()}
 let mfp408SearchTimer=null;function mfp408Search(s){MFP408.search=s;clearTimeout(mfp408SearchTimer);mfp408SearchTimer=setTimeout(()=>{mfp408Fetch().then(()=>{let next=document.getElementById('mfp408-search');if(next){next.focus();next.setSelectionRange(s.length,s.length)}})},250)}
 MediaFlowRuntime.registerPageRenderer('community',mfp408Renderer);
 MediaFlowRuntime.registerPageEnhancer('community',mfp408Fetch);
-Object.assign(App,{mfp408Tab,mfp408SaveProfile,mfp408Post,mfp408Collection,mfp408Review,mfp408Like,mfp408Comments,mfp408Comment,mfp408Follow,mfp408Block,mfp408MessageTo,mfp408Message,mfp408Read,mfp408Delete,mfp408Report,mfp408More,mfp408Search});
+Object.assign(App,{mfp408Retry,mfp408Tab,mfp408SaveProfile,mfp408Post,mfp408Collection,mfp408Review,mfp408Like,mfp408Comments,mfp408Comment,mfp408Follow,mfp408Block,mfp408MessageTo,mfp408Message,mfp408Read,mfp408Delete,mfp408Report,mfp408More,mfp408Search});
 
 })();
