@@ -1,7 +1,7 @@
 name: Critical pages browser smoke
 on:
   push:
-    branches: [main]
+    branches: [main, feature/v412-smart-community]
     paths:
       - 'tests/community-critical-pages-smoke.cjs'
       - '.github/workflows/ui-regression-smoke.yml'

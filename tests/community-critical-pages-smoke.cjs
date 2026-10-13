@@ -21,7 +21,17 @@ const {chromium}=require('playwright');
  '  await v115StartWithData(undefined);',
  ' },',
  ' snapshot(){return {view:S.view,root:document.getElementById("view-root")?.innerText||"",nav:[...document.querySelectorAll(".nav-item")].map(x=>x.dataset.view)}},',
+ ' titleMembership(){',
+ ' const saved={library:S.library,plan:S.orderPlan,ui:S.orderPlannerUI};',
+ ' const cat=S.categories[0].id;',
+ ' S.library=[{id:"mf412-a",title:"Example A",categoryId:cat,status:"active",priority:"high"},{id:"mf412-b",title:"Example B",categoryId:cat,status:"active",priority:"medium"}];',
+ ' S.orderPlan={titleIds:["mf412-a"],viewMode:"all",categoryMode:"default",categoryOrder:[],hiddenCategories:[]};',
+ ' S.orderPlannerUI={search:"",picks:new Set(),page:0,pageSize:20,categories:[],status:"all",priority:"all",sort:"title-asc"};',
+ ' const counts={};for(const mode of ["all","notadded","added"]){S.orderPlannerUI.v412Show=mode;counts[mode]={rows:v138PickerMatches().map(x=>x.id),mode:v140EnsureOrderPickerUI().v412Show,existing:v138EnsureOrderPlan().titleIds.slice()}}',
+ ' S.library=saved.library;S.orderPlan=saved.plan;S.orderPlannerUI=saved.ui;return counts;',
+ ' },',
  ' dropAuth(){AUTH_USER=null;},',
+ ' actionPicker(){const root=document.getElementById("view-root"); const select=document.createElement("select");select.innerHTML="<option value=>Set priority…</option><option value=low>Low</option><option value=medium>Medium</option><option value=high>High</option>";select.onchange=function(){window.__MF_ACTION_PICKED=this.value};root.append(select);mfp412ActionScan();return {upgraded:!!root.querySelector(".mfp412-action-wrap"),initial:window.__MF_ACTION_PICKED||null}},',
  ' corruptVolatileState(){S.settings=null;}',
  '};'
  ].join('\n');
@@ -39,7 +49,7 @@ const {chromium}=require('playwright');
  const boot=await page.evaluate(async()=>{await window.__MF_SMOKE.boot();return window.__MF_SMOKE.snapshot()});
  console.log('BOOT',JSON.stringify({view:boot.view,rootLength:boot.root.length,nav:boot.nav}));
  const snapshots={};
- for(const v of ['dashboard','library','history','community','dashboard','library']){
+ for(const v of ['dashboard','library','history','community','inbox','dashboard','library']){
   await page.evaluate(view=>window.App.setView(view),v);
   await page.waitForTimeout(v==='community'?1000:200);
   const snap=await page.evaluate(()=>window.__MF_SMOKE.snapshot());
@@ -49,6 +59,29 @@ const {chromium}=require('playwright');
   assert(snap.root.trim().length>80,v+' unexpectedly blank');
  }
  assert(!/Loading community/i.test(snapshots.community.root),'Community spinner never settled');
+ assert(/Inbox|conversations/i.test(snapshots.inbox.root),'Inbox missing from page');
+ assert(boot.nav.includes('inbox'),'Inbox missing from desktop navigation');
+ const show=await page.evaluate(()=>window.__MF_SMOKE.titleMembership());
+ console.log('TITLE MEMBERSHIP',JSON.stringify(show));
+ assert.deepEqual(show.all.rows,['mf412-a','mf412-b'],'All titles must include assigned/unassigned');
+ assert.deepEqual(show.notadded.rows,['mf412-b'],'Not added must exclude assigned');
+ assert.deepEqual(show.added.rows,['mf412-a'],'Already added must show assigned');
+ const fab=await page.locator('#mfp412-inbox-widget .mfp412-fab').count();
+ assert.equal(fab,1,'Floating Inbox shortcut missing');
+ const action=await page.evaluate(()=>window.__MF_SMOKE.actionPicker());
+ assert.equal(action.upgraded,true,'Bulk action picker did not upgrade');
+ assert.equal(action.initial,null,'Picker mutated the canonical action before selection');
+ await page.locator('.mfp412-action-wrap .mfp412-action-trigger').last().click();
+ const search=page.locator('.mfp412-action-menu input[type="search"]');
+ await search.fill('high');
+ const matches=await page.locator('.mfp412-action-menu .mfp412-action-option:visible').count();
+ assert.equal(matches,1,'Searchable priority should show only matching options');
+ assert.equal(await page.evaluate(()=>window.__MF_ACTION_PICKED||null),null,'Typing must not assign priority');
+ await page.locator('.mfp412-action-menu .mfp412-action-option:visible').click();
+ assert.equal(await page.evaluate(()=>window.__MF_ACTION_PICKED),'high','Selected priority must execute original change handler');
+ console.log('SEARCHABLE ACTION PICKER passed');
+
+
  assert(snapshots.dashboard.root.match(/session|dashboard|recommend|today/i),'Dashboard UI absent');
  assert(snapshots.library.root.match(/library|add|title/i),'Library UI absent');
  // Expired authentication must never leave Community stuck on Loading.

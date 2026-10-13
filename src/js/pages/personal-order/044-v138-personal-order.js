@@ -271,7 +271,10 @@ function v138PickerMatches(){
   const existing=new Set(p.titleIds.map(String));
   const q=String(ui.search||'').trim().toLowerCase();
 
-  let rows=(S.library||[]).filter(i=>i?.id&&!existing.has(String(i.id)));
+  // v412: membership is relative to Personal Order, not to the main Library.
+  // Showing an existing item is read-only; the canonical add path still deduplicates.
+  const show=ui.v412Show==='added'||ui.v412Show==='notadded'?ui.v412Show:'all';
+  let rows=(S.library||[]).filter(i=>i?.id&&(show==='all'||(show==='added'?existing.has(String(i.id)):!existing.has(String(i.id)))));
 
   // Search remains useful with no query: filters can browse the full Library.
   if(q){
@@ -393,6 +396,7 @@ function v138PickerResultsHtml(data){
   const page=data||v140OrderPickerPageData();
   const rows=page.rows;
   const picks=page.ui.picks;
+  const already=new Set(v138EnsureOrderPlan().titleIds.map(String));
 
   if(!rows.length){
     return `<div class="hint" style="padding:12px 2px">No Library titles match the current search and filters.</div>`;
@@ -401,10 +405,11 @@ function v138PickerResultsHtml(data){
   return rows.map(item=>{
     const c=v138OrderCategory(item.categoryId);
     const id=String(item.id);
-    return `<label class="v138-picker-row">
-      <input type="checkbox" ${picks.has(id)?'checked':''} onchange="App.v138ToggleOrderPick('${id}',this.checked)">
+    const isAdded=already.has(id);
+    return `<label class="v138-picker-row ${isAdded?'mfp412-already-added':''}">
+      <input type="checkbox" ${isAdded?'disabled aria-label="Already in Personal Order"':(picks.has(id)?'checked':'')} onchange="App.v138ToggleOrderPick('${id}',this.checked)">
       <span class="v138-picker-copy">
-        <b>${escapeHtml(cleanTitle(item.title))}</b>
+        <b>${escapeHtml(cleanTitle(item.title))}</b>${isAdded?'<em class="mfp412-added-tag">Already added</em>':''}
         <small>${v144CategoryIconHtml(c)} ${escapeHtml(c?.name||'Unknown')} · ${escapeHtml(v199StatusLabel(item.status))} · ${escapeHtml(v138ProgressText(item))}</small>
       </span>
     </label>`;
