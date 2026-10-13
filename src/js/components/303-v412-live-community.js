@@ -155,7 +155,7 @@ App.mfp408Tab=function(tab){
  return result;
 };
 async function mfp412OpenShareDialog(id){
- const collection=v274CollectionById(id);if(!collection||!AUTH_USER)return;
+ const collection=v274CollectionById(id);if(!collection||!AUTH_USER||!/^[A-Za-z0-9_-]{1,160}$/.test(String(id)))return;
  await mfp412LoadShowcase();
  const on=MFP412_SHARE.shown.has(String(id));
  document.getElementById('mf412-share-dialog')?.remove();
@@ -195,6 +195,7 @@ function mfp412CopyCollection(owner,id){void mfp412Copy(mfp412CollectionLink(own
 const mfp412CollectionDetailBase=v274CollectionDetailHtml;
 v274CollectionDetailHtml=function(c){
  const html=mfp412CollectionDetailBase.apply(this,arguments);
+ if(!/^[A-Za-z0-9_-]{1,160}$/.test(String(c?.id||'')))return html;
  return html.replace('<div class="mf274-hero-actions">','<div class="mf274-hero-actions"><button class="btn btn-sm" onclick="App.mfp412OpenShareDialog(\''+mfp412ShareEsc(c.id)+'\')">Share collection</button>');
 };
 function mfp412CommunitySection(){
