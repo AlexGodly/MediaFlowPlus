@@ -157,5 +157,11 @@
   "components/300-v411-critical-pages-recovery.js",
   "components/301-v412-inbox.js",
   "components/302-v412-membership-filters.js",
-  "components/303-v412-searchable-actions.js"
+  "components/303-v412-searchable-actions.js",
+  "components/301-v412-smart-filters-actions.js",
+  "components/302-v412-bulk-picker-cleanup.js",
+  "components/303-v412-performance-stability-ui.js",
+  "components/304-v412-about-parity.js",
+  "components/305-v412-inbox.js",
+  "components/306-v412-live-public-workspaces.js"
 ]
