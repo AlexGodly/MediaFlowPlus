@@ -41,6 +41,8 @@ jobs:
         run: |
           node tests/v412-membership-contract.cjs
           node tests/test-v412-membership-live.cjs
+      - name: Check Workspace and Community menu contract
+        run: node tests/test-v412-workspace-nav.cjs
       - name: Install browser test runtime
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
