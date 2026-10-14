@@ -11,8 +11,8 @@
 
    ============================================================ */
 
-const SUPABASE_URL='https://puaqaobplyrdrujapznp.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_nbfeKXdimfBv7lsbiJCBAw_54HIEr0G';
+const SUPABASE_URL='https://wgeijxfdpgehesxialxm.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_d2P0qZlvGZOSqcUzEg3BNg_3wQsHY_M';
 const SUPABASE_CONFIGURED=SUPABASE_URL.startsWith('https://')&&!SUPABASE_URL.includes('YOUR_')&&!!SUPABASE_PUBLISHABLE_KEY&&!SUPABASE_PUBLISHABLE_KEY.includes('YOUR_');
 let supabase=null,AUTH_USER=null,AUTH_READY=false,AUTH_MODE='login';
 if(SUPABASE_CONFIGURED&&window.supabase?.createClient)supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -410,8 +410,7 @@ function localSetRaw(key,value){try{localStorage.setItem(key,JSON.stringify(valu
    - Keeps a per-account local safety cache and can recover newer unsynced state.
    - Requires an explicit user decision before replacing suspicious cloud state.
    ============================================================ */
-const V115_USER_CACHE_PREFIX='mfplus_puaqaobplyrdrujapznp_cloud_cache_v2_';
-const V407_PLUS_CACHE_KEY='mfplus_puaqaobplyrdrujapznp_cloud_cache';
+const V115_USER_CACHE_PREFIX='mf_cloud_cache_v2_';
 let V115_STARTUP_GUARD=true;
 let V115_BOOTSTRAP_OVERRIDE=false;
 let V115_BOOTSTRAP_DATA=undefined;
@@ -450,7 +449,7 @@ function v115WriteRecoveryCache(state,serializedState){
     let ok=false;
     try{localStorage.setItem(v115UserCacheKey(),wrappedJson);ok=true;}catch(_){}
     // Keep the legacy cache updated for backward compatibility with older builds.
-    try{localStorage.setItem(V407_PLUS_CACHE_KEY,stateJson);}catch(_){}
+    try{localStorage.setItem(CLOUD_CACHE_KEY,stateJson);}catch(_){}
     return ok;
   }catch(_){
     return false;
@@ -464,7 +463,7 @@ async function v115ReadRecoveryCache(){
     }
   }catch(_){}
   try{
-    const legacy=await localRawGet(V407_PLUS_CACHE_KEY);
+    const legacy=await localRawGet(CLOUD_CACHE_KEY);
     if(legacy&&typeof legacy==='object')return {state:legacy,source:'legacy',cachedAt:Number(legacy.savedAt)||0};
   }catch(_){}
   return null;
@@ -47188,8 +47187,8 @@ const v267RenderShellBase=renderShell;
 renderShell=function(){
   const out=v267RenderShellBase.apply(this,arguments);
   if(String(S.view||'')==='dashboard'){
-    queueMicrotask(()=>{try{App.v265EnhanceBalance?.();}catch(_){ }});
-    requestAnimationFrame(()=>{try{App.v265EnhanceBalance?.();v267UpdateVersionChrome();}catch(_){ }});
+    queueMicrotask(()=>{try{v265EnhanceBalance();}catch(_){ }});
+    requestAnimationFrame(()=>{try{v265EnhanceBalance();v267UpdateVersionChrome();}catch(_){ }});
   }
   return out;
 };
@@ -47199,10 +47198,10 @@ render=function(){
   v267CloseAllOrderPortals();
   const out=v267RenderBase.apply(this,arguments);
   if(String(S.view||'')==='dashboard'){
-    try{App.v265EnhanceBalance?.();}catch(_){ }
-    queueMicrotask(()=>{try{App.v265EnhanceBalance?.();}catch(_){ }});
+    try{v265EnhanceBalance();}catch(_){ }
+    queueMicrotask(()=>{try{v265EnhanceBalance();}catch(_){ }});
   }
-  requestAnimationFrame(()=>{try{v267EnhanceOrder();v267UpdateVersionChrome();if(String(S.view||'')==='dashboard')App.v265EnhanceBalance?.();}catch(error){console.error('MediaFlow v267 enhancement failed',error);}});
+  requestAnimationFrame(()=>{try{v267EnhanceOrder();v267UpdateVersionChrome();if(String(S.view||'')==='dashboard')v265EnhanceBalance();}catch(error){console.error('MediaFlow v267 enhancement failed',error);}});
   return out;
 };
 
@@ -63809,6 +63808,9 @@ function mf397Ensure(){
   const host=document.querySelector('#app .sidebar');
   if(!host){document.getElementById('mf397-dock')?.remove();document.getElementById('mf397-dimmer')?.remove();return false;}
   if(document.getElementById('mf397-dock'))return true;
+  // v410: start mobile progress minimized to avoid blocking Dashboard content.
+  // The existing progress toggle still opens the complete progress card.
+  if(!MF397.booted && window.matchMedia?.('(max-width:720px)').matches)MF397.compact=true;
   document.body.insertAdjacentHTML('beforeend',mf397Markup());
   document.getElementById('mf397-fab').addEventListener('click',()=>mf397SetMenu(!MF397.open));
   document.getElementById('mf397-dimmer').addEventListener('click',()=>mf397SetMenu(false));
@@ -65552,241 +65554,6 @@ window.MediaFlowV405={version:V405_RELEASE,preferences:V405_FLOATING_KEYS,
   settingsHtml:v405FloatingSettingsHtml,injectSettings:v405InsertFloatingSettings,
   syncDock:v405SyncDock,audit:v405AuditDataIntegrity};
 MediaFlowRuntime.version=V405_RELEASE;
-/* MediaFlow Plus v408 — Community Ecosystem. No personal library data is published automatically. */
-const MFP408={tab:'feed',busy:false,profile:null,rows:[],profiles:[],topRows:[],likes:new Set(),comments:{},target:null,search:'',page:0,limit:12,unread:0};
-const MFP408_TABS=[['feed','Feed'],['people','People'],['collections','Collections'],['reviews','Reviews & Top'],['messages','Messages'],['notifications','Alerts'],['profile','My profile']];
-const mfp408Esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const mfp408Name=id=>{let p=MFP408.profiles.find(x=>x.user_id===id);return p?('@'+p.username):'Community member'};
-const mfp408Error=e=>{console.error('MediaFlow Plus Community',e);mfp408Notice(e?.message||String(e),true)};
-function mfp408Notice(msg,error=false){const el=document.getElementById('mfp408-notice');if(el){el.textContent=msg;el.classList.toggle('error',error);}}
-function mfp408SafeURL(url){try{const u=new URL(url);return u.protocol==='https:'?u.href:''}catch(_){return ''}}
-function mfp408Nav(){
- if(!NAV_ITEMS.some(n=>n.id==='community'))NAV_ITEMS.splice(Math.max(0,NAV_ITEMS.length-2),0,{id:'community',label:'Community'});
- if(!MOBILE_MORE_NAV.includes('community'))MOBILE_MORE_NAV.unshift('community');
- // Re-normalize the persisted navigation layout so existing accounts can see the new page.
- if(typeof v161NormalizeNavLayout==='function')S.navLayout=v161NormalizeNavLayout(S.navLayout);
- ICONS.community='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20v-2a6 6 0 0 1 12 0v2M15 15a5 5 0 0 1 7 5"/></svg>';
-}
-mfp408Nav();
-function mfp408Failure(message){
- if(String(S.view||'')!=='community')return;
- const root=document.getElementById('mfp408-content');
- if(!root)return;
- root.innerHTML='<section class="mfp408-card mfp408-recovery" role="alert"><h3>Community is temporarily unavailable</h3><p>'+mfp408Esc(message||'We could not complete the request. Your Library and cloud data have not been changed.')+'</p><div class="mfp408-actions"><button type="button" onclick="App.mfp408Retry()">Retry community</button>'+(AUTH_USER?'':'<button type="button" onclick="window.MediaFlowAuth.show(\'login\')">Sign in</button>')+'</div></section>';
-}
-function mfp408Retry(){
- const root=document.getElementById('mfp408-content');
- if(root)root.innerHTML='<p class="mfp408-muted">Connecting to the community…</p>';
- void mfp408Fetch();
-}
-function mfp408LoadingWatch(){
- // The renderer and the Supabase requests may complete at different times.
- // Never leave a skeleton visible indefinitely if auth or a request stalls.
- setTimeout(()=>{
-  const root=document.getElementById('mfp408-content');
-  if(String(S.view||'')==='community'&&root&&/^(?:Loading community|Connecting to the community)/.test((root.textContent||'').trim()))
-   mfp408Failure('The Community request took too long or could not start. Retry, or sign in again if your session expired.');
- },12000);
-}
-function mfp408Renderer(){
- mfp408LoadingWatch();
- return '<div class="mfp408"><header class="mfp408-hero"><div><span class="mfp408-kicker">MEDIAFLOW PLUS</span><h1>Community</h1><p>Discover people, share what you love, and find your next favorite.</p></div><span class="mfp408-pill">Public edition</span></header><nav class="mfp408-tabs" aria-label="Community sections">'+MFP408_TABS.map(([k,n])=>'<button type="button" class="'+(MFP408.tab===k?'selected':'')+'" onclick="App.mfp408Tab(\''+k+'\')">'+n+'</button>').join('')+'</nav><div id="mfp408-notice" role="status" aria-live="polite"></div><main id="mfp408-content" aria-live="polite"><p class="mfp408-muted">Loading community…</p></main></div>';
-}
-function mfp408RenderRows(){
- const r=MFP408.rows,me=AUTH_USER?.id,esc=mfp408Esc;
- const top='<div class="mfp408-heading"><h2>'+({'feed':'Community feed','people':'Discover people','collections':'Shared collections','reviews':'Reviews and community ratings','messages':'Direct messages','notifications':'Notifications','profile':'Public profile'}[MFP408.tab]||'Community')+'</h2><span>'+r.length+' results</span></div>';
- let html='';
- if(MFP408.tab==='profile'){
-  const p=MFP408.profile;
-  html='<div class="mfp408-card"><h3>Your community identity</h3><p class="mfp408-muted">Your library stays private. Only what you explicitly share appears here.</p><form onsubmit="return App.mfp408SaveProfile(event)"><label>Username<input name="username" required minlength="3" maxlength="24" pattern="[a-z0-9_]+" placeholder="username" value="'+esc(p?.username||'')+'"></label><label>Display name<input name="display_name" maxlength="100" value="'+esc(p?.display_name||'')+'"></label><label>Bio<textarea name="bio" maxlength="500">'+esc(p?.bio||'')+'</textarea></label><label>Avatar URL (HTTPS)<input name="avatar_url" type="url" placeholder="https://…" value="'+esc(p?.avatar_url||'')+'"></label><label class="mfp408-check"><input name="is_public" type="checkbox" '+(p?.is_public!==false?'checked':'')+'> Public profile</label><button type="submit">Save profile</button></form></div>';
- }else if(!MFP408.profile){
-  html='<div class="mfp408-card"><h3>Create your community identity</h3><p>Choose a unique username in My profile before posting, following, reviewing or messaging.</p><button onclick="App.mfp408Tab(\'profile\')">Set up profile</button></div>';
- }else if(MFP408.tab==='feed'){
-  html='<div class="mfp408-card"><h3>Share an update</h3><form onsubmit="return App.mfp408Post(event)"><label>What are you watching, reading or recommending?<textarea name="body" maxlength="3000" required placeholder="Share a thought with the community…"></textarea></label><label>Related title (optional)<input name="title_name" maxlength="250" placeholder="Title name"></label><button type="submit">Publish post</button></form></div>';
-  html+=r.map(x=>'<article class="mfp408-card"><div class="mfp408-meta">'+esc(mfp408Name(x.user_id))+' · '+new Date(x.created_at).toLocaleDateString()+'</div>'+(x.title_name?'<strong>'+esc(x.title_name)+'</strong>':'')+'<p class="mfp408-body">'+esc(x.body)+'</p><div class="mfp408-actions"><button onclick="App.mfp408Like(\''+x.id+'\')">'+(MFP408.likes.has(x.id)?'♥ Liked':'♡ Like')+'</button><button onclick="App.mfp408Comments(\''+x.id+'\')">Comments</button>'+(x.user_id===me?'<button onclick="App.mfp408Delete(\'mfp_posts\',\''+x.id+'\')">Delete</button>':'<button onclick="App.mfp408Report(\'post\',\''+x.id+'\')">Report</button>')+'</div><div id="mfp408-comments-'+x.id+'"></div></article>').join('');
- }else if(MFP408.tab==='people'){
-  html='<div class="mfp408-card"><label>Find usernames<input id="mfp408-search" placeholder="Search public profiles" maxlength="40" value="'+esc(MFP408.search)+'" oninput="App.mfp408Search(this.value)"></label></div>';
-  html+=r.filter(x=>x.user_id!==me).map(x=>'<article class="mfp408-card mfp408-person"><div><h3>@'+esc(x.username)+'</h3><strong>'+esc(x.display_name)+'</strong><p>'+esc(x.bio)+'</p></div><div class="mfp408-actions"><button onclick="App.mfp408Follow(\''+x.user_id+'\')">Follow / Unfollow</button><button onclick="App.mfp408MessageTo(\''+x.user_id+'\')">Message</button><button onclick="App.mfp408Block(\''+x.user_id+'\')">Block</button><button onclick="App.mfp408Report(\'profile\',\''+x.user_id+'\')">Report</button></div></article>').join('');
- }else if(MFP408.tab==='collections'){
-  html='<div class="mfp408-card"><h3>Publish a curated collection</h3><p class="mfp408-muted">Enter title names manually. Your private library is never uploaded.</p><form onsubmit="return App.mfp408Collection(event)"><label>Collection name<input name="title" maxlength="120" required></label><label>Description<textarea name="description" maxlength="1000"></textarea></label><label>Titles (one per line, up to 300)<textarea name="titles" rows="4" required></textarea></label><button type="submit">Publish collection</button></form></div>';
-  html+=r.map(x=>'<article class="mfp408-card"><div class="mfp408-meta">'+esc(mfp408Name(x.user_id))+'</div><h3>'+esc(x.title)+'</h3><p>'+esc(x.description)+'</p><div class="mfp408-chips">'+(Array.isArray(x.titles)?x.titles:[]).slice(0,30).map(t=>'<span>'+esc(t)+'</span>').join('')+'</div><div class="mfp408-actions">'+(x.user_id===me?'<button onclick="App.mfp408Delete(\'mfp_collections\',\''+x.id+'\')">Delete</button>':'<button onclick="App.mfp408Report(\'collection\',\''+x.id+'\')">Report</button>')+'</div></article>').join('');
- }else if(MFP408.tab==='reviews'){
-  
-  html='<div class="mfp408-card"><h3>Rate a title</h3><form onsubmit="return App.mfp408Review(event)"><label>Title<input name="title_name" required maxlength="250"></label><label>Media ID (MAL, SIMKL or a unique title key)<input name="media_key" required maxlength="200" placeholder="mal:12345"></label><label>Rating / 10<input name="rating" type="number" min="0" max="10" step="0.5" required></label><label>Review<textarea name="body" maxlength="3000"></textarea></label><button type="submit">Publish review</button></form></div>';
-  html+='<div class="mfp408-card"><h3>Top community ratings</h3><p class="mfp408-muted">Ranked across all visible reviews, not just this page.</p>'+(MFP408.topRows.length?MFP408.topRows.map((x,i)=>'<p><b>#'+(i+1)+'</b> '+esc(x.title_name)+' · <b>'+Number(x.average_rating).toFixed(2)+'/10</b> ('+Number(x.rating_count)+' ratings)</p>').join(''):'<p class="mfp408-muted">No community ratings yet.</p>')+'</div>';
-  html+=r.map(x=>'<article class="mfp408-card"><div class="mfp408-meta">'+esc(mfp408Name(x.user_id))+'</div><h3>'+esc(x.title_name)+' · '+Number(x.rating).toFixed(1)+'/10</h3><p>'+esc(x.body)+'</p>'+(x.user_id===me?'<button onclick="App.mfp408Delete(\'mfp_reviews\',\''+x.id+'\')">Delete</button>':'<button onclick="App.mfp408Report(\'review\',\''+x.id+'\')">Report</button>')+'</article>').join('');
- }else if(MFP408.tab==='messages'){
-  html='<div class="mfp408-card"><h3>Send a message</h3><form onsubmit="return App.mfp408Message(event)"><label>Recipient username<input name="username" required value="'+esc(MFP408.target||'')+'" placeholder="username"></label><label>Message<textarea name="body" required maxlength="2000"></textarea></label><button type="submit">Send message</button></form></div>';
-  html+=r.map(x=>'<article class="mfp408-card"><div class="mfp408-meta">'+esc(x.sender_id===me?'You → '+mfp408Name(x.recipient_id):mfp408Name(x.sender_id)+' → You')+' · '+new Date(x.created_at).toLocaleString()+'</div><p>'+esc(x.body)+'</p>'+(x.sender_id!==me?'<button onclick="App.mfp408MessageTo(\''+x.sender_id+'\')">Reply</button>':'')+'</article>').join('');
- }else if(MFP408.tab==='notifications'){
-  html=r.map(x=>'<article class="mfp408-card"><div class="mfp408-meta">'+new Date(x.created_at).toLocaleString()+'</div><p>'+esc(mfp408Name(x.actor_id))+' · '+esc(x.kind)+'</p>'+(x.is_read?'':'<button onclick="App.mfp408Read(\''+x.id+'\')">Mark read</button>')+'</article>').join('');
- }
- if(!r.length&&MFP408.tab!=='profile'&&MFP408.profile)html+='<p class="mfp408-muted">Nothing here yet. Be the first to contribute.</p>';
- if(r.length>=MFP408.limit&&MFP408.tab!=='profile')html+='<button class="mfp408-more" onclick="App.mfp408More()">Load more</button>';
- return top+html;
-}
-async function mfp408Fetch(){
- const tab=MFP408.tab,me=AUTH_USER?.id,client=supabase;
- if(!client||!me){mfp408Failure('Your MediaFlow Plus session is unavailable. Sign in again to access Community.');return;}
- try{
-  let p=await client.from('mfp_profiles').select('*').eq('user_id',me).maybeSingle();if(p.error)throw p.error;MFP408.profile=p.data;
-  let q=client.from('mfp_profiles').select('user_id,username,display_name,bio,is_public').limit(150);let people=await q;if(people.error)throw people.error;MFP408.profiles=people.data||[];
-  let res={data:[],error:null};
-  if(tab==='feed')res=await client.from('mfp_posts').select('*').order('created_at',{ascending:false}).range(0,MFP408.limit-1);
-  if(tab==='people')res=await client.from('mfp_profiles').select('*').eq('is_public',true).ilike('username','%'+MFP408.search.replace(/[%_,]/g,'')+'%').order('username').range(0,MFP408.limit-1);
-  if(tab==='collections')res=await client.from('mfp_collections').select('*').order('created_at',{ascending:false}).range(0,MFP408.limit-1);
-  if(tab==='reviews')res=await client.from('mfp_reviews').select('*').order('created_at',{ascending:false}).range(0,MFP408.limit-1);
-  if(tab==='messages')res=await client.from('mfp_messages').select('*').or('sender_id.eq.'+me+',recipient_id.eq.'+me).order('created_at',{ascending:false}).range(0,MFP408.limit-1);
-  if(tab==='notifications')res=await client.from('mfp_notifications').select('*').order('created_at',{ascending:false}).range(0,MFP408.limit-1);
-  if(res.error)throw res.error;
-  if(tab==='reviews'){const top=await client.from('mfp_top_rated').select('media_key,title_name,rating_count,average_rating').order('average_rating',{ascending:false}).order('rating_count',{ascending:false}).limit(25);if(top.error)throw top.error;MFP408.topRows=top.data||[];}
-  MFP408.rows=res.data||[];
-  if(tab==='feed'&&MFP408.rows.length){let likes=await client.from('mfp_likes').select('post_id').eq('user_id',me).in('post_id',MFP408.rows.map(x=>x.id));if(!likes.error)MFP408.likes=new Set((likes.data||[]).map(x=>x.post_id));}
-  if(S.view==='community'){let root=document.getElementById('mfp408-content');if(root)root.innerHTML=mfp408RenderRows();}
- }catch(e){mfp408Error(e);mfp408Failure('Could not load Community. Check your connection or session, then retry.')}
-}
-async function mfp408Mutation(table,method,payload,filter){
- if(MFP408.busy)return;MFP408.busy=true;
- try{let q=supabase.from(table);let result=method==='insert'?await q.insert(payload):method==='upsert'?await q.upsert(payload):method==='delete'?await q.delete().eq('id',filter):await q.update(payload).eq('id',filter);if(result.error)throw result.error;await mfp408Fetch();mfp408Notice('Saved successfully.');}
- catch(e){mfp408Error(e)}finally{MFP408.busy=false}
-}
-async function mfp408SaveProfile(event){
- event.preventDefault();let f=new FormData(event.target),username=String(f.get('username')||'').toLowerCase().trim(),avatar=String(f.get('avatar_url')||'').trim();
- if(!/^[a-z0-9_]{3,24}$/.test(username))return mfp408Notice('Use 3–24 lowercase letters, numbers or underscores.',true);
- if(avatar&&!mfp408SafeURL(avatar))return mfp408Notice('Avatar must be an HTTPS URL.',true);
- await mfp408Mutation('mfp_profiles','upsert',{user_id:AUTH_USER.id,username,display_name:String(f.get('display_name')||'').slice(0,100),bio:String(f.get('bio')||'').slice(0,500),avatar_url:avatar||null,is_public:f.has('is_public')});
-}
-async function mfp408Post(e){e.preventDefault();let f=new FormData(e.target);await mfp408Mutation('mfp_posts','insert',{user_id:AUTH_USER.id,body:String(f.get('body')||'').trim(),title_name:String(f.get('title_name')||'').trim()||null});}
-async function mfp408Collection(e){e.preventDefault();let f=new FormData(e.target),titles=String(f.get('titles')||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,300);await mfp408Mutation('mfp_collections','insert',{user_id:AUTH_USER.id,title:String(f.get('title')||'').trim(),description:String(f.get('description')||'').trim(),titles});}
-async function mfp408Review(e){e.preventDefault();let f=new FormData(e.target);if(MFP408.busy)return;MFP408.busy=true;try{const record={user_id:AUTH_USER.id,media_key:String(f.get('media_key')||'').trim(),title_name:String(f.get('title_name')||'').trim(),rating:Number(f.get('rating')),body:String(f.get('body')||'').trim()};let res=await supabase.from('mfp_reviews').upsert(record,{onConflict:'user_id,media_key'});if(res.error)throw res.error;await mfp408Fetch();mfp408Notice('Review saved.')}catch(err){mfp408Error(err)}finally{MFP408.busy=false}}
-async function mfp408Like(id){try{let q=supabase.from('mfp_likes');let res=MFP408.likes.has(id)?await q.delete().eq('user_id',AUTH_USER.id).eq('post_id',id):await q.insert({user_id:AUTH_USER.id,post_id:id});if(res.error)throw res.error;await mfp408Fetch()}catch(e){mfp408Error(e)}}
-async function mfp408Comments(id){
- let el=document.getElementById('mfp408-comments-'+id);if(!el)return;
- if(el.dataset.open){el.replaceChildren();delete el.dataset.open;return}
- try{let r=await supabase.from('mfp_comments').select('*').eq('post_id',id).order('created_at',{ascending:true}).limit(40);if(r.error)throw r.error;el.dataset.open='1';el.innerHTML='<div class="mfp408-comments">'+(r.data||[]).map(x=>'<p><b>'+mfp408Esc(mfp408Name(x.user_id))+'</b> '+mfp408Esc(x.body)+'</p>').join('')+'<form onsubmit="return App.mfp408Comment(event,\''+id+'\')"><input name="body" required maxlength="1200" placeholder="Write a comment…"><button>Reply</button></form></div>'}catch(e){mfp408Error(e)}
-}
-async function mfp408Comment(e,id){e.preventDefault();let body=String(new FormData(e.target).get('body')||'').trim();try{let r=await supabase.from('mfp_comments').insert({post_id:id,user_id:AUTH_USER.id,body});if(r.error)throw r.error;let el=document.getElementById('mfp408-comments-'+id);if(el){delete el.dataset.open;await mfp408Comments(id)}}catch(e){mfp408Error(e)}}
-async function mfp408Block(id){if(!confirm('Block this member? Their posts will be hidden and they cannot follow or message you.'))return;try{let r=await supabase.from('mfp_blocks').insert({blocker_id:AUTH_USER.id,blocked_id:id});if(r.error)throw r.error;await mfp408Fetch();mfp408Notice('Member blocked.')}catch(e){mfp408Error(e)}}
-async function mfp408Follow(id){try{let q=await supabase.from('mfp_follows').select('follower_id').eq('follower_id',AUTH_USER.id).eq('following_id',id).maybeSingle();if(q.error)throw q.error;let r=q.data?await supabase.from('mfp_follows').delete().eq('follower_id',AUTH_USER.id).eq('following_id',id):await supabase.from('mfp_follows').insert({follower_id:AUTH_USER.id,following_id:id});if(r.error)throw r.error;mfp408Notice(q.data?'Unfollowed.':'Following.')}catch(e){mfp408Error(e)}}
-function mfp408MessageTo(id){let p=MFP408.profiles.find(x=>x.user_id===id);MFP408.target=p?.username||'';mfp408Tab('messages')}
-async function mfp408Message(e){e.preventDefault();let f=new FormData(e.target),username=String(f.get('username')||'').trim().toLowerCase();try{let q=await supabase.from('mfp_profiles').select('user_id').eq('username',username).eq('is_public',true).single();if(q.error)throw q.error;let r=await supabase.from('mfp_messages').insert({sender_id:AUTH_USER.id,recipient_id:q.data.user_id,body:String(f.get('body')||'').trim()});if(r.error)throw r.error;MFP408.target='';await mfp408Fetch();mfp408Notice('Message sent.')}catch(err){mfp408Error(err)}}
-async function mfp408Read(id){await mfp408Mutation('mfp_notifications','update',{is_read:true},id)}
-async function mfp408Delete(table,id){if(!confirm('Delete this item permanently?'))return;await mfp408Mutation(table,'delete',null,id)}
-async function mfp408Report(kind,id){let reason=prompt('Report reason (at least 5 characters):');if(!reason)return;if(reason.trim().length<5)return mfp408Notice('Please explain the issue.',true);await mfp408Mutation('mfp_reports','insert',{reporter_id:AUTH_USER.id,target_kind:kind,target_id:id,reason:reason.trim().slice(0,500)})}
-function mfp408Tab(tab){if(!MFP408_TABS.some(x=>x[0]===tab))return;MFP408.tab=tab;MFP408.limit=12;renderView();}
-function mfp408More(){MFP408.limit=Math.min(120,MFP408.limit+12);mfp408Fetch()}
-let mfp408SearchTimer=null;function mfp408Search(s){MFP408.search=s;clearTimeout(mfp408SearchTimer);mfp408SearchTimer=setTimeout(()=>{mfp408Fetch().then(()=>{let next=document.getElementById('mfp408-search');if(next){next.focus();next.setSelectionRange(s.length,s.length)}})},250)}
-MediaFlowRuntime.registerPageRenderer('community',mfp408Renderer);
-MediaFlowRuntime.registerPageEnhancer('community',mfp408Fetch);
-Object.assign(App,{mfp408Retry,mfp408Tab,mfp408SaveProfile,mfp408Post,mfp408Collection,mfp408Review,mfp408Like,mfp408Comments,mfp408Comment,mfp408Follow,mfp408Block,mfp408MessageTo,mfp408Message,mfp408Read,mfp408Delete,mfp408Report,mfp408More,mfp408Search});
-/* MediaFlow Plus v411 — Non-destructive critical page recovery.
- * Rendering must never silently erase Dashboard/Library, block navigation,
- * or attempt to initialize/persist an empty cloud snapshot on an error.
- */
-(function(){
-'use strict';
-const V411_CRITICAL_VIEWS=new Set(['dashboard','library']);
-const V411_PAGE_FAILURES={dashboard:0,library:0,other:0};
-function v411Esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function v411MissingState(){
- return !Array.isArray(S.library)||!Array.isArray(S.categories)||!Array.isArray(S.sessions)||!S.settings||typeof S.settings!=='object';
-}
-function v411RecoveryMarkup(view,reason){
- const notReady=v411MissingState();
- const title=notReady?'Your workspace has not loaded':'This page could not render';
- const description=notReady
-  ?'Your private MediaFlow Plus library is not ready. No data has been cleared or replaced.'
-  :'An interface error interrupted this view. Your saved data has not been changed.';
- return '<div class="card mf411-recovery" role="alert" style="max-width:720px;margin:24px auto;padding:24px;border-radius:18px">'+
-   '<div class="section-label">MEDIAFLOW PLUS · PAGE RECOVERY</div>'+
-   '<h2 style="margin:12px 0 8px">'+title+'</h2>'+
-   '<p>'+description+'</p>'+
-   (reason?'<p style="opacity:.7;font-size:13px">Issue: '+v411Esc(reason)+'</p>':'')+
-   '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:20px">'+
-   '<button class="btn btn-primary" type="button" onclick="App.v411RetryPage()">Retry this page</button>'+
-   '<button class="btn" type="button" onclick="App.setView(\'dashboard\')">Dashboard</button>'+
-   '<button class="btn" type="button" onclick="App.setView(\'library\')">Library</button>'+
-   '<button class="btn" type="button" onclick="App.setView(\'community\')">Community</button>'+
-   (!AUTH_USER?'<button class="btn" type="button" onclick="window.MediaFlowAuth.show(\'login\')">Sign in</button>':'')+
-   '</div></div>';
-}
-function v411ShowRecovery(view,error){
- const root=document.getElementById('view-root');
- const reason=String(error?.message||error||'The page response was empty').slice(0,250);
- if(root){root.innerHTML=v411RecoveryMarkup(view,reason);return;}
- const app=document.getElementById('app');
- if(app&&!app.querySelector('.auth-screen,.loader-wrap')){
-  app.innerHTML='<main style="padding:20px;min-height:65vh">'+v411RecoveryMarkup(view,reason)+'</main>';
- }
-}
-function v411RetryPage(){
- if(!AUTH_USER){window.MediaFlowAuth?.show?.('login');return;}
- if(v411MissingState()){
-  if(typeof window.MediaFlowRecovery?.retry==='function'){void window.MediaFlowRecovery.retry();return;}
-  v411ShowRecovery(S.view,'Cloud state is not yet available');return;
- }
- render();
-}
-const v411RenderViewBase=renderView;
-renderView=function(){
- const view=String(S.view||'');
- try{
-  // A missing state is not an empty library. Wait for authenticated hydration
-  // instead of executing deep render helpers with null state.
-  if(V411_CRITICAL_VIEWS.has(view)&&v411MissingState()){
-   v411ShowRecovery(view,'Workspace data has not finished loading');
-   return;
-  }
-  const result=v411RenderViewBase.apply(this,arguments);
-  if(V411_CRITICAL_VIEWS.has(view)){
-   const root=document.getElementById('view-root');
-   if(root&&!root.textContent.trim()){
-    throw new Error('The renderer returned an empty page');
-   }
-  }
-  return result;
- }catch(error){
-  V411_PAGE_FAILURES[V411_CRITICAL_VIEWS.has(view)?view:'other']++;
-  console.error('MediaFlow Plus: '+view+' page render failed',error);
-  v411ShowRecovery(view,error);
- }
-};
-const v411RenderBase=render;
-render=function(){
- // Do not enter hundreds of legacy render wrappers with unhydrated workspace state.
- if(V411_CRITICAL_VIEWS.has(String(S.view||''))&&v411MissingState()){
-  v411ShowRecovery(String(S.view||''),'Workspace data is not initialized');
-  return;
- }
- try{return v411RenderBase.apply(this,arguments);}
- catch(error){
-  const view=String(S.view||'');
-  V411_PAGE_FAILURES[V411_CRITICAL_VIEWS.has(view)?view:'other']++;
-  console.error('MediaFlow Plus: navigation render failed',error);
-  try{
-   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',String(el.dataset?.view||'')===view));
-   const mobile=document.querySelector('.mobile-tabbar');
-   if(mobile&&typeof renderMobileTabs==='function')mobile.innerHTML=renderMobileTabs();
-  }catch(_){}
-  v411ShowRecovery(view,error);
- }
-};
-App.v411RetryPage=v411RetryPage;
-window.MediaFlowPlusPageHealth={
- version:411,
- check(){const root=document.getElementById('view-root');return {
-  currentView:String(S.view||''),
-  authenticated:!!AUTH_USER,
-  authReady:!!AUTH_READY,
-  workspaceReady:!v411MissingState(),
-  dashboardErrors:V411_PAGE_FAILURES.dashboard,
-  libraryErrors:V411_PAGE_FAILURES.library,
-  otherErrors:V411_PAGE_FAILURES.other,
-  rootHasContent:!!root?.textContent?.trim(),
-  communityLoaderVisible:String(S.view||'')==='community'&&!!document.querySelector('#mfp408-content')?.textContent?.includes('Loading community')
- };}
-};
-})();
 /* MediaFlow v406 — membership-aware Personal Order / Logging workspaces and
    accessible searchable bulk action pickers. Existing data/schema unchanged. */
 const V406_RELEASE=406;
@@ -65988,15 +65755,14 @@ v406PickerHtml=function(kind,scope){
   if(!['library','collection'].includes(scope))return '';
   const title=kind==='category'?'Move to category':kind==='status'?'Set status':'Set priority';
   const summarySymbol=kind==='category'?'▦':kind==='status'?'◉':'⚑';
-  const searchable=true; // v412 Plus user requirement: search Category, Status AND Priority.
+  const searchable=kind==='category';
   const items=v406ActionItems(kind); // canonical Settings order and visibility
   const options=items.map(item=>
     `<button type="button" class="mf406-picker-option mf407-picker-option" data-v225-iconified="1" role="option" data-v406-search="${escapeHtml(item.label.toLocaleLowerCase())}" data-v406-value="${escapeHtml(item.id)}" onclick="App.v406Choose(this)">`+
       `<span class="mf406-picker-icon mf407-option-icon" aria-hidden="true">${item.icon||summarySymbol}</span>`+
       `<span class="mf407-option-label">${escapeHtml(item.label)}</span>`+
     `</button>`).join('');
-  const noun=kind==='category'?'categories':kind==='status'?'statuses':'priorities';
-  const search=searchable?`<input type="search" autocomplete="off" aria-label="Search ${noun}" placeholder="Search ${noun}…" oninput="App.v406Search(this)">`:'';
+  const search=searchable?`<input type="search" autocomplete="off" aria-label="Search categories" placeholder="Search categories…" oninput="App.v406Search(this)">`:'';
   return `<details class="mf406-action-picker mf407-action-picker mf407-${kind}" data-v406-kind="${kind}" data-v406-scope="${scope}" ontoggle="App.v406Position(this)">`+
     `<summary aria-label="${title}"><span class="mf406-summary-symbol" aria-hidden="true">${summarySymbol}</span><span>${title}…</span><span aria-hidden="true">⌄</span></summary>`+
     `<div class="mf406-picker-panel mf407-picker-panel">${search}`+
@@ -66008,13 +65774,13 @@ v406PickerHtml=function(kind,scope){
 MediaFlowRuntime.version=V407_RELEASE;
 window.MediaFlowV407={
   version:V407_RELEASE,
-  features:['Single semantic icon per action option','Left-aligned bulk action rows','Search all three action types','Settings-based option order and visibility'],
-  audit:()=>({version:V407_RELEASE,searchable:['category','status','priority'],status:v406ActionItems('status').map(x=>x.id),priority:v406ActionItems('priority').map(x=>x.id),category:v406ActionItems('category').map(x=>x.id)})
+  features:['Single semantic icon per action option','Left-aligned bulk action rows','Category-only search','Settings-based option order and visibility'],
+  audit:()=>({version:V407_RELEASE,searchable:['category'],status:v406ActionItems('status').map(x=>x.id),priority:v406ActionItems('priority').map(x=>x.id),category:v406ActionItems('category').map(x=>x.id)})
 };
 /* MediaFlow v408 — performance and responsive controls.
  * Stable source data and existing handlers remain authoritative. No backend
  * schema, History, XP or recommendation calculations are changed. */
-const V408_RELEASE=Number(document.querySelector('meta[name="mediaflow-version"]')?.content)||412;
+const V408_RELEASE=408;
 const V408_METRICS={repeatComputes:0,repeatReuses:0,categorySearches:0};
 
 // One repeat-total computation per synchronous render/event. The snapshot is
@@ -66202,532 +65968,7 @@ function v408AuditDataIntegrity(){
     versionStamps:versions,actualLiveCloudChecked:false,actualInstalledPwaChecked:false};
 }
 App.v408AuditDataIntegrity=v408AuditDataIntegrity;
-window.MediaFlowV408={version:V408_RELEASE,features:['Linear repeat-history library lookup','Render-turn repeat result reuse','Searchable Collections category checklists','Responsive Logging Library toolbar'],audit:()=>({version:V408_RELEASE,...V408_METRICS}),transferAudit:v408AuditDataIntegrity};
+window.MediaFlowV408={version:V408_RELEASE,features:['Linear repeat-history library lookup','Render-turn repeat result reuse','Searchable Collections category checklists','Responsive Logging Library toolbar'],audit:()=>({version:408,...V408_METRICS}),transferAudit:v408AuditDataIntegrity};
 MediaFlowRuntime.version=V408_RELEASE;
-/* MediaFlow Plus v412 — About-page content parity with Personal v408.
- * Personal source 064-v161-about-custom-navigation-data-audit.js has an identical
- * SHA in both editions. Preserve its FAQ/features/developer layout; ensure the
- * 'official' update checker and app link never point Plus back to Personal.
- */
-(function(){
-'use strict';
-if(typeof V161_UPDATE_SOURCES!=='undefined'&&Array.isArray(V161_UPDATE_SOURCES)){
- V161_UPDATE_SOURCES.splice(0,V161_UPDATE_SOURCES.length,
-  'https://raw.githubusercontent.com/AlexGodly/MediaFlowPlus/main/index.html',
-  'https://alexgodly.github.io/MediaFlowPlus/');
-}
-if(typeof renderAbout==='function'){
- const original=renderAbout;
- renderAbout=function(){
-  const html=String(original.apply(this,arguments));
-  return html
-   .replaceAll('https://alexgodly.github.io/MediaFlow/','https://alexgodly.github.io/MediaFlowPlus/')
-   .replace('>MediaFlow v'+escapeHtml(v161CurrentVersion())+' · by Alex Godly<','>MediaFlow Plus v'+escapeHtml(v161CurrentVersion())+' · by Alex Godly<')
-   .replace('ABOUT MEDIAFLOW</div>','ABOUT MEDIAFLOW PLUS</div>');
- };
-}
-window.MediaFlowPlusAboutParity={release:412,source:'Personal v408 About content; read-only comparison; Plus-specific update sources'};
-})();/* MediaFlow Plus v412 — inbox and floating mini inbox.
- * One canonical messages table; floating and full views share the same model.
- * Never reads or writes Personal Edition or MediaFlow private workspace data.
- */
-(function(){
-'use strict';
-const IN412={rows:[],profiles:[],thread:'',search:'',mini:false,loaded:false,loading:false,sending:false,
- last:0,channel:null,channelUser:'',error:'',epoch:0};
-function in412EnsureAccount(){
- const me=String(AUTH_USER?.id||'');
- if(IN412.ownerId!==me){
-  IN412.ownerId=me;IN412.rows=[];IN412.profiles=[];IN412.thread='';IN412.loaded=false;
-  IN412.search='';IN412.error='';IN412.last=0;IN412.epoch++;
- }
-}
-const in412Esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function in412Me(){return String(AUTH_USER?.id||'');}
-function in412Name(id){
- const p=IN412.profiles.find(x=>String(x.user_id)===String(id))||MFP408?.profiles?.find(x=>String(x.user_id)===String(id));
- return p?.display_name|| (p?.username?'@'+p.username : 'Community member');
-}
-function in412Username(id){
- const p=IN412.profiles.find(x=>String(x.user_id)===String(id))||MFP408?.profiles?.find(x=>String(x.user_id)===String(id));
- return p?.username||'';
-}
-function in412Partner(m){return String(m.sender_id)===in412Me()?String(m.recipient_id):String(m.sender_id);}
-function in412Threads(){
- const map=new Map();
- for(const m of IN412.rows){
-  const id=in412Partner(m);
-  let t=map.get(id);
-  if(!t){t={id,latest:m,unread:0};map.set(id,t);}
-  if(String(m.recipient_id)===in412Me()&&!m.read_at)t.unread++;
- }
- return [...map.values()];
-}
-function in412Unread(){return in412Threads().reduce((n,t)=>n+t.unread,0);}
-function in412Icon(){
- return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8 11.5h8M8 15h5"/></svg>';
-}
-function in412ThreadsHtml(mini){
- const search=IN412.search.toLocaleLowerCase().trim();
- const threads=in412Threads().filter(t=>!search||in412Name(t.id).toLocaleLowerCase().includes(search)||in412Username(t.id).includes(search));
- return '<div class="in412-search-row"><input type="search" value="'+in412Esc(IN412.search)+'" placeholder="Search conversations…" aria-label="Search conversations" oninput="App.in412Filter(this.value)"></div>'+
- (threads.length?threads.map(t=>'<button type="button" class="in412-thread '+(IN412.thread===t.id?'selected':'')+'" onclick="App.in412Select(\''+in412Esc(t.id)+'\')">'+
-  '<span class="in412-avatar">'+in412Esc(in412Name(t.id).slice(0,1).toUpperCase())+'</span><span class="in412-thread-copy"><strong>'+in412Esc(in412Name(t.id))+'</strong>'+
-  '<span>'+in412Esc(String(t.latest.body||'').slice(0,80))+'</span></span>'+
-  (t.unread?'<span class="in412-unread">'+t.unread+'</span>':'')+'</button>').join(''):'<p class="in412-empty">'+(IN412.loaded?'No conversations yet. Start by entering a username.':'Loading conversations…')+'</p>')+
- (!mini?'<div class="in412-composer-helper"><label>Start a conversation<input id="in412-recipient" autocomplete="off" placeholder="Recipient username" maxlength="24"></label><button type="button" onclick="App.in412New()">Open chat</button></div>':'');
-}
-function in412MessagesHtml(mini){
- const id=IN412.thread;
- if(!id)return '<div class="in412-conversation-empty"><span class="in412-empty-icon">'+in412Icon()+'</span><h3>Your conversations</h3><p>Select a conversation or start one with a public Community username.</p></div>';
- const msgs=IN412.rows.filter(m=>in412Partner(m)===id).slice().reverse();
- return '<div class="in412-conversation-head"><strong>'+in412Esc(in412Name(id))+'</strong><span>'+in412Esc(in412Username(id)?'@'+in412Username(id):'Direct messages')+'</span></div>'+
- '<div class="in412-message-scroll" id="'+(mini?'in412-mini-scroll':'in412-full-scroll')+'">'+
- (msgs.length?msgs.map(m=>'<div class="in412-bubble-wrap '+(String(m.sender_id)===in412Me()?'mine':'theirs')+'"><div class="in412-bubble">'+in412Esc(m.body)+'</div><small>'+in412Esc(new Date(m.created_at).toLocaleString())+(String(m.sender_id)===in412Me()&&m.read_at?' · Seen':'')+'</small></div>').join(''):'<p class="in412-empty">No messages yet. Say hello.</p>')+'</div>'+
- '<form class="in412-compose" onsubmit="return App.in412Send(event)"><textarea name="body" rows="2" maxlength="2000" required placeholder="Write a message…" aria-label="Write a message"></textarea><button type="submit" '+(IN412.sending?'disabled':'')+' aria-label="Send message">Send</button></form>';
-}
-function in412FullRenderer(){
- in412EnsureAccount();
- return '<section class="in412-page"><header class="in412-header"><div><span class="in412-eyebrow">MEDIAFLOW PLUS · COMMUNITY</span><h1>Inbox</h1><p>Private conversations, all in one place.</p></div><button type="button" class="btn" onclick="App.in412Refresh()">Refresh</button></header>'+
- '<div class="in412-alert" id="in412-alert" role="status">'+in412Esc(IN412.error)+'</div>'+
- '<div class="in412-workspace"><aside class="in412-sidebar" aria-label="Conversations"><h2>Messages <span class="in412-count">'+in412Unread()+' unread</span></h2>'+in412ThreadsHtml(false)+'</aside>'+
- '<section class="in412-conversation" aria-label="Selected conversation">'+in412MessagesHtml(false)+'</section></div></section>';
-}
-function in412MiniHtml(){
- return '<div class="in412-mini-top"><strong>Inbox</strong><span>'+in412Unread()+' unread</span><button type="button" aria-label="Close mini inbox" onclick="App.in412Toggle()">×</button></div>'+
- '<div class="in412-mini-alert" role="status">'+in412Esc(IN412.error)+'</div>'+
- '<div class="in412-mini-body">'+(IN412.thread?'<button type="button" class="in412-back" onclick="App.in412Back()">← Conversations</button>'+in412MessagesHtml(true):in412ThreadsHtml(true))+'</div>'+
- '<div class="in412-mini-footer"><button type="button" onclick="App.in412Open()">Open full Inbox →</button></div>';
-}
-function in412MountFloat(){
- in412EnsureAccount();
- const old=document.getElementById('in412-float-wrap');
- if(!AUTH_READY||!AUTH_USER){old?.remove();return;}
- const host=old||document.createElement('div');
- if(old&&document.activeElement?.closest?.('#in412-float-wrap .in412-compose'))return;
- host.id='in412-float-wrap';host.className='in412-floating';
- host.innerHTML='<button type="button" class="in412-fab" onclick="App.in412Toggle()" aria-label="Open mini inbox" aria-expanded="'+String(IN412.mini)+'">'+in412Icon()+
- (in412Unread()?'<span class="in412-fab-badge">'+Math.min(in412Unread(),99)+'</span>':'')+'</button>'+
- (IN412.mini?'<section class="in412-mini-panel" role="dialog" aria-label="Mini inbox">'+in412MiniHtml()+'</section>':'');
- if(!old)document.body.appendChild(host);
- const scroll=host.querySelector('#in412-mini-scroll');if(scroll)scroll.scrollTop=scroll.scrollHeight;
-}
-function in412RefreshViews(){
- const root=document.getElementById('view-root');
- if(String(S.view||'')==='inbox'&&root){
-  const current=document.activeElement;
-  if(!IN412.sending&&current?.closest?.('#view-root .in412-compose')){in412MountFloat();return;}
-  const focusField=current?.matches?.('.in412-search-row input')?{sel:current.selectionStart}:null;
-  root.innerHTML='<div class="fade-in">'+in412FullRenderer()+'</div>';
-  if(focusField){const input=root.querySelector('.in412-search-row input');input?.focus({preventScroll:true});try{input?.setSelectionRange(focusField.sel,focusField.sel)}catch(_){}}
-  const scroll=root.querySelector('#in412-full-scroll');if(scroll)scroll.scrollTop=scroll.scrollHeight;
- }
- in412MountFloat();
-}
-async function in412MarkRead(){
- const me=in412Me(),thread=IN412.thread;
- if(!me||!thread)return;
- const unread=IN412.rows.filter(m=>String(m.recipient_id)===me&&String(m.sender_id)===thread&&!m.read_at);
- if(!unread.length)return;
- const ids=unread.map(m=>m.id);
- const now=new Date().toISOString();
- const res=await supabase.from('mfp_messages').update({read_at:now}).in('id',ids).eq('recipient_id',me);
- if(res.error){console.warn('Inbox read receipt could not save',res.error);return;}
- for(const m of unread)m.read_at=now;
- in412RefreshViews();
-}
-async function in412Fetch(){
- in412EnsureAccount();
- const me=in412Me();
- if(!me||!supabase){IN412.error='Please sign in to use Inbox.';IN412.loaded=true;in412RefreshViews();return;}
- if(IN412.loading)return;
- const epoch=++IN412.epoch;IN412.loading=true;
- try{
-  const results=await Promise.all([
-   supabase.from('mfp_messages').select('id,sender_id,recipient_id,body,created_at,read_at').or('sender_id.eq.'+me+',recipient_id.eq.'+me).order('created_at',{ascending:false}).limit(800),
-   supabase.from('mfp_profiles').select('user_id,username,display_name,avatar_url').limit(300)
-  ]);
-  if(epoch!==IN412.epoch)return;
-  for(const r of results)if(r.error)throw r.error;
-  IN412.rows=results[0].data||[];IN412.profiles=results[1].data||[];IN412.error='';IN412.loaded=true;IN412.last=Date.now();
-  in412RefreshViews();
-  if(IN412.thread)void in412MarkRead();
- }catch(e){IN412.error='Messages could not load. Check your connection and retry.';console.error('MediaFlow Plus Inbox',e);in412RefreshViews();}
- finally{IN412.loading=false;}
-}
-function in412Select(id){IN412.thread=String(id||'');in412RefreshViews();void in412MarkRead();}
-function in412Back(){IN412.thread='';in412RefreshViews();}
-function in412Filter(term){
- IN412.search=String(term||'');
- const host=IN412.mini?document.querySelector('#in412-float-wrap'):document.querySelector('#view-root');
- const row=host?.querySelector('.in412-search-row');
- if(!row)return;
- // Replace only result rows. The actual search input stays mounted and focused.
- const parent=row.parentElement,fragment=document.createElement('div');
- fragment.innerHTML=in412ThreadsHtml(IN412.mini);
- fragment.querySelector('.in412-search-row')?.remove();
- for(const el of [...parent.children]){
-  if(el!==row&&el.matches('.in412-thread,.in412-empty,.in412-composer-helper'))el.remove();
- }
- while(fragment.firstElementChild)parent.appendChild(fragment.firstElementChild);
-}
-function in412New(){const name=String(document.getElementById('in412-recipient')?.value||'').trim().toLowerCase();
- const p=IN412.profiles.find(x=>x.username===name);
- if(!p){IN412.error='No public Community account with that username was found.';in412RefreshViews();return;}
- if(p.user_id===in412Me()){IN412.error='You cannot message yourself.';in412RefreshViews();return;}
- IN412.error='';in412Select(p.user_id);
-}
-async function in412Send(e){
- e.preventDefault();if(IN412.sending||!IN412.thread||!AUTH_USER)return false;
- const body=String(new FormData(e.target).get('body')||'').trim();
- if(!body||body.length>2000)return false;
- IN412.sending=true;
- try{
-  const r=await supabase.from('mfp_messages').insert({sender_id:in412Me(),recipient_id:IN412.thread,body});
-  if(r.error)throw r.error;
-  IN412.error='';await in412Fetch();
- }catch(err){IN412.error=String(err?.message||'Message was not sent.');in412RefreshViews();}
- finally{IN412.sending=false;}
- return false;
-}
-function in412Toggle(){IN412.mini=!IN412.mini;in412MountFloat();if(IN412.mini)void in412Fetch();}
-function in412Open(){IN412.mini=false;S.view='inbox';render();void in412Fetch();}
-function in412Refresh(){void in412Fetch();}
-function in412MessageTo(id){IN412.thread=String(id||'');IN412.mini=false;S.view='inbox';render();void in412Fetch();}
-function in412Subscribe(){
- const me=in412Me();
- if(!me||!supabase?.channel)return;
- if(IN412.channelUser===me&&IN412.channel)return;
- if(IN412.channel)try{supabase.removeChannel(IN412.channel)}catch(_){}
- IN412.channelUser=me;
- try{
-  IN412.channel=supabase.channel('mfp412-inbox-'+me).on('postgres_changes',{event:'*',schema:'public',table:'mfp_messages'},payload=>{
-   if(payload?.new?.sender_id===me||payload?.new?.recipient_id===me||payload?.old?.sender_id===me||payload?.old?.recipient_id===me)
-    void in412Fetch();
-  }).subscribe();
- }catch(e){console.warn('Inbox realtime unavailable; background refresh remains enabled.',e);}
-}
-function in412Init(){
- if(!NAV_ITEMS.some(n=>n.id==='inbox'))NAV_ITEMS.splice(Math.max(0,NAV_ITEMS.length-2),0,{id:'inbox',label:'Inbox'});
- if(!MOBILE_MORE_NAV.includes('inbox'))MOBILE_MORE_NAV.unshift('inbox');
- ICONS.inbox=in412Icon();
- if(typeof v161NormalizeNavLayout==='function')S.navLayout=v161NormalizeNavLayout(S.navLayout);
- if(Array.isArray(MFP408_TABS)){const row=MFP408_TABS.find(x=>x[0]==='messages');if(row)row[1]='Inbox';}
- const legacy=App.mfp408Tab;App.mfp408Tab=function(tab){return tab==='messages'?in412Open():legacy(tab);};
- App.mfp408MessageTo=in412MessageTo;
-}
-in412Init();
-MediaFlowRuntime.registerPageRenderer('inbox',in412FullRenderer);
-MediaFlowRuntime.registerPageEnhancer('inbox',()=>{in412Subscribe();void in412Fetch();});
-Object.assign(App,{in412Select,in412Back,in412Filter,in412New,in412Send,in412Toggle,in412Open,in412Refresh,in412MessageTo});
-function in412Pulse(){
- try{
-  if(!AUTH_READY||!AUTH_USER){if(IN412.channel&&supabase?.removeChannel)void supabase.removeChannel(IN412.channel);IN412.channel=null;IN412.channelUser='';IN412.mini=false;in412MountFloat();return;}
-  in412MountFloat();in412Subscribe();
-  if((IN412.mini||String(S.view||'')==='inbox'||Date.now()-IN412.last>60000)&&document.visibilityState==='visible')void in412Fetch();
- }catch(e){console.warn('Inbox background refresh skipped',e)}
-}
-setInterval(in412Pulse,25000);
-setInterval(()=>{try{in412MountFloat()}catch(_){}},3500);
-setTimeout(in412Pulse,1000);
-window.MediaFlowPlusInbox412={release:412,refresh:in412Fetch,state:()=>({loaded:IN412.loaded,unread:in412Unread(),threadCount:in412Threads().length})};
-})();/* MediaFlow Plus v412 — live, reference-based workspace showcasing.
- * Owner collections remain ONLY in mediaflow_states. Publication/subscription
- * rows are identifiers and permissions, never duplicated collection payloads.
- */
-(function(){
-'use strict';
-const PS412={route:null,publicData:null,error:'',discover:[],subs:[],pubs:new Set(),profiles:[],
- lastSubs:0,publicBusy:false,shareBusy:false,discoverFilter:'',offset:0,publicToken:0};
-const psEsc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const psHandle=x=>String(x||'').toLowerCase().trim();
-const psPublicUrl=username=>location.origin+location.pathname+'#/u/'+encodeURIComponent(username);
-const psCollectionUrl=(username,id)=>location.origin+location.pathname+'#/collection/'+encodeURIComponent(username)+'/'+encodeURIComponent(id);
-function psRoute(hash=location.hash){
- let m=String(hash||'').match(/^#\/u\/([a-z0-9_]{3,24})$/);
- if(m)return {kind:'profile',username:m[1]};
- m=String(hash||'').match(/^#\/collection\/([a-z0-9_]{3,24})\/([a-zA-Z0-9_-]{1,160})$/);
- return m?{kind:'collection',username:m[1],id:m[2]}:null;
-}
-function psAlert(message){try{showToast(message)}catch(_){console.info(message)}}
-async function psProfile(){
- if(!AUTH_USER||!supabase)return null;
- const r=await supabase.from('mfp_profiles').select('*').eq('user_id',AUTH_USER.id).maybeSingle();
- if(r.error)throw r.error;return r.data;
-}
-async function psPublicRequest(kind,username='',id='',offset=0,limit=60){
- const q=new URLSearchParams({kind});if(username)q.set('username',username);
- if(id){q.set('collection_id',id);q.set('offset',String(offset));q.set('limit',String(limit));}
- const headers={'apikey':SUPABASE_PUBLISHABLE_KEY};
- if(AUTH_USER&&supabase){const r=await supabase.auth.getSession();if(r.data?.session?.access_token)headers.authorization='Bearer '+r.data.session.access_token;}
- const result=await fetch(SUPABASE_URL+'/functions/v1/mfp-public-workspace?'+q.toString(),{headers,cache:'no-store'});
- const data=await result.json().catch(()=>({error:'Malformed response'}));
- if(!result.ok)throw new Error(data?.error||'Shared workspace unavailable');
- return data;
-}
-async function psCopy(value){
- try{
-  if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(value);
-  else{const el=document.createElement('textarea');el.value=value;document.body.appendChild(el);el.select();document.execCommand('copy');el.remove();}
-  psAlert('Share link copied ✓');
- }catch(e){prompt('Copy your share link:',value)}
-}
-async function psShareProfile(){
- const p=await psProfile();if(!p?.username)return psAlert('Create your Community username first.');
- if(!p.is_public)return psAlert('Enable Public profile before sharing.');
- await psCopy(psPublicUrl(p.username));
-}
-async function psOwnerPubs(force=false){
- if(!AUTH_USER||!supabase)return;
- if(!force&&PS412.pubsAt&&Date.now()-PS412.pubsAt<10000)return;
- const r=await supabase.from('mfp_collection_publications').select('collection_id').eq('owner_id',AUTH_USER.id);
- if(r.error)throw r.error;
- PS412.pubs=new Set((r.data||[]).map(x=>String(x.collection_id)));PS412.pubsAt=Date.now();
- const host=document.getElementById('ps412-own-publish');
- if(host&&V274_UI.activeId)host.innerHTML=psOwnerBar(V274_UI.activeId);
-}
-function psOwnerBar(id){
- const active=PS412.pubs.has(String(id));
- return '<div class="ps412-share-card"><div><b>Community sharing</b><p>'+ (active?'Live shared collection — changes are visible to subscribers.':'Private collection — only you can see its contents.')+'</p></div><div class="ps412-share-actions">'+
- '<button type="button" class="btn btn-sm" onclick="App.ps412TogglePublish(\''+psEsc(id)+'\')">'+(active?'Unpublish':'Publish collection')+'</button>'+
- (active?'<button type="button" class="btn btn-sm btn-ghost" onclick="App.ps412ShareCollection(\''+psEsc(id)+'\')">Copy share link</button>':'')+
- '</div></div>';
-}
-async function psTogglePublish(id){
- if(PS412.shareBusy||!AUTH_USER)return;PS412.shareBusy=true;
- try{
-  const own=v274CollectionById(id);if(!own)throw new Error('Collection no longer exists.');
-  const p=await psProfile();
-  if(!p?.username)throw new Error('Create a Community profile before publishing.');
-  if(!p.is_public)throw new Error('Enable Public profile in Community → My profile to share collections.');
-  const active=PS412.pubs.has(String(id));
-  if(active&&!confirm('Unpublish this collection? Subscribers will immediately lose public access, but their independent conversions remain.'))return;
-  const q=supabase.from('mfp_collection_publications');
-  const r=active?await q.delete().eq('owner_id',AUTH_USER.id).eq('collection_id',String(id)):
-   await q.insert({owner_id:AUTH_USER.id,collection_id:String(id)});
-  if(r.error)throw r.error;
-  await psOwnerPubs(true);psAlert(active?'Collection unpublished.':'Collection shared live ✓');
- }catch(e){psAlert(String(e?.message||e));console.error('Collection publication failed',e)}
- finally{PS412.shareBusy=false;}
-}
-async function psShareCollection(id){
- const c=v274CollectionById(id);if(!c)return;
- const p=await psProfile();if(!p?.is_public||!PS412.pubs.has(String(id))){psAlert('Publish this collection and enable your public profile first.');return;}
- await psCopy(psCollectionUrl(p.username,id));
-}
-function psGuestShell(){
- const route=psRoute();if(!route)return;
- PS412.route=route;PS412.publicData=null;PS412.error='';PS412.offset=0;
- const app=document.getElementById('app');if(!app)return;
- app.innerHTML='<div class="ps412-guest-shell"><header class="ps412-public-head"><strong>MediaFlow Plus</strong><a href="'+location.pathname+'" class="btn btn-sm">Open MediaFlow Plus</a></header><main class="ps412-public-guest-content"><div id="ps412-public-host" role="main"><p>Loading public workspace…</p></div></main><footer>Shared live from the owner’s MediaFlow Plus workspace. Unpublished content remains private.</footer></div>';
- void psFetchRoute();
-}
-function psPublicRenderer(){return '<section class="ps412-public-page"><div class="ps412-public-top"><button class="btn btn-sm" onclick="App.ps412Back()">← Back to Collections</button><span>PUBLIC COMMUNITY WORKSPACE</span></div><div id="ps412-public-host" aria-live="polite">Loading public workspace…</div></section>';}
-function psBack(){location.hash='';S.view='collections';render();}
-async function psFetchRoute(){
- const route=PS412.route||psRoute();if(!route)return;
- const epoch=++PS412.publicToken;PS412.error='';
- try{
-  const data=await psPublicRequest(route.kind,route.username,route.id||'',PS412.offset,60);
-  if(epoch!==PS412.publicToken)return;
-  PS412.publicData=data;
-  psShowRoute();
- }catch(e){if(epoch!==PS412.publicToken)return;PS412.error=String(e?.message||e);psShowRoute();}
-}
-function psShowRoute(){
- const host=document.getElementById('ps412-public-host');if(!host)return;
- const route=PS412.route;const data=PS412.publicData;
- if(PS412.error){host.innerHTML='<div class="ps412-panel" role="alert"><h2>Public workspace unavailable</h2><p>'+psEsc(PS412.error)+'</p><button class="btn" onclick="App.ps412Retry()">Retry</button></div>';return;}
- if(!data)return;
- if(route.kind==='profile'){
-  const p=data.profile||{};
-  host.innerHTML='<div class="ps412-profile-hero"><div class="ps412-avatar">'+psEsc((p.display_name||p.username||'?').charAt(0).toUpperCase())+'</div><div><h1>'+psEsc(p.display_name||p.username)+'</h1><p>@'+psEsc(p.username)+'</p><p>'+psEsc(p.bio||'')+'</p></div></div>'+
-  (data.workspace?'<div class="ps412-stats"><div><b>'+Number(data.workspace.title_count||0).toLocaleString()+'</b><small>Titles in workspace</small></div><div><b>'+Number(data.workspace.collection_count||0).toLocaleString()+'</b><small>Personal collections</small></div><div><b>'+Number(data.workspace.category_count||0).toLocaleString()+'</b><small>Categories</small></div></div>':'')+
-  (data.categories?.length?'<div class="ps412-panel"><h2>Shared workspace categories</h2><div class="ps412-chips">'+data.categories.map(x=>'<span>'+psEsc(x.name)+'</span>').join('')+'</div></div>':'')+
-  '<section class="ps412-panel"><h2>Published collections</h2>'+psCards(data.collections||[])+'</section>';
- }else{
-  const c=data.collection||{},o=data.owner||{},rows=data.titles||[];
-  host.innerHTML='<div class="ps412-profile-hero"><div><span>Live shared collection</span><h1>'+psEsc(c.title)+'</h1><p>by <a href="#/u/'+encodeURIComponent(o.username||route.username)+'">@'+psEsc(o.username||route.username)+'</a> · '+Number(data.total||0).toLocaleString()+' titles</p><p>'+psEsc(c.description||'')+'</p></div></div>'+
-   '<div class="ps412-public-actions">'+(AUTH_USER?'<button class="btn btn-primary" onclick="App.ps412Subscribe(\''+psEsc(o.username||route.username)+'\',\''+psEsc(c.id)+'\')">Subscribe to live collection</button><button class="btn" onclick="App.ps412Convert(\''+psEsc(o.username||route.username)+'\',\''+psEsc(c.id)+'\')">Convert to my collection</button>':'<span>Sign in to subscribe or convert this collection.</span>')+
-   '<button class="btn" onclick="App.ps412CopyCurrent()">Copy link</button></div>'+
-   '<div class="ps412-panel"><h2>Collection titles</h2><div class="ps412-titles">'+rows.map((t,i)=>'<div class="ps412-title"><span>'+(PS412.offset+i+1)+'.</span><strong>'+psEsc(t.title)+'</strong><small>'+psEsc(t.category||'')+'</small></div>').join('')+'</div>'+
-   (data.next_offset!==null?'<button class="btn" onclick="App.ps412More()">Next titles →</button>':'')+'</div>';
- }
-}
-function psCards(rows){
- return rows.length?'<div class="ps412-collection-grid">'+rows.map(c=>'<article class="ps412-collection-card"><div><h3>'+psEsc(c.title)+'</h3><p>'+psEsc(c.description||'')+'</p><small>'+Number(c.count||0).toLocaleString()+' titles · @'+psEsc(c.owner?.username||'')+'</small></div><button type="button" class="btn btn-sm" onclick="App.ps412Open(\''+psEsc(c.owner?.username||'')+'\',\''+psEsc(c.id)+'\')">View collection</button></article>').join('')+'</div>':'<p>No public collections yet.</p>';
-}
-function psOpen(username,id){
- location.hash='#/collection/'+encodeURIComponent(username)+'/'+encodeURIComponent(id);
-}
-function psMore(){PS412.offset=PS412.publicData?.next_offset??PS412.offset;void psFetchRoute();}
-function psRetry(){void psFetchRoute();}
-function psCopyCurrent(){void psCopy(location.href);}
-function psHashChanged(){
- const route=psRoute();
- if(!route)return;
- PS412.route=route;PS412.publicData=null;PS412.error='';PS412.offset=0;
- if(AUTH_USER&&AUTH_READY&&document.querySelector('.sidebar')){
-  S.view='publicshare';render();
- }else psGuestShell();
-}
-const psOriginalAuth=renderAuthScreen;
-renderAuthScreen=function(){if(psRoute())return psGuestShell();return psOriginalAuth.apply(this,arguments);};
-window.addEventListener('hashchange',psHashChanged);
-setTimeout(()=>{if(psRoute())psHashChanged();},350);
 
-async function psSubscribe(username,id){
- if(!AUTH_USER)return psAlert('Please sign in to subscribe.');
- try{
-  const profile=await supabase.from('mfp_profiles').select('user_id,is_public').eq('username',username).eq('is_public',true).single();
-  if(profile.error)throw profile.error;
-  const proof=await psPublicRequest('collection',username,id,0,1);
-  if(!proof?.collection)throw new Error('Collection is not public.');
-  if(profile.data.user_id===AUTH_USER.id)throw new Error('You own this collection.');
-  const r=await supabase.from('mfp_collection_subscriptions').upsert({subscriber_id:AUTH_USER.id,owner_id:profile.data.user_id,collection_id:id},{onConflict:'subscriber_id,owner_id,collection_id'});
-  if(r.error)throw r.error;psAlert('Subscribed — this collection stays connected to its owner ✓');
-  PS412.lastSubs=0;void psLoadSubs(true);
- }catch(e){psAlert(String(e?.message||'Could not subscribe'));}
-}
-async function psUnsubscribe(ownerId,id){
- if(!confirm('Unsubscribe from this Community Collection? Independent copies in My Collections will not be deleted.'))return;
- const r=await supabase.from('mfp_collection_subscriptions').delete().eq('subscriber_id',AUTH_USER.id).eq('owner_id',ownerId).eq('collection_id',id);
- if(r.error)return psAlert('Could not unsubscribe.');
- PS412.lastSubs=0;await psLoadSubs(true);psAlert('Unsubscribed.');
-}
-async function psLoadSubs(force=false){
- if(!AUTH_USER){PS412.subs=[];PS412.subscriberId='';return;}
- if(PS412.subscriberId!==String(AUTH_USER.id)){PS412.subs=[];PS412.lastSubs=0;PS412.subscriberId=String(AUTH_USER.id);}
- if(!force&&Date.now()-PS412.lastSubs<14000)return;
- const q=await supabase.from('mfp_collection_subscriptions').select('owner_id,collection_id,subscribed_at').eq('subscriber_id',AUTH_USER.id).order('subscribed_at',{ascending:false}).limit(120);
- if(q.error){console.warn('Community subscriptions:',q.error);return;}
- const subs=q.data||[],ownerIds=[...new Set(subs.map(x=>x.owner_id))];
- let owners=[];
- if(ownerIds.length){const r=await supabase.from('mfp_profiles').select('user_id,username,is_public').in('user_id',ownerIds);if(!r.error)owners=r.data||[];}
- const lookup=new Map(owners.map(x=>[x.user_id,x.username]));
- const results=await Promise.all(subs.map(async s=>{
-  const username=lookup.get(s.owner_id);if(!username)return {...s,unavailable:true};
-  try{const data=await psPublicRequest('collection',username,s.collection_id,0,1);return {...s,username,collection:data.collection,unavailable:false};}
-  catch(_){return {...s,username,unavailable:true};}
- }));
- PS412.subs=results;PS412.lastSubs=Date.now();
- psRenderSubs();
-}
-function psSubsHtml(){
- if(PS412.subscriberId!==String(AUTH_USER?.id||'')){PS412.subs=[];PS412.subscriberId=String(AUTH_USER?.id||'');PS412.lastSubs=0;PS412.pubs=new Set();PS412.pubsAt=0;}
- return '<section class="ps412-panel ps412-community-section"><div class="ps412-panel-top"><div><h2>Community Collections</h2><p>Live subscriptions to other members’ collections — stored as references, never copied.</p></div><button type="button" class="btn btn-sm" onclick="App.ps412RefreshSubscriptions()">Refresh</button></div>'+
- (PS412.subs.length?'<div class="ps412-collection-grid">'+PS412.subs.map(s=>'<article class="ps412-collection-card"><h3>'+psEsc(s.unavailable?'Unavailable collection':s.collection?.title||'Shared collection')+'</h3><p>'+psEsc(s.unavailable?'The owner removed or restricted public access. Your independent converted collections are unaffected.':(s.collection?.description||''))+'</p>'+
- '<small>'+psEsc(s.username||'Member')+'</small><div class="ps412-share-actions">'+(!s.unavailable?'<button class="btn btn-sm" onclick="App.ps412Open(\''+psEsc(s.username)+'\',\''+psEsc(s.collection_id)+'\')">View live</button><button class="btn btn-sm" onclick="App.ps412Convert(\''+psEsc(s.username)+'\',\''+psEsc(s.collection_id)+'\')">Convert to my collection</button>':'')+
- '<button class="btn btn-sm btn-ghost" onclick="App.ps412Unsubscribe(\''+psEsc(s.owner_id)+'\',\''+psEsc(s.collection_id)+'\')">Unsubscribe</button></div></article>').join('')+'</div>':'<p>You have no Community subscriptions yet. Explore published collections to follow other members.</p>')+
- '<button type="button" class="btn" onclick="App.ps412Explore()">Discover shared collections →</button></section>';
-}
-function psRenderSubs(){const el=document.getElementById('ps412-community-list');if(el)el.innerHTML=psSubsHtml();}
-const psCollectionsBrowserBase=v274CollectionsBrowserHtml;
-v274CollectionsBrowserHtml=function(){
- const html=psCollectionsBrowserBase.apply(this,arguments);
- return html.replace(/<\/div>\s*$/,'<div id="ps412-community-list">'+psSubsHtml()+'</div></div>');
-};
-const psDetailBase=v274CollectionDetailHtml;
-v274CollectionDetailHtml=function(c){
- let html=String(psDetailBase.apply(this,arguments));
- return html.replace(/(<div class="mf274-page[^"]*">)/,'$1<div id="ps412-own-publish">'+psOwnerBar(c.id)+'</div>');
-};
-MediaFlowRuntime.registerPageEnhancer('collections',()=>{
- if(V274_UI.activeId)void psOwnerPubs();else void psLoadSubs();
-});
-async function psConvert(username,id){
- if(!AUTH_USER||!Array.isArray(S.library)||!Array.isArray(S.categories))return psAlert('Sign in and load your workspace before converting.');
- if(!confirm('Convert this live shared collection into your own editable collection? Missing titles will be added to your Library with fresh, private progress. This creates an independent copy.'))return;
- try{
-  let offset=0,total=0,all=[],meta=null;
-  do{
-   const data=await psPublicRequest('collection',username,id,offset,500);
-   meta=data.collection;total=Number(data.total||0);
-   if(total>10000)throw new Error('This collection is too large for one safe conversion (maximum 10,000 titles).');
-   all.push(...(data.titles||[]));offset=data.next_offset===null?null:data.next_offset;
-   if(offset!==null&&(!Number.isFinite(offset)||offset<=0))throw new Error('Conversion paging error');
-  }while(offset!==null);
-  if(!meta)throw new Error('Collection unavailable');
-  const already=new Map((S.library||[]).filter(i=>i?.title).map(i=>[String(i.title).trim().toLocaleLowerCase(),String(i.id)]));
-  const categories=new Map((S.categories||[]).filter(x=>x?.name).map(x=>[String(x.name).trim().toLocaleLowerCase(),String(x.id)]));
-  const fallback=S.categories[0]?.id;if(!fallback)throw new Error('No destination category is configured.');
-  const newItems=[],ids=[];
-  for(const t of all){
-   const title=String(t.title||'').trim();if(!title)continue;
-   const key=title.toLocaleLowerCase();let titleId=already.get(key);
-   if(!titleId){
-    titleId=uid();already.set(key,titleId);
-    newItems.push({id:titleId,title,categoryId:categories.get(String(t.category||'').toLocaleLowerCase())||fallback,
-     coverUrl:String(t.cover_url||''),total:Number(t.total)||null,progress:0,
-     status:'planned',priority:'medium',createdAt:Date.now(),modifiedAt:Date.now()});
-   }
-   ids.push(titleId);
-  }
-  const imported=sanitizeLibrary(newItems);
-  if(imported.length)S.library.push(...imported);
-  v274EnsureCollections();
-  const copy=v274NormalizeCollection({id:v274Id(),title:meta.title,description:meta.description,
-   coverUrl:meta.cover_url,titleIds:[...new Set(ids)]});
-  S.collections.push(copy);v53InvalidateLibraryCache();
-  await saveState();
-  PS412.lastSubs=0;V274_UI.activeId=copy.id;render();
-  psAlert('Converted '+ids.length+' titles into an independent collection. '+imported.length+' new Library titles added.');
- }catch(e){psAlert('Conversion failed: '+String(e?.message||e));console.error('Convert live collection',e);}
-}
-
-const psCommunityRowsBase=mfp408RenderRows;
-mfp408RenderRows=function(){
- let html=String(psCommunityRowsBase.apply(this,arguments));
- if(MFP408.tab==='profile'){
-  const p=MFP408.profile||{};
-  const fields='<label class="ps412-showcase-setting"><input name="ps412_workspace_stats" type="checkbox" '+(p.show_workspace_stats?'checked':'')+'> Show workspace totals publicly</label>'+
-   '<label class="ps412-showcase-setting"><input name="ps412_workspace_categories" type="checkbox" '+(p.show_workspace_categories?'checked':'')+'> Show category names publicly</label>';
-  html=html.replace('<button type="submit">Save profile</button>',fields+'<button type="submit">Save profile</button>');
-  if(!MFP408.profile)html=html.replace('name="is_public" type="checkbox" checked','name="is_public" type="checkbox"');
-  html+='<div class="mfp408-card"><h3>Share your live workspace profile</h3><p>Only your explicitly enabled public sections and published collections are visible. Your private Library snapshot is never shared.</p>'+
-    '<button type="button" onclick="App.ps412ShareProfile()">Copy public profile link</button></div>';
- }
- return html;
-};
-App.mfp408SaveProfile=async function(e){
- e.preventDefault();
- const f=new FormData(e.target),username=psHandle(f.get('username')),avatar=String(f.get('avatar_url')||'').trim();
- if(!/^[a-z0-9_]{3,24}$/.test(username))return mfp408Notice('Use 3–24 lowercase letters, numbers or underscores.',true);
- if(avatar&&!mfp408SafeURL(avatar))return mfp408Notice('Avatar must be HTTPS.',true);
- await mfp408Mutation('mfp_profiles','upsert',{
-  user_id:AUTH_USER.id,username,display_name:String(f.get('display_name')||'').slice(0,100),
-  bio:String(f.get('bio')||'').slice(0,500),avatar_url:avatar||null,is_public:f.has('is_public'),
-  show_workspace_stats:f.has('ps412_workspace_stats'),show_workspace_categories:f.has('ps412_workspace_categories')
- });
-};
-const psCommunityTabBase=App.mfp408Tab;
-App.mfp408Tab=function(tab){if(tab==='collections'){S.view='explorecollections';render();return;}return psCommunityTabBase(tab);};
-function psExplore(){S.view='explorecollections';render();void psDiscover();}
-function psExploreRenderer(){
- return '<section class="ps412-public-page"><div class="ps412-public-top"><button class="btn btn-sm" onclick="App.setView(\'community\')">← Community</button><span>DISCOVER</span></div><h1>Community Collections</h1><p>Discover published, live collections from other MediaFlow Plus workspaces.</p><input class="ps412-explore-search" type="search" value="'+psEsc(PS412.discoverFilter)+'" placeholder="Search public collections or creators…" oninput="App.ps412FilterExplore(this.value)"><div id="ps412-explore-results">'+psExploreHtml()+'</div></section>';
-}
-function psExploreHtml(){
- const q=PS412.discoverFilter.toLocaleLowerCase();
- return psCards(PS412.discover.filter(c=>!q||String(c.title||'').toLocaleLowerCase().includes(q)||String(c.owner?.username||'').includes(q)));
-}
-function psFilterExplore(s){PS412.discoverFilter=String(s||'');const e=document.getElementById('ps412-explore-results');if(e)e.innerHTML=psExploreHtml();}
-async function psDiscover(){
- const host=document.getElementById('ps412-explore-results');
- if(host)host.textContent='Finding public collections…';
- try{
-  const data=await psPublicRequest('discover');PS412.discover=data.collections||[];
-  if(host)host.innerHTML=psExploreHtml();
- }catch(e){if(host)host.textContent='Community discovery is temporarily unavailable. '+String(e?.message||e);}
-}
-MediaFlowRuntime.registerPageRenderer('publicshare',psPublicRenderer);
-MediaFlowRuntime.registerPageEnhancer('publicshare',()=>{PS412.route=psRoute()||PS412.route;if(PS412.route)void psFetchRoute();});
-MediaFlowRuntime.registerPageRenderer('explorecollections',psExploreRenderer);
-MediaFlowRuntime.registerPageEnhancer('explorecollections',psDiscover);
-Object.assign(App,{ps412ShareProfile:psShareProfile,ps412TogglePublish:psTogglePublish,ps412ShareCollection:psShareCollection,
- ps412Unsubscribe:psUnsubscribe,ps412RefreshSubscriptions:()=>psLoadSubs(true),ps412Subscribe:psSubscribe,
- ps412Open:psOpen,ps412Back:psBack,ps412More:psMore,ps412Retry:psRetry,ps412CopyCurrent:psCopyCurrent,
- ps412Convert:psConvert,ps412Explore:psExplore,ps412FilterExplore:psFilterExplore});
-setInterval(()=>{if(AUTH_USER&&String(S.view||'')==='collections'&&!V274_UI.activeId&&document.visibilityState==='visible')void psLoadSubs(true);},60000);
-window.MediaFlowPlusSharing412={release:412,live:true,canonical:'mediaflow_states',publicationRowsOnly:true,refreshSubscriptions:psLoadSubs};
-})();
 })();

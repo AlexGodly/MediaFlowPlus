@@ -149,10 +149,31 @@ function v188OverviewPager(total,pageSize){
 }
 function v188SetOverviewPage(page){S.v188OverviewPage=Math.max(0,Math.floor(Number(page)||0));render();}
 
+/* v415: title counts are distinct Library entries, never episodes/chapters.
+   Read the live Dynamic Status configuration on every render. This respects
+   order changes immediately and leaves persisted Library/settings untouched. */
+function v415OverviewTitleCounts(){
+  const settings=v181EnsureLibrarySettings(S.settings||DEFAULT_SETTINGS);
+  const order=(settings.statusOrder||[]).slice();
+  const byCategory=new Map();
+  for(const item of (S.library||[])){
+    if(!item)continue;
+    const catId=String(item.categoryId??'');
+    let counts=byCategory.get(catId);
+    if(!counts){counts={total:0,statuses:new Map(),other:0};byCategory.set(catId,counts);}
+    counts.total++;
+    const status=String(item.status||'planned').toLowerCase();
+    if(order.includes(status))counts.statuses.set(status,(counts.statuses.get(status)||0)+1);
+    else counts.other++;
+  }
+  return {order,byCategory};
+}
+
 /* Replace v183 Overview rendering with v188 ordering, visibility and pagination. */
 v183LibraryOverviewHtml=function(){
   const cfg=v188EnsureLibrarySettings(S.settings||DEFAULT_SETTINGS,S.categories).overview;
   const ov=v53LibraryOverview();
+  const titleCounts=v415OverviewTitleCounts();
   const categories=v188OverviewCategories();
   const perPage=v188ClampOverviewPerPage(cfg.perPage);
   const pages=Math.max(1,Math.ceil(categories.length/perPage));
@@ -168,26 +189,51 @@ v183LibraryOverviewHtml=function(){
   }
   const overallPct=knownTotal>0?Math.min(100,Math.round(knownDone/knownTotal*100)):0;
 
+  // v413: Build the overview using its own semantic components rather than
+  // the shared .card/.overview-row/.ov-name/.ov-track CSS from v70/v262.
+  // Inline layout constraints deliberately guarantee separation even when an
+  // older, theme-injected stylesheet overrides external style rules.
   const rows=pageCats.map(cat=>{
     const x=ov.byCat.get(cat.id)||{items:0,done:0,knownDone:0,total:0,unknown:false};
     const est=v183LibraryOverviewEstimate(cat,x);
     const pct=est.pct;
     const progressText=x.items===0?'0 / -':(est.estimated?`${x.done} / ≈${est.total} (~${pct}%)`:`${x.done} / ${est.total} (${pct}%)`);
     const approxTitle=est.estimated?'Approximate overview only — unknown title totals are estimated for this progress bar and are not saved to Library titles.':'';
-    return `<div class="overview-row" ${approxTitle?`title="${escapeHtml(approxTitle)}"`:''}>
-      <div class="ov-name"><span>${v144CategoryIconHtml(cat)}</span> ${escapeHtml(cat.name)}</div>
-      <div class="ov-track"><div class="progress-track"><div class="progress-fill" style="width:${pct}%; background:linear-gradient(90deg, ${cat.color}88, ${cat.color});"></div></div></div>
-      <div class="ov-num">${progressText}</div>
-    </div>`;
-  }).join('')||'<div class="empty-state" style="padding:18px;">No categories are currently visible in Library Overview.</div>';
+    const color=String(cat.color||'#b75c91');
+    const perCategory=titleCounts.byCategory.get(String(cat.id))||{total:0,statuses:new Map(),other:0};
+    const totalLabel=perCategory.total.toLocaleString();
+    const statusList=titleCounts.order.map(status=>{
+      const count=perCategory.statuses.get(status)||0;
+      const label=typeof v199StatusLabel==='function'?v199StatusLabel(status):status;
+      return `<li class="mf415-status" data-status="${escapeHtml(status)}" aria-label="${escapeHtml(label)}: ${count.toLocaleString()} titles">
+          <span class="mf415-status-label"><span class="mf417-count-icon" aria-hidden="true">${v229StatusChoiceIcon(status)}</span><span>${escapeHtml(label)}</span></span>
+          <strong class="mf415-status-count">${count.toLocaleString()}</strong>
+        </li>`;
+    });
+    // Legacy unknown statuses are not silently omitted from the total.
+    if(perCategory.other>0){statusList.push(`<li class="mf415-status" data-status="other"><span class="mf415-status-label">Other</span><strong class="mf415-status-count">${perCategory.other.toLocaleString()}</strong></li>`);}
+    return `<article class="mf413-overview-item mf415-overview-item" data-category-id="${escapeHtml(String(cat.id))}" ${approxTitle?`title="${escapeHtml(approxTitle)}"`:''}
+        style="--mf416-accent:${/^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?$/.test(color)?color:'var(--flow,#d45b80)'};box-sizing:border-box;display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto auto auto auto auto!important;align-content:start!important;gap:10px!important;min-width:0!important;width:100%!important;padding:14px!important;overflow:hidden!important;">
+      <div class="mf413-overview-heading" style="box-sizing:border-box;display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important;max-width:100%!important;width:100%!important;">
+        <span class="mf413-overview-icon" style="display:inline-flex!important;flex:0 0 auto!important;align-items:center!important;justify-content:center!important;">${v144CategoryIconHtml(cat)}</span>
+        <span class="mf413-overview-title" style="display:block!important;flex:1 1 auto!important;min-width:0!important;white-space:normal!important;overflow-wrap:anywhere!important;line-height:1.45!important;">${escapeHtml(cat.name)}</span>
+      </div>
+      <div class="mf415-overview-total" aria-label="${escapeHtml(cat.name)}: ${totalLabel} total titles"><span class="mf417-total-label"><span class="mf417-count-icon" aria-hidden="true">${V225_BUTTON_ICONS.allTitles}</span><span>Total titles</span></span><strong>${totalLabel}</strong></div>
+      <ul class="mf415-overview-statuses" aria-label="Title counts by status, in Dynamic Status order">${statusList.join('')}</ul>
+      <div class="mf413-overview-count" style="display:block!important;position:static!important;min-width:0!important;width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;text-align:left!important;line-height:1.45!important;">Progress · ${escapeHtml(progressText)}</div>
+      <div class="mf413-overview-meter" role="progressbar" aria-label="${escapeHtml(cat.name)} completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" style="display:block!important;position:relative!important;box-sizing:border-box!important;align-self:end!important;width:100%!important;max-width:100%!important;min-width:0!important;height:8px!important;overflow:hidden!important;">
+        <div class="mf413-overview-fill" style="display:block!important;width:${pct}%!important;height:100%!important;background:linear-gradient(90deg, ${color}88, ${color})!important;"></div>
+      </div>
+    </article>`;
+  }).join('')||'<div class="mf413-overview-empty">No categories are currently visible in Library Overview.</div>';
 
   const pager=v188OverviewPager(categories.length,perPage);
-  return `<div class="v183-library-overview-block v188-library-overview-block">
+  return `<section class="v183-library-overview-block v188-library-overview-block mf413-overview mf415-overview" data-mf-overview-layout="415">
     <div class="section-label">OVERVIEW · ${overallPct}% of known tracked totals cleared <span style="font-weight:500;text-transform:none;letter-spacing:0;opacity:.72;">· ≈ means display-only estimate</span></div>
     ${pager}
-    <div class="card" style="margin-bottom:${pager?'12px':'26px'};">${rows}</div>
+    <div class="mf413-overview-grid" style="box-sizing:border-box;display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))!important;align-items:stretch!important;gap:12px!important;min-width:0!important;width:100%!important;padding:12px!important;margin-bottom:${pager?'12px':'26px'};">${rows}</div>
     ${pager}
-  </div>`;
+  </section>`;
 };
 
 function v188SetOverviewOrderMode(mode){
