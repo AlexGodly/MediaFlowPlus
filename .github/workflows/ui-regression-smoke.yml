@@ -1,13 +1,15 @@
-name: MediaFlow Plus Personal parity validation
+name: MediaFlow Plus one-way synchronization tests
 on:
   push:
+    branches: [main, feature/v416-one-way-autosync]
+    paths: ['src/js/**', 'plus/**', 'VERSION', 'index.html', 'scripts/**', '.github/workflows/sync-personal-parity.yml', '.github/workflows/ui-regression-smoke.yml']
+  pull_request:
     branches: [main]
-    paths: ['src/js/**', 'VERSION', 'index.html', '.github/workflows/ui-regression-smoke.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  verify:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,17 +19,30 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify Personal source parity and Plus-only cloud
+      - name: Offline regression - no Personal writes and Plus features preserved
         run: |
+          python -m py_compile plus/sync/sync.py
+          python -m unittest discover -s plus/sync -p 'test_*.py' -v
+      - name: Build and verify independent Supabase and overlays
+        run: |
+          set -euo pipefail
           python scripts/build.py
-          node --check "assets/js/mediaflow-v$(cat VERSION).bundle.js"
-          test "$(cat VERSION)" = 415
-          grep -q 'puaqaobplyrdrujapznp.supabase.co' assets/js/mediaflow-v415.bundle.js
-          if grep -q 'wgeijxfdpgehesxialxm.supabase.co' assets/js/mediaflow-v415.bundle.js; then exit 1; fi
+          VERSION="$(cat VERSION)"
+          node --check "assets/js/mediaflow-v${VERSION}.bundle.js"
+          grep -q 'puaqaobplyrdrujapznp.supabase.co' "assets/js/mediaflow-v${VERSION}.bundle.js"
+          if grep -q 'wgeijxfdpgehesxialxm.supabase.co' "assets/js/mediaflow-v${VERSION}.bundle.js"; then exit 1; fi
           python - <<'PY'
           import json,pathlib
-          order=json.loads(pathlib.Path('src/js/runtime-order.json').read_text())
-          assert len(order)==157 and order[-1]=='components/301-v408-performance-stability-ui.js'
-          assert json.loads(pathlib.Path('version.json').read_text())['appVersion']==415
-          print('Personal v410 source and Plus v415 cloud isolation confirmed.')
+          r=pathlib.Path('.')
+          version=int((r/'VERSION').read_text())
+          state=json.loads((r/'plus/sync/state.json').read_text())
+          assert state['plus_release']==version
+          assert len(state['personal_sha'])==40
+          assert json.loads((r/'version.json').read_text())['version']==version
+          order=json.loads((r/'src/js/runtime-order.json').read_text())
+          overlays=json.loads((r/'plus/extensions/manifest.json').read_text())
+          assert len(order)>=157
+          for module in overlays['runtime_modules']:
+              assert 'components/plus/'+module in order
+          print('Plus source, extension manifest, cloud and release metadata: PASS')
           PY
