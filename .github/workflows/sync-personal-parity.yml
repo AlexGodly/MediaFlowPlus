@@ -101,12 +101,12 @@ jobs:
             --next-version "$NEXT_VERSION"
           cd plus
           python scripts/build.py
-          node --check "assets/js/mediaflow-v${{NEXT_VERSION}.bundle.js"
-          grep -q 'puaqaobplyrdrujapznp.supabase.co' "assets/js/mediaflow-v${{NEXT_VERSION}.bundle.js"
-          if grep -q 'wgeijxfdpgehesxialxm.supabase.co' "assets/js/mediaflow-v${{NEXT_VERSION}.bundle.js"; then
+          node --check "assets/js/mediaflow-v${NEXT_VERSION}.bundle.js"
+          grep -q 'puaqaobplyrdrujapznp.supabase.co' "assets/js/mediaflow-v${NEXT_VERSION}.bundle.js"
+          if grep -q 'wgeijxfdpgehesxialxm.supabase.co' "assets/js/mediaflow-v${NEXT_VERSION}.bundle.js"; then
             echo "Personal Supabase URL detected; refusing publication" >&2; exit 1
           fi
-          grep -q "mediaflow-v${{NEXT_VERSION}.bundle.js" index.html
+          grep -q "mediaflow-v${NEXT_VERSION}.bundle.js" index.html
           python - <<'PY'
           import pathlib,json
           p=pathlib.Path('.')
@@ -138,10 +138,10 @@ jobs:
           if gh release view "$NEXT_VERSION" >/dev/null 2>&1; then
             echo "Immutable Plus release already exists; no update was published" >&2; exit 1
           fi
-          git push origin "HEAD:refs/heads/backup/before-sync-${{NEXT_VERSION}-personal-${{PERSONAL_TAG}"
+          git push origin "HEAD:refs/heads/backup/before-sync-${NEXT_VERSION}-personal-${PERSONAL_TAG}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          gh api "repos/AlexGodly/MediaFlow/releases/tags/${{PERSONAL_TAG}" --jq '.body // ""' > /tmp/personal-release-notes.txt
+          gh api "repos/AlexGodly/MediaFlow/releases/tags/${PERSONAL_TAG}" --jq '.body // ""' > /tmp/personal-release-notes.txt
           {
             printf '# MediaFlow Plus v%s — Personal v%s synchronization\n\n' "$NEXT_VERSION" "$PERSONAL_TAG"
             printf 'Inherited Personal stable v%s, commit %s.\n\n' "$PERSONAL_TAG" "$PERSONAL_SHA"
@@ -150,18 +150,18 @@ jobs:
             cat /tmp/personal-release-notes.txt
             printf '\n\n## Rollback\n\n'
             printf 'backup/before-sync-%s-personal-%s\n' "$NEXT_VERSION" "$PERSONAL_TAG"
-          } > "docs/CHANGELOG_v${{NEXT_VERSION}.md"
+          } > "docs/CHANGELOG_v${NEXT_VERSION}.md"
           git add -A src assets scripts index.html manifest.json icon.svg favicon.ico \
             package.json vite.v260.config.ts vite.v261.config.ts VERSION version.json sw.js \
-            plus/sync/state.json "docs/CHANGELOG_v${{NEXT_VERSION}.md"
+            plus/sync/state.json "docs/CHANGELOG_v${NEXT_VERSION}.md"
           if git diff --cached --quiet; then echo "No changes to release" >&2; exit 1; fi
-          git commit -m "feat(v${{NEXT_VERSION}): inherit Personal v${{PERSONAL_TAG} with Plus overlays"
+          git commit -m "feat(v${NEXT_VERSION}): inherit Personal v${PERSONAL_TAG} with Plus overlays"
           git fetch origin main
           git rebase origin/main
           git push origin HEAD:main
           git tag "$NEXT_VERSION"
           git push origin "$NEXT_VERSION"
-          gh release create "$NEXT_VERSION" --verify-tag --title "v${{NEXT_VERSION} Stable" \
-            --notes-file "docs/CHANGELOG_v${{NEXT_VERSION}.md"
+          gh release create "$NEXT_VERSION" --verify-tag --title "v${NEXT_VERSION} Stable" \
+            --notes-file "docs/CHANGELOG_v${NEXT_VERSION}.md"
           gh api -X POST repos/AlexGodly/MediaFlowPlus/pages/builds >/dev/null
           echo "Plus published and Pages requested; no Personal writes."

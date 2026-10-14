@@ -28,9 +28,9 @@ jobs:
           set -euo pipefail
           python scripts/build.py
           VERSION="$(cat VERSION)"
-          node --check "assets/js/mediaflow-v${{VERSION}.bundle.js"
-          grep -q 'puaqaobplyrdrujapznp.supabase.co' "assets/js/mediaflow-v${{VERSION}.bundle.js"
-          if grep -q 'wgeijxfdpgehesxialxm.supabase.co' "assets/js/mediaflow-v${{VERSION}.bundle.js"; then exit 1; fi
+          node --check "assets/js/mediaflow-v${VERSION}.bundle.js"
+          grep -q 'puaqaobplyrdrujapznp.supabase.co' "assets/js/mediaflow-v${VERSION}.bundle.js"
+          if grep -q 'wgeijxfdpgehesxialxm.supabase.co' "assets/js/mediaflow-v${VERSION}.bundle.js"; then exit 1; fi
           python - <<'PY'
           import json,pathlib
           r=pathlib.Path('.')
