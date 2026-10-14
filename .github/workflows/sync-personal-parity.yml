@@ -3,6 +3,9 @@ name: Auto-sync Personal stable releases to MediaFlow Plus
 on:
   schedule:
     - cron: '7,22,37,52 * * * *'
+  push:
+    branches: [main]
+    paths: ['.github/workflows/sync-personal-parity.yml']
   workflow_dispatch:
 
 permissions:
