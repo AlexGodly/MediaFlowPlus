@@ -11,8 +11,8 @@
 
    ============================================================ */
 
-const SUPABASE_URL='https://wgeijxfdpgehesxialxm.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_d2P0qZlvGZOSqcUzEg3BNg_3wQsHY_M';
+const SUPABASE_URL='https://puaqaobplyrdrujapznp.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_nbfeKXdimfBv7lsbiJCBAw_54HIEr0G';
 const SUPABASE_CONFIGURED=SUPABASE_URL.startsWith('https://')&&!SUPABASE_URL.includes('YOUR_')&&!!SUPABASE_PUBLISHABLE_KEY&&!SUPABASE_PUBLISHABLE_KEY.includes('YOUR_');
 let supabase=null,AUTH_USER=null,AUTH_READY=false,AUTH_MODE='login';
 if(SUPABASE_CONFIGURED&&window.supabase?.createClient)supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -2117,36 +2117,36 @@ function renderDashboard(){
 
     </div>
 
-    <div class="today-strip">
-
-      <div class="stat-box">
-
-        <div class="num">${totals.tasks} / ${st.tasksPerDay}</div>
-
-        <div class="lbl">tasks complete</div>
-
-        <div class="progress-track"><div class="progress-fill" style="width:${tasksPct}%"></div></div>
-
-      </div>
-
-      <div class="stat-box">
-
-        <div class="num">${fmtMinutes(totals.minutes)} / ${fmtMinutes(st.dailyMinutes)}</div>
-
-        <div class="lbl">time invested</div>
-
-        <div class="progress-track"><div class="progress-fill" style="width:${minutesPct}%"></div></div>
-
-      </div>
-
-      <div class="stat-box">
-
-        <div class="num">${computeDayStreak()}</div>
-
-        <div class="lbl">day streak</div>
-
-      </div>
-
+    <div class="today-strip mf420-activity-cards" aria-label="Daily activity overview">
+      <section class="stat-box mf420-activity-card" aria-label="Tasks completed">
+        <div class="mf420-stat-heading">
+          <span class="mf420-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m7 12 3 3 6-7M7 18h10"/></svg></span>
+          <span class="mf420-stat-percent">${tasksPct}%</span>
+        </div>
+        <div class="mf420-stat-numbers"><strong>${totals.tasks.toLocaleString()}</strong><span>/ ${Number(st.tasksPerDay||0).toLocaleString()} tasks</span></div>
+        <div class="mf420-stat-label">Tasks completed</div>
+        <div class="mf420-stat-detail">${Math.max(0,Number(st.tasksPerDay||0)-totals.tasks).toLocaleString()} tasks remaining today</div>
+        <div class="mf420-stat-track" role="progressbar" aria-label="Tasks completed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${tasksPct}"><span style="width:${tasksPct}%"></span></div>
+      </section>
+      <section class="stat-box mf420-activity-card" aria-label="Time invested">
+        <div class="mf420-stat-heading">
+          <span class="mf420-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg></span>
+          <span class="mf420-stat-percent">${minutesPct}%</span>
+        </div>
+        <div class="mf420-stat-numbers"><strong>${fmtMinutes(totals.minutes)}</strong><span>/ ${fmtMinutes(st.dailyMinutes)} target</span></div>
+        <div class="mf420-stat-label">Time invested</div>
+        <div class="mf420-stat-detail">${fmtMinutes(Math.max(0,(Number(st.dailyMinutes)||0)-totals.minutes))} remaining today</div>
+        <div class="mf420-stat-track" role="progressbar" aria-label="Daily time invested" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${minutesPct}"><span style="width:${minutesPct}%"></span></div>
+      </section>
+      <section class="stat-box mf420-activity-card mf420-streak-card" aria-label="Day streak">
+        <div class="mf420-stat-heading">
+          <span class="mf420-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c-5 0-8-3-8-8 0-4 4-8 5-11 .5 3 4 4 4 8 2-1 3-3 3-5 7 7 7 16-4 16Z"/></svg></span>
+          <span class="mf420-stat-percent">Consistency</span>
+        </div>
+        <div class="mf420-stat-numbers"><strong>${computeDayStreak().toLocaleString()}</strong><span>days</span></div>
+        <div class="mf420-stat-label">Day streak</div>
+        <div class="mf420-stat-detail">${computeDayStreak()>0?'Keep your momentum going':'Complete your first activity to build a streak'}</div>
+      </section>
     </div>
 
     ${heroHtml}
@@ -66297,5 +66297,584 @@ render=function(){const result=mf419RenderBase.apply(this,arguments);requestAnim
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mf419BootTopButton,{once:true});else mf419BootTopButton();
 
 Object.assign(App,{v419ToggleLoggingWorkspace:App.v419ToggleLoggingWorkspace});
+/* MediaFlow v420 — final rendering fixes. Presentation-only: no Library records,
+ * collection membership, category cover configuration, or cloud data are edited. */
+const MF420_COVER_VERSION=420;
+function mf420SafeCategory(item){return getCategory(item?.categoryId)||null;}
+function mf420CoverFallback(item,klass=''){
+  const cat=mf420SafeCategory(item);
+  const color=escapeHtml(String(cat?.color||'var(--flow)'));
+  const title=escapeHtml(cleanTitle(item?.title||'Title'));
+  const icon=cat?v144CategoryIconHtml(cat):'<span class="v144-cat-icon-emoji" aria-hidden="true">◇</span>';
+  return `<span class="mf420-cover-fallback ${klass}" style="--mf420-cat-color:${color}" role="img" aria-label="Missing cover for ${title}"><span class="mf420-cover-glyph">${icon}</span></span>`;
+}
+function mf420ImageOrFallback(item,klass='',click=''){
+  const source=v200TitleCoverSource(item);
+  const alt=escapeHtml(cleanTitle(item?.title||'Title'));
+  const missing=source.type==='category-icon';
+  const fallback=mf420CoverFallback(item);
+  const img=source.url?`<img class="mf420-cover-image" src="${escapeHtml(source.url)}" alt="${alt} cover" loading="lazy" onerror="this.hidden=true;this.parentNode.classList.add('mf420-cover-missing')">`:'';
+  const onclick=click?` onclick="${click}"`:'';
+  return `<span class="mf420-cover-stage ${klass} ${missing?'mf420-cover-missing':''}" data-mf420-cover-source="${escapeHtml(source.type)}"${onclick}>${fallback}${img}</span>`;
+}
+/* Both library renderers call these functions at render time. The normal
+ * library's Cards/List/Compact thumbnails and Dynamic equivalents use the
+ * same category fallback, while Cover-only tiles retain their own dimensions. */
+v417LibraryThumbHtml=function(item,cat){
+  return mf420ImageOrFallback(item,'library-cover-thumb mf417-cover-thumb mf420-library-thumb');
+};
+v417LibraryTileCoverHtml=function(item,placeholderClass){
+  const id=escapeHtml(String(item.id));
+  return mf420ImageOrFallback(item,`${escapeHtml(placeholderClass||'v181-cover-tile-placeholder')} mf417-tile-placeholder mf420-library-poster`,`event.stopPropagation();App.v181OpenTitleDetails('${id}')`);
+};
+/* The v418 Collections renderer calls this function directly. Do not patch
+ * markup after rendering (which would miss virtualized/redrawn cards). */
+v418CollectionTitleCover=function(item){
+  const id=escapeHtml(String(item.id)),alt=escapeHtml(v274SafeTitle(item));
+  return `<button type="button" class="mf274-title-cover mf418-title-cover mf420-collection-cover" onclick="App.v274OpenTitle('${id}')" aria-label="Details for ${alt}">${mf420ImageOrFallback(item,'mf420-collection-stage')}</button>`;
+};
+/* MediaFlow v421 — adaptive desktop navigation and the Logging membership select.
+ * Runs last, inside the canonical MediaFlow application closure. */
+const MF421_MODES=new Set(['sidebar','mini','top','bottom']);
+function mf421Mode(){
+  const value=String(S.settings?.navDockStyle||'');
+  return MF421_MODES.has(value)?value:(S.settings?.sidebarCollapsed?'mini':'sidebar');
+}
+DEFAULT_SETTINGS.navDockStyle='sidebar';
+let mf421DropOpen=false,mf421DockSignature='',mf421ResizeFrame=0,mf421Drag=null,mf421SuppressClick=0;
+function mf421SetNavStyle(mode){
+  if(!MF421_MODES.has(mode))return;
+  S.settings=S.settings||{};
+  const previous=mf421Mode();
+  S.settings.navDockStyle=mode;
+  S.settings.sidebarCollapsed=mode==='mini';
+  try{persistSettings();}catch(_){ }
+  mf421DropOpen=false;
+  mf421Apply(true);
+  if(previous!==mode&&S.view==='settings')render();
+}
+// Keep the original width preference, but do not auto-expand and undo a manual resize.
+autoFitSidebarToProfile=function(){};
+applySidebarWidth=function(raw){
+  const width=Math.max(82,Math.min(380,Math.round(Number(raw)||236)));
+  if(width<139){
+    if(mf421Mode()==='sidebar')mf421SetNavStyle('mini');
+    document.documentElement.style.setProperty('--sidebar-width','82px');
+    return 82;
+  }
+  if(mf421Mode()==='mini')mf421SetNavStyle('sidebar');
+  document.documentElement.style.setProperty('--sidebar-width',width+'px');
+  try{localStorage.setItem(SIDEBAR_WIDTH_KEY,String(width));}catch(_){ }
+  return width;
+};
+// The existing brand click/keyboard support is preserved; docking is additional.
+App.v265ToggleSidebar=function(){mf421SetNavStyle(mf421Mode()==='mini'?'sidebar':'mini');};
+
+function mf421InjectSettings(){
+  const page=document.querySelector('.v220-settings-page');
+  if(!page||String(S.view||'')!=='settings')return;
+  const groups=[...page.querySelectorAll('.section-label')];
+  const section=groups.find(el=>String(el.textContent||'').trim().toUpperCase().startsWith('NAVIGATION'));
+  if(!section||page.querySelector('.mf421-nav-settings-card'))return;
+  const mode=mf421Mode();
+  const modes=[['sidebar','Sidebar','Resizable left navigation'],['mini','Mini','Icons-only navigation'],['top','Top bar','Responsive top navigation'],['bottom','Bottom bar','Responsive bottom navigation']];
+  const card=document.createElement('div');card.className='mf421-nav-settings-card card';
+  card.innerHTML=`<strong>Navigation style</strong><p class="hint">Select a style or drag the MediaFlow logo to the top, bottom, or left docking zone. Desktop only.</p><div class="mf421-style-tabs" role="group" aria-label="Desktop navigation style">${modes.map(([key,name,desc])=>`<button type="button" class="mf421-style-tab ${mode===key?'active':''}" aria-pressed="${mode===key}" title="${desc}" onclick="App.mf421SetNavStyle('${key}')"><span class="mf421-style-symbol" aria-hidden="true">${key==='mini'?'▥':key==='sidebar'?'▤':key==='top'?'▔':'▁'}</span><span>${name}</span></button>`).join('')}</div><p class="hint">Your sidebar width and navigation page order are preserved when changing styles.</p>`;
+  section.insertAdjacentElement('afterend',card);
+}
+try{MediaFlowRuntime.registerPageEnhancer('settings',mf421InjectSettings);}catch(_){ }
+
+function mf421DeskAllowed(){
+  return window.innerWidth>860&&!['mobile','tablet'].includes(document.documentElement.dataset.v238Layout||'');
+}
+function mf421AddDock(){
+  let bar=document.querySelector('.mf421-dock');
+  if(bar)return bar;
+  bar=document.createElement('nav');bar.className='mf421-dock';bar.setAttribute('aria-label','MediaFlow desktop navigation');
+  bar.innerHTML=`<div class="mf421-dock-brand" tabindex="0" role="button" aria-label="Drag MediaFlow navigation to left, top or bottom" title="Drag to change navigation position"><span class="mf421-dock-mark" aria-hidden="true">◉</span><span class="mf421-dock-name">MediaFlow</span></div><div class="mf421-dock-links"></div><div class="mf421-dock-more-wrap"><button type="button" class="mf421-dock-more" aria-expanded="false" aria-label="More navigation pages">${ICONS.more||'⋯'}<span>More</span></button><div class="mf421-dock-menu" hidden></div></div><button type="button" class="mf421-dock-progress" aria-label="Level and streak details" title="View profile and progression" onclick="App.openProfile()"><span class="mf421-level">Level</span><span class="mf421-streak"></span></button><button type="button" class="mf421-dock-account" aria-label="Open account settings" title="Account" onclick="App.openProfile()">${ICONS.profile||'♙'}</button>`;
+  document.body.appendChild(bar);
+  bar.querySelector('.mf421-dock-more').addEventListener('click',e=>{e.stopPropagation();mf421DropOpen=!mf421DropOpen;mf421UpdateMore(bar);});
+  bar.querySelector('.mf421-dock-menu').addEventListener('click',e=>{const btn=e.target.closest('[data-mf421-view]');if(btn){mf421DropOpen=false;App.setView(btn.dataset.mf421View);mf421Apply(true);}});
+  bar.querySelector('.mf421-dock-links').addEventListener('click',e=>{const btn=e.target.closest('[data-mf421-view]');if(btn)App.setView(btn.dataset.mf421View);});
+  mf421WireDrag(bar.querySelector('.mf421-dock-brand'));
+  return bar;
+}
+function mf421UpdateMore(bar){
+  const more=bar.querySelector('.mf421-dock-more');
+  const panel=bar.querySelector('.mf421-dock-menu');
+  const enabled=mf421DropOpen&&!bar.querySelector('.mf421-dock-more-wrap').hidden;
+  panel.hidden=!enabled;more.setAttribute('aria-expanded',String(enabled));
+}
+function mf421NavButton(n,more=false){
+  const text=escapeHtml(String(n.label||n.id));
+  return `<button type="button" class="mf421-dock-link ${S.view===n.id?'active':''} ${more?'in-more':''}" data-mf421-view="${escapeHtml(String(n.id))}" aria-label="${text}" title="${text}" ${S.view===n.id?'aria-current="page"':''}>${ICONS[n.id]||ICONS.more}<span>${text}</span></button>`;
+}
+function mf421RefreshDock(bar,force=false){
+  const list=[...document.querySelectorAll('.sidebar .nav-item[data-view]')].map(el=>({id:String(el.dataset.view),label:el.querySelector('span')?.textContent?.trim()||el.title||String(el.dataset.view)}));
+  const sig=JSON.stringify([mf421Mode(),list.map(n=>[n.id,n.label]),S.view,Math.round(bar.clientWidth)]);
+  if(!force&&sig===mf421DockSignature)return;
+  mf421DockSignature=sig;
+  const links=bar.querySelector('.mf421-dock-links'),moreWrap=bar.querySelector('.mf421-dock-more-wrap'),menu=bar.querySelector('.mf421-dock-menu');
+  // Measure real intrinsic button widths, then reserve More before placing buttons.
+  links.innerHTML=list.map(n=>mf421NavButton(n)).join('');
+  const all=[...links.children];
+  const width=links.clientWidth||Math.max(120,bar.clientWidth-210);
+  const used=[];let taken=0;
+  const required=all.map(el=>Math.ceil(el.getBoundingClientRect().width+6));
+  const needMore=required.reduce((a,b)=>a+b,0)>width;
+  const budget=Math.max(0,width-(needMore?80:0));
+  for(let i=0;i<all.length;i++){
+    if(taken+required[i]<=budget||!used.length){used.push(i);taken+=required[i];}
+    else break;
+  }
+  const hidden=list.filter((_,i)=>!used.includes(i));
+  links.innerHTML=list.filter((_,i)=>used.includes(i)).map(n=>mf421NavButton(n)).join('');
+  menu.innerHTML=hidden.map(n=>mf421NavButton(n,true)).join('');
+  moreWrap.hidden=hidden.length===0;
+  if(!hidden.length)mf421DropOpen=false;
+  moreWrap.classList.toggle('active',hidden.some(n=>n.id===S.view));
+  mf421UpdateMore(bar);
+}
+function mf421Apply(force=false){
+  const mode=mf421Mode(),desk=mf421DeskAllowed(),body=document.body;
+  body.classList.toggle('mf421-desktop',desk);
+  for(const key of MF421_MODES)body.classList.toggle('mf421-'+key,desk&&mode===key);
+  body.classList.toggle('mf265-sidebar-collapsed',desk&&mode==='mini');
+  if(String(S.view||'')==='settings')mf421InjectSettings();
+  const sidebar=document.querySelector('.sidebar');
+  if(sidebar){
+    sidebar.classList.add('mf421-sidebar');
+    const brand=sidebar.querySelector('.brand');
+    if(brand)mf421WireDrag(brand);
+    sidebar.querySelectorAll('.nav-item').forEach(el=>{const label=el.querySelector('span')?.textContent?.trim();if(label){el.title=label;el.setAttribute('aria-label',label);el.setAttribute('tabindex','0');}});
+  }
+  let bar=document.querySelector('.mf421-dock');
+  if(desk&&(mode==='top'||mode==='bottom')){
+    bar=mf421AddDock();bar.hidden=false;
+    const progress=bar.querySelector('.mf421-dock-progress');
+    if(progress){
+      try{
+        const level=mediaFlowLevelInfo(),streak=computeDayStreak();
+        progress.querySelector('.mf421-level').textContent='Lv. '+level.level;
+        progress.querySelector('.mf421-streak').textContent='🔥 '+streak;
+        progress.title='Level '+level.level+' · '+streak+'-day streak · View profile';
+      }catch(_){progress.hidden=true;}
+    }
+    mf421RefreshDock(bar,force);
+  }else if(bar){bar.hidden=true;mf421DropOpen=false;mf421UpdateMore(bar);}
+}
+function mf421Target(e){
+  if(e.clientY<Math.max(96,window.innerHeight*.13))return 'top';
+  if(e.clientY>window.innerHeight-Math.max(96,window.innerHeight*.13))return 'bottom';
+  if(e.clientX<Math.max(130,window.innerWidth*.12))return 'sidebar';
+  return null;
+}
+function mf421Zones(show,target){
+  let overlay=document.querySelector('.mf421-dropzones');
+  if(!show){overlay?.remove();return;}
+  if(!overlay){overlay=document.createElement('div');overlay.className='mf421-dropzones';overlay.innerHTML='<div data-target="top">Top navigation</div><div data-target="sidebar">Sidebar</div><div data-target="bottom">Bottom navigation</div>';document.body.appendChild(overlay);}
+  overlay.querySelectorAll('[data-target]').forEach(el=>el.classList.toggle('active',el.dataset.target===target));
+}
+function mf421WireDrag(handle){
+  if(!handle||handle.dataset.mf421DragBound)return;
+  handle.dataset.mf421DragBound='1';
+  handle.title='Click to collapse or expand · Drag to top, bottom, or left to dock navigation';
+  handle.addEventListener('click',event=>{
+    if(Date.now()<mf421SuppressClick){event.preventDefault();event.stopImmediatePropagation();}
+  },true);
+  handle.addEventListener('pointerdown',event=>{
+    if(!mf421DeskAllowed()||event.button!==0||event.target.closest('button,a,input,select,textarea'))return;
+    mf421Drag={id:event.pointerId,x:event.clientX,y:event.clientY,origin:handle,moved:false};
+  });
+  // capture handlers attached just once on document below
+}
+document.addEventListener('pointermove',event=>{
+  const d=mf421Drag;if(!d||d.id!==event.pointerId)return;
+  if(!d.moved&&Math.hypot(event.clientX-d.x,event.clientY-d.y)<12)return;
+  d.moved=true;mf421Zones(true,mf421Target(event));event.preventDefault();
+},{passive:false});
+function mf421EndDrag(event){
+  const d=mf421Drag;if(!d||d.id!==event.pointerId)return;
+  mf421Drag=null;
+  mf421Zones(false);
+  if(d.moved){
+    mf421SuppressClick=Date.now()+500;
+    if(event.type==='pointerup'){
+      const target=mf421Target(event);
+      if(target)mf421SetNavStyle(target);
+    }
+  }
+}
+document.addEventListener('pointerup',mf421EndDrag);
+document.addEventListener('pointercancel',mf421EndDrag);
+document.addEventListener('click',event=>{
+  if(!event.target.closest('.mf421-dock-more-wrap')){
+    const bar=document.querySelector('.mf421-dock');if(bar&&mf421DropOpen){mf421DropOpen=false;mf421UpdateMore(bar);}
+  }
+});
+window.addEventListener('resize',()=>{
+  if(mf421ResizeFrame)return;
+  mf421ResizeFrame=requestAnimationFrame(()=>{mf421ResizeFrame=0;mf421DockSignature='';mf421Apply(true);});
+},{passive:true});
+const mf421BaseRender=render;
+render=function(){const out=mf421BaseRender.apply(this,arguments);queueMicrotask(()=>mf421Apply());return out;};
+// Update on shell initialization too; never rerender the whole current page.
+queueMicrotask(()=>mf421Apply(true));
+Object.assign(App,{mf421SetNavStyle});
+/* MediaFlow v422 — final UI integration (additive, no cloud/data migrations).
+   Runs after the v421 adaptive navigation inside the canonical closure. */
+const MF422_VERSION=422;
+const MF422_KOFI='https://ko-fi.com/alexgodly';
+const MF422_BRAND_LOGO='assets/icons/mediaflow-192.png';
+const MF422_MIN_EXPANDED=226;
+let mf422PopupOpen=false;
+function mf422StoredWidth(){
+  let width=236;
+  try{width=Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))||236;}catch(_){ }
+  return Math.min(380,Math.max(MF422_MIN_EXPANDED,width));
+}
+function mf422RestoreExpandedWidth(){
+  document.documentElement.style.setProperty('--sidebar-width',mf422StoredWidth()+'px');
+}
+const mf422PriorStyle=mf421SetNavStyle;
+mf421SetNavStyle=function(style){
+  const previous=mf421Mode();
+  if(style==='mini' && previous==='sidebar'){
+    const width=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width'));
+    if(width>=MF422_MIN_EXPANDED){try{localStorage.setItem(SIDEBAR_WIDTH_KEY,String(Math.round(width)));}catch(_){ }}
+  }
+  if(style==='sidebar' && previous==='mini')mf422RestoreExpandedWidth();
+  const result=mf422PriorStyle.apply(this,arguments);
+  if(style==='sidebar')mf422RestoreExpandedWidth();
+  mf421Apply(true);
+  return result;
+};
+App.mf421SetNavStyle=mf421SetNavStyle;
+App.v265ToggleSidebar=function(){mf421SetNavStyle(mf421Mode()==='mini'?'sidebar':'mini');};
+applySidebarWidth=function(raw){
+  const val=Number(raw)||236;
+  if(val<150){
+    if(mf421Mode()!=='mini')mf421SetNavStyle('mini');
+    document.documentElement.style.setProperty('--sidebar-width','82px');
+    return 82;
+  }
+  const width=Math.min(380,Math.max(MF422_MIN_EXPANDED,Math.round(val)));
+  document.documentElement.style.setProperty('--sidebar-width',width+'px');
+  try{localStorage.setItem(SIDEBAR_WIDTH_KEY,String(width));}catch(_){ }
+  if(mf421Mode()==='mini')mf421SetNavStyle('sidebar');
+  return width;
+};
+if(mf421Mode()==='sidebar')mf422RestoreExpandedWidth();
+
+/* Settings Center: v421 targeted a retired .v220-settings-page container.
+   Insert the Navigation cards INTO the canonical renderer before the v221/v365
+   organizers move the section into Settings > Appearance > Navigation. */
+function mf422NavigationControls(){
+  const current=mf421Mode();
+  const modes=[['sidebar','Sidebar','Resizable sidebar'],['mini','Mini sidebar','Icons only'],['top','Top navigation','Centered tabs'],['bottom','Bottom navigation','Bottom dock']];
+  return `<div class="mf422-settings-navigation card" data-mf422-settings="navigation"><h3>Navigation style</h3><p class="hint">Choose the desktop navigation layout. You can also drag the MediaFlow logo to dock it.</p><div class="mf422-navigation-tabs" role="group" aria-label="Navigation style">${modes.map(([id,label,hint])=>`<button type="button" data-mf422-nav-style="${id}" class="mf422-nav-choice ${current===id?'active':''}" aria-pressed="${current===id}" onclick="App.mf421SetNavStyle('${id}')"><span class="mf422-nav-symbol" aria-hidden="true">${{sidebar:'▤',mini:'▥',top:'▔',bottom:'▁'}[id]}</span><span>${label}</span><small>${hint}</small></button>`).join('')}</div><p class="hint">The selected style, sidebar width and page order are saved with your settings.</p></div>`;
+}
+const mf422SettingsOriginal=V219_PAGE_RENDERERS.get('settings');
+if(typeof mf422SettingsOriginal==='function'){
+  MediaFlowRuntime.registerPageRenderer('settings',function(ctx){
+    const html=String(mf422SettingsOriginal(ctx)||'');
+    const host=document.createElement('div');host.innerHTML=html;
+    const label=[...host.querySelectorAll('.section-label')].find(n=>v221PlainSectionTitle(n).toUpperCase()==='NAVIGATION');
+    if(label&&!host.querySelector('.mf422-settings-navigation'))label.insertAdjacentHTML('afterend',mf422NavigationControls());
+    return host.innerHTML;
+  });
+}
+function mf422RefreshSettingsTabs(){
+  document.querySelectorAll('.mf422-nav-choice').forEach(btn=>{
+    const active=btn.dataset.mf422NavStyle===mf421Mode();
+    btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));
+  });
+}
+MediaFlowRuntime.registerPageEnhancer('settings',mf422RefreshSettingsTabs);
+
+/* A single delegated event handles redraws, pagination, and both Library modes. */
+function mf422LibraryDetailsTarget(target){
+  if(String(S.view||'')!=='library')return null;
+  const root=document.querySelector('#view-root');
+  if(!root||!root.contains(target))return null;
+  if(target.closest('button,a,input,select,textarea,summary,label,.mf-select,.v44-rating,.mf420-cover-stage[onclick]'))return null;
+  if(target.closest('[role="button"]:not(.mf422-details-trigger)'))return null;
+  const hit=target.closest('.item-title,.v181-cover-tile-title,.library-cover-thumb,.mf417-cover-thumb,.mf420-cover-stage,.v181-cover-tile-cover,.v181-cover-tile-placeholder,.mf420-library-poster');
+  if(!hit)return null;
+  const tile=hit.closest('[data-library-id]')||hit;
+  const id=tile.getAttribute('data-library-id')||hit.getAttribute('data-library-id');
+  if(!id||!(S.library||[]).some(item=>String(item?.id)===String(id)))return null;
+  return id;
+}
+document.addEventListener('click',function(event){
+  const id=mf422LibraryDetailsTarget(event.target);
+  if(!id)return;
+  event.preventDefault();event.stopPropagation();App.v181OpenTitleDetails(id);
+});
+document.addEventListener('keydown',function(event){
+  if(event.key!=='Enter'&&event.key!==' ')return;
+  let id=mf422LibraryDetailsTarget(event.target);
+  if(!id && String(S.view||'')==='library' && event.target.matches('.mf420-cover-stage[onclick]')){
+    id=event.target.closest('[data-library-id]')?.getAttribute('data-library-id');
+  }
+  if(!id)return;
+  event.preventDefault();App.v181OpenTitleDetails(id);
+});
+MediaFlowRuntime.registerPageEnhancer('library',function(){
+  document.querySelectorAll('#view-root [data-library-id] .item-title,#view-root [data-library-id] .v181-cover-tile-title,#view-root [data-library-id] .mf420-cover-stage,#view-root [data-library-id] .library-cover-thumb').forEach(n=>{
+    if(n.closest('button,a,[role="button"]'))return;
+    n.setAttribute('tabindex','0');n.setAttribute('role','button');
+    n.setAttribute('title','Open Title Details');n.setAttribute('aria-label','Open Title Details');
+    n.classList.add('mf422-details-trigger');
+  });
+});
+
+/* Top/bottom bars: preserve the v421 More overflow, docking, and navigation. */
+function mf422ProgressMarkup(){
+  const info=mediaFlowLevelInfo(),streak=computeDayStreak();
+  const pct=Math.max(0,Math.min(100,Number(info.pct)||0));
+  const fmt=n=>Number(n||0).toLocaleString();
+  let mult='';try{mult=Number(v149StreakMultiplier(streak)).toFixed(2);}catch(_){mult='1.00';}
+  return `<div class="mf422-progress-head"><span class="mf422-progress-crown" aria-hidden="true">✦</span><div><span class="mf422-progress-kicker">YOUR PROGRESSION</span><strong>Level ${fmt(info.level)}</strong></div><button type="button" class="mf422-popup-close" onclick="App.mf422ToggleProgress(false)" aria-label="Close progression">×</button></div><div class="mf422-xp-panel"><div class="mf422-progress-overview"><span>LEVEL PROGRESS</span><b>${pct}%</b></div><div class="mf422-xp-track"><i style="width:${pct}%"></i></div><div class="mf422-progress-overview"><span>${fmt(info.current)} / ${fmt(info.needed)} XP</span><span>${fmt(info.needed-info.current)} XP to next level</span></div></div><div class="mf422-progression-stats"><div><span aria-hidden="true">🔥</span><b>${fmt(streak)} days</b><small>Current streak</small></div><div><span aria-hidden="true">✦</span><b>×${mult}</b><small>Streak XP bonus</small></div></div><p class="mf422-total-xp">Lifetime experience <strong>${fmt(info.xp)} XP</strong></p>`;
+}
+function mf422ToggleProgress(open){
+  mf422PopupOpen=typeof open==='boolean'?open:!mf422PopupOpen;
+  const bar=document.querySelector('.mf421-dock');if(!bar)return;
+  let panel=bar.querySelector('.mf422-progress-popup');
+  if(!panel){panel=document.createElement('section');panel.className='mf422-progress-popup';panel.setAttribute('aria-label','Level and streak progression');bar.appendChild(panel);}
+  panel.innerHTML=mf422ProgressMarkup();panel.hidden=!mf422PopupOpen;
+  bar.querySelector('.mf421-dock-progress')?.setAttribute('aria-expanded',String(mf422PopupOpen));
+}
+App.mf422ToggleProgress=mf422ToggleProgress;
+function mf422EnhanceDock(){
+  const bar=document.querySelector('.mf421-dock');if(!bar||bar.hidden)return;
+  const brand=bar.querySelector('.mf421-dock-brand');
+  if(brand&&!brand.querySelector('.mf422-real-logo')){
+    brand.querySelector('.mf421-dock-mark')?.remove();
+    brand.insertAdjacentHTML('afterbegin',`<img class="mf422-real-logo" src="${MF422_BRAND_LOGO}" alt="" width="29" height="29">`);
+  }
+  if(!bar.querySelector('.mf422-glowing-brand'))bar.insertAdjacentHTML('beforeend',`<span class="mf422-glowing-brand" aria-hidden="true"><img src="${MF422_BRAND_LOGO}" alt="" width="31" height="31"></span>`);
+  const progress=bar.querySelector('.mf421-dock-progress');
+  if(progress){
+    progress.setAttribute('onclick','App.mf422ToggleProgress()');progress.setAttribute('aria-label','Show level and streak details');
+    progress.title='Show level and streak';
+    const level=mediaFlowLevelInfo(),streak=computeDayStreak();
+    progress.innerHTML=`<span class="mf422-level-badge"><span aria-hidden="true">✦</span> Lv. ${level.level}</span><span class="mf422-streak-badge"><span aria-hidden="true">🔥</span> ${streak}</span>`;
+  }
+  const account=bar.querySelector('.mf421-dock-account');if(account){account.title='Open Account';account.setAttribute('aria-label','Open Account');}
+  const panel=bar.querySelector('.mf422-progress-popup');
+  if(panel){if(mf422PopupOpen)panel.innerHTML=mf422ProgressMarkup();panel.hidden=!mf422PopupOpen;}
+}
+const mf422OriginalApply=mf421Apply;
+mf421Apply=function(force){
+  const result=mf422OriginalApply.apply(this,arguments);
+  if(mf421Mode()==='sidebar'&&mf421DeskAllowed())mf422RestoreExpandedWidth();
+  mf422EnhanceDock();mf422RefreshSettingsTabs();
+  if(!['top','bottom'].includes(mf421Mode()))mf422PopupOpen=false;
+  return result;
+};
+document.addEventListener('pointerdown',function(e){
+  if(mf422PopupOpen&&!e.target.closest('.mf422-progress-popup,.mf421-dock-progress'))mf422ToggleProgress(false);
+},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mf422PopupOpen)mf422ToggleProgress(false);});
+
+/* Account: no client-side file picker or file-storage actions; URL stays enabled. */
+const mf422OldProfile=renderProfile;
+renderProfile=function(){
+  const html=String(mf422OldProfile.apply(this,arguments));
+  const host=document.createElement('div');host.innerHTML=html;
+  const section=host.querySelector('.profile-section');if(!section)return html;
+  const avatarBtn=section.querySelector('.profile-avatar-wrap .account-avatar-btn');
+  if(avatarBtn){avatarBtn.removeAttribute('onclick');avatarBtn.setAttribute('aria-label','Current profile picture');avatarBtn.disabled=true;}
+  section.querySelector('input[type="file"]')?.remove();
+  const action=section.querySelector('.profile-avatar-actions');
+  action?.querySelector('label')?.remove();
+  action?.querySelector('#save-profile-picture')?.remove();
+  action?.insertAdjacentHTML('afterbegin',`<button type="button" class="btn mf422-upload-disabled" disabled aria-describedby="mf422-upload-note">Choose picture — Unavailable</button>`);
+  const note=section.querySelector('.profile-avatar-wrap .profile-note');if(note)note.textContent='Set your profile picture using a direct image URL below.';
+  section.querySelector('.profile-avatar-wrap')?.insertAdjacentHTML('afterend',`<div class="mf422-upload-notice" id="mf422-upload-note"><strong>Why are uploads disabled?</strong><p>Alex Godly has chosen to disable image file uploads in the MediaFlow web app due to limited database storage. You can still use a direct image URL.</p><p>Support future improvements and new features by donating at <a href="${MF422_KOFI}" target="_blank" rel="noopener noreferrer">Ko-fi · Alex Godly ↗</a>. Donations are optional.</p></div>`);
+  return host.innerHTML;
+};
+chooseProfilePicture=function(){showToast('File uploads are disabled. Please use a direct image URL.');};
+window.MediaFlowProfile.chooseAvatar=chooseProfilePicture;
+window.MediaFlowProfile.saveAvatar=function(){showToast('Use a direct image URL to set your profile picture.');};
+
+/* About: voluntary donation card adjacent to the existing footer. */
+const mf422OldAbout=renderAbout;
+renderAbout=function(){
+  const html=String(mf422OldAbout.apply(this,arguments));const host=document.createElement('div');host.innerHTML=html;
+  const root=host.querySelector('.mf383-about');if(!root)return html;
+  const footer=root.querySelector('.mf383-about-footer');
+  const section=document.createElement('section');section.className='mf422-donate-section';
+  section.innerHTML=`<div class="mf422-donate-icon" aria-hidden="true">♥</div><span class="mf422-donate-eyebrow">SUPPORT INDEPENDENT DEVELOPMENT</span><h2>Help MediaFlow grow.</h2><p>MediaFlow is independently developed by Alex Godly. Your optional support can help with hosting, storage, maintenance, and new features.</p><div class="mf422-donate-benefits"><span>☁ Hosting & storage</span><span>✦ New features</span><span>♥ Continued development</span></div><a class="btn btn-primary mf422-kofi-link" href="${MF422_KOFI}" target="_blank" rel="noopener noreferrer">♥ Donate on Ko-fi ↗</a><small>Donations are voluntary and do not unlock existing features.</small>`;
+  if(footer)root.insertBefore(section,footer);else root.appendChild(section);
+  return host.innerHTML;
+};
+queueMicrotask(()=>mf421Apply(true));
+window.MediaFlowV422={version:MF422_VERSION,features:['Title Details cover/name click','Mini Sidebar width restoration','Navigation style Settings Center tabs','Centered branded docks','Level and streak popup','URL-only profile images','Ko-fi About support']};
+/* MediaFlow v423 — navigation first-paint reliability, avatar, and voluntary support.
+   Additive presentation only; no database migrations or source-data changes. */
+const MF423_VERSION=423;
+const MF423_MODES=new Set(['sidebar','mini','top','bottom']);
+const MF423_DONATE_URL='https://ko-fi.com/alexgodly';
+let mf423Switching=false;
+function mf423PreferenceKey(){return 'mediaflow-v423-nav-style:'+String(AUTH_USER?.id||'local');}
+function mf423LocalStyle(){
+  try{const value=localStorage.getItem(mf423PreferenceKey());return MF423_MODES.has(value)?value:null;}
+  catch(_){return null;}
+}
+const mf423OriginalMode=mf421Mode;
+mf421Mode=function(){
+  const saved=!mf423Switching?mf423LocalStyle():null;
+  return saved||mf423OriginalMode();
+};
+const mf423OriginalSetStyle=mf421SetNavStyle;
+mf421SetNavStyle=function(style){
+  if(!MF423_MODES.has(style))return;
+  mf423Switching=true;
+  try{return mf423OriginalSetStyle.apply(this,arguments);}
+  finally{
+    mf423Switching=false;
+    try{localStorage.setItem(mf423PreferenceKey(),style);}catch(_){ }
+    document.documentElement.dataset.mf423Navigation=style;
+    mf421Apply(true);
+  }
+};
+App.mf421SetNavStyle=mf421SetNavStyle;
+function mf423RestoreNavigationPreference(){
+  const mode=mf423LocalStyle();
+  if(mode){
+    S.settings=S.settings||{};
+    S.settings.navDockStyle=mode;
+    S.settings.sidebarCollapsed=mode==='mini';
+  }
+  document.documentElement.dataset.mf423Navigation=mf421Mode();
+}
+const mf423OldApply=mf421Apply;
+mf421Apply=function(force){
+  mf423RestoreNavigationPreference();
+  const result=mf423OldApply.apply(this,arguments);
+  mf423CleanNavigation();
+  return result;
+};
+
+/* v422's extra decorative floating logo no longer belongs to either dock. */
+const mf423OldEnhanceDock=mf422EnhanceDock;
+mf422EnhanceDock=function(){
+  mf423OldEnhanceDock.apply(this,arguments);
+  mf423CleanNavigation();
+};
+function mf423CleanSelectionCards(){
+  document.querySelectorAll('.mf422-nav-choice').forEach(button=>{
+    const allowed=new Set(['mf422-nav-symbol']);
+    [...button.children].forEach(child=>{
+      if(child.matches('svg,i,[data-lucide],.lucide,.iconify')||
+         (child.tagName!=='SPAN'&&child.tagName!=='SMALL')||
+         (child.tagName==='SPAN'&&child.classList.length>0&&!allowed.has(child.className))){
+        child.remove();
+      }
+    });
+    button.querySelectorAll(':scope > span > svg,:scope > span > i').forEach(extra=>extra.remove());
+  });
+}
+function mf423UpdateAvatar(button){
+  if(!button)return;
+  const saved=String(getAvatarUrl()||'').trim();
+  const imageUrl=/^https?:\/\//i.test(saved)?saved:'';
+  if(button.dataset.mf423Avatar===imageUrl && button.children.length)return;
+  button.dataset.mf423Avatar=imageUrl;
+  button.replaceChildren();
+  if(!imageUrl){button.innerHTML=ICONS.profile||'♙';return;}
+  const img=document.createElement('img');
+  img.className='mf423-dock-avatar';img.alt='';img.src=imageUrl;
+  img.referrerPolicy='no-referrer';img.decoding='async';
+  img.addEventListener('error',()=>{
+    if(img.isConnected){button.dataset.mf423Avatar='';button.innerHTML=ICONS.profile||'♙';}
+  },{once:true});
+  button.appendChild(img);
+}
+function mf423CleanLevelBadge(progress){
+  if(!progress)return;
+  const badges=[...progress.querySelectorAll(':scope > .mf422-level-badge,:scope > .mf422-streak-badge')];
+  if(badges.length===2){
+    [...progress.children].forEach(el=>{if(!badges.includes(el))el.remove();});
+  }
+  progress.querySelectorAll('svg,i,[data-lucide],.lucide').forEach(icon=>icon.remove());
+  progress.removeAttribute('data-icon');
+  progress.setAttribute('onclick','App.mf422ToggleProgress()');
+  progress.setAttribute('aria-label','Show level and streak details');
+}
+function mf423CleanNavigation(){
+  document.querySelectorAll('.mf422-glowing-brand').forEach(el=>el.remove());
+  mf423CleanSelectionCards();
+  const bar=document.querySelector('.mf421-dock');
+  if(!bar)return;
+  mf423CleanLevelBadge(bar.querySelector('.mf421-dock-progress'));
+  mf423UpdateAvatar(bar.querySelector('.mf421-dock-account'));
+}
+/* The shell and Settings Center must settle on their saved style on the first render,
+   rather than after an arbitrary menu interaction. */
+const mf423OldShell=renderShell;
+renderShell=function(){
+  mf423RestoreNavigationPreference();
+  const result=mf423OldShell.apply(this,arguments);
+  mf421Apply(true);
+  return result;
+};
+const mf423OldRender=render;
+render=function(){
+  mf423RestoreNavigationPreference();
+  const result=mf423OldRender.apply(this,arguments);
+  mf421Apply(true);
+  return result;
+};
+/* Keep preference in Settings Presets and cloud snapshots already supported by S.settings.
+   Local override prevents a stale cloud default from flashing during initial hydration. */
+const mf423OldApplyState=v46ApplyState;
+v46ApplyState=function(){
+  const output=mf423OldApplyState.apply(this,arguments);
+  mf423RestoreNavigationPreference();
+  return output;
+};
+
+/* Render a premium, readable donation feature without false urgency, simulated
+   supporters, paywalled promises, or unrelated external app destinations. */
+const mf423OldRenderAbout=renderAbout;
+renderAbout=function(){
+  const html=String(mf423OldRenderAbout.apply(this,arguments)||'');
+  const root=document.createElement('div');root.innerHTML=html;
+  const about=root.querySelector('.mf383-about');
+  if(!about)return html;
+  for(const link of root.querySelectorAll('a[href]')){
+    const label=String(link.textContent||'').trim();
+    if(!/^Explore other apps|^Alex Godly Apps|^AlexGodly Apps/i.test(label))continue;
+    link.href=MF423_DONATE_URL;
+    link.target='_blank';link.rel='noopener noreferrer';
+    link.classList.add('mf423-donate-replacement');
+    link.innerHTML='<span aria-hidden="true">♥</span> Donate on Ko-fi <span aria-hidden="true">↗</span>';
+    link.setAttribute('aria-label','Support MediaFlow on Ko-fi (opens in new tab)');
+  }
+  const section=about.querySelector('.mf422-donate-section');
+  if(section){
+    section.classList.add('mf423-support-hero');
+    section.innerHTML=`<div class="mf423-support-content"><div class="mf423-support-eyebrow"><span class="mf423-support-spark" aria-hidden="true">✦</span> INDEPENDENTLY BUILT · COMMUNITY SUPPORTED</div><h2>Help shape what<br><em>MediaFlow becomes.</em></h2><p class="mf423-support-lede">MediaFlow is built and maintained independently by Alex Godly. If it makes organizing the things you love a little better, you can help keep it growing.</p><div class="mf423-support-benefits"><span>✧ More possibilities</span><span>☁ Hosting &amp; storage</span><span>♡ Ongoing improvements</span></div><p class="mf423-support-credit">Thank you for being part of MediaFlow, whether you donate or simply enjoy using it.</p></div><div class="mf423-support-action"><div class="mf423-support-emblem" aria-hidden="true"><span>♥</span></div><strong>Support the next chapter</strong><p>Your contribution helps with resources and continued development.</p><a class="mf423-support-cta" href="${MF423_DONATE_URL}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">♥</span> Support on Ko-fi <span aria-hidden="true">↗</span></a><small>Completely optional. Existing features stay available to everyone.</small><span class="mf423-support-signer">Made with care by Alex Godly</span></div>`;
+  }
+  return root.innerHTML;
+};
+/* A narrow observer corrects legacy icon enhancers that insert extra action
+   glyphs AFTER the first render. It only removes unexpected decorative children. */
+let mf423PendingCleanup=false;
+const mf423Observer=new MutationObserver(changes=>{
+  if(!changes.some(change=>{
+    const n=change.target;
+    return n instanceof Element && (n.closest('.mf421-dock-progress,.mf422-nav-choice')||n.matches('.mf421-dock-progress,.mf422-nav-choice'));
+  }))return;
+  if(mf423PendingCleanup)return;
+  mf423PendingCleanup=true;
+  queueMicrotask(()=>{mf423PendingCleanup=false;mf423CleanLevelBadge(document.querySelector('.mf421-dock-progress'));mf423CleanSelectionCards();});
+});
+mf423Observer.observe(document.body,{subtree:true,childList:true});
+queueMicrotask(()=>mf421Apply(true));
+window.MediaFlowV423={version:MF423_VERSION,features:['Navigation first-paint and preference recovery','Removed duplicate dock logos','Removed circle-arrow adornments','Saved-profile URL in dock','Donation links and redesigned support section']};
 
 })();
