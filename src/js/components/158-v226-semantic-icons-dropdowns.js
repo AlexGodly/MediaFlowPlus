@@ -54,6 +54,11 @@ Object.assign(V225_BUTTON_ICONS,{
 
 const v226ButtonIconNameBase=v225ButtonIconName;
 v225ButtonIconName=function(el){
+  // v432: avatar images and Level/Streak badges never receive decorative
+  // semantic-action icons; their own content already describes each control.
+  if(el?.matches?.('.mf421-dock-progress,.mf421-dock-account'))return null;
+  // v427: explicit mf425/mf427 svg already describes the action, never inject a second icon.
+  if(el?.querySelector?.(':scope > svg.mf425-icon, :scope > svg.mf427-icon, :scope > .mf425-icon, :scope > .mf427-icon'))return null;
   const t=v225CleanActionText(el);
   const title=String(el?.getAttribute?.('title')||'').trim().toLowerCase();
   const aria=String(el?.getAttribute?.('aria-label')||'').trim().toLowerCase();
@@ -198,6 +203,15 @@ V226_DROPDOWN_OBSERVER.observe(document.body,{childList:true,subtree:true});
    generic icon instead of leaving the first icon that happened to render. */
 function v226RefreshSemanticButtonIcon(el){
   if(!el||el.nodeType!==1||!el.matches?.('button,a.btn,label.btn,summary.btn,.v221-settings-nav-item'))return;
+  // v432: remove leftover arrows from the ACCOUNT button as well as the
+  // previously protected progression button. Neither may be auto-iconified.
+  if(el.matches?.('.mf421-dock-progress,.mf421-dock-account')){
+    el.querySelectorAll(':scope > .v225-btn-icon').forEach(icon=>icon.remove());
+    el.classList.remove('v225-icon-button');
+    delete el.dataset.v226SemanticIcon;
+    el.dataset.v225Iconified='1';
+    return;
+  }
   const name=v225ButtonIconName(el);
   const oldName=String(el.dataset?.v226SemanticIcon||'');
   if(oldName===String(name||'')&&el.querySelector(':scope > .v225-btn-icon'))return;

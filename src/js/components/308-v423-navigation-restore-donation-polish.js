@@ -65,9 +65,19 @@ function mf423CleanSelectionCards(){
 }
 function mf423UpdateAvatar(button){
   if(!button)return;
+  // v432: the default circled arrow was actually attached to the ACCOUNT
+  // button when its image replaced the original profile SVG. Earlier fixes
+  // only cleaned its sibling (the Level/Streak control).
+  button.querySelectorAll(':scope > .v225-btn-icon').forEach(icon=>icon.remove());
+  button.classList.remove('v225-icon-button');
+  button.dataset.v225Iconified='1';
+  delete button.dataset.v226SemanticIcon;
   const saved=String(getAvatarUrl()||'').trim();
   const imageUrl=/^https?:\/\//i.test(saved)?saved:'';
-  if(button.dataset.mf423Avatar===imageUrl && button.children.length)return;
+  const child=button.firstElementChild;
+  const oneChild=button.children.length===1;
+  if(button.dataset.mf423Avatar===imageUrl&&oneChild&&
+      (imageUrl?child?.matches('img.mf423-dock-avatar'):!child?.classList?.contains('v225-btn-icon')))return;
   button.dataset.mf423Avatar=imageUrl;
   button.replaceChildren();
   if(!imageUrl){button.innerHTML=ICONS.profile||'♙';return;}
@@ -143,7 +153,7 @@ renderAbout=function(){
   const section=about.querySelector('.mf422-donate-section');
   if(section){
     section.classList.add('mf423-support-hero');
-    section.innerHTML=`<div class="mf423-support-content"><div class="mf423-support-eyebrow"><span class="mf423-support-spark" aria-hidden="true">✦</span> INDEPENDENTLY BUILT · COMMUNITY SUPPORTED</div><h2>Help shape what<br><em>MediaFlow becomes.</em></h2><p class="mf423-support-lede">MediaFlow is built and maintained independently by Alex Godly. If it makes organizing the things you love a little better, you can help keep it growing.</p><div class="mf423-support-benefits"><span>✧ More possibilities</span><span>☁ Hosting &amp; storage</span><span>♡ Ongoing improvements</span></div><p class="mf423-support-credit">Thank you for being part of MediaFlow, whether you donate or simply enjoy using it.</p></div><div class="mf423-support-action"><div class="mf423-support-emblem" aria-hidden="true"><span>♥</span></div><strong>Support the next chapter</strong><p>Your contribution helps with resources and continued development.</p><a class="mf423-support-cta" href="${MF423_DONATE_URL}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">♥</span> Support on Ko-fi <span aria-hidden="true">↗</span></a><small>Completely optional. Existing features stay available to everyone.</small><span class="mf423-support-signer">Made with care by Alex Godly</span></div>`;
+    section.innerHTML=`<div class="mf423-support-content"><div class="mf423-support-eyebrow"><span class="mf423-support-spark" aria-hidden="true">✦</span> INDEPENDENTLY BUILT · COMMUNITY SUPPORTED</div><h2>Help shape what<br><em>MediaFlow becomes.</em></h2><p class="mf423-support-lede">MediaFlow is built and maintained independently by Alex Godly. If it makes organizing the things you love a little better, you can help keep it growing.</p><div class="mf423-support-benefits"><span>More possibilities</span><span>Hosting &amp; storage</span><span>Ongoing improvements</span></div><p class="mf423-support-credit">Thank you for being part of MediaFlow, whether you donate or simply enjoy using it.</p></div><div class="mf423-support-action"><div class="mf423-support-emblem" aria-hidden="true"><span>♥</span></div><strong>Support the next chapter</strong><p>Your contribution helps with resources and continued development.</p><a class="mf423-support-cta" href="${MF423_DONATE_URL}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">♥</span> Support on Ko-fi <span aria-hidden="true">↗</span></a><small>Completely optional. Existing features stay available to everyone.</small><span class="mf423-support-signer">Made with care by Alex Godly</span></div>`;
   }
   return root.innerHTML;
 };
@@ -153,11 +163,11 @@ let mf423PendingCleanup=false;
 const mf423Observer=new MutationObserver(changes=>{
   if(!changes.some(change=>{
     const n=change.target;
-    return n instanceof Element && (n.closest('.mf421-dock-progress,.mf422-nav-choice')||n.matches('.mf421-dock-progress,.mf422-nav-choice'));
+    return n instanceof Element && (n.closest('.mf421-dock-progress,.mf421-dock-account,.mf422-nav-choice')||n.matches('.mf421-dock-progress,.mf421-dock-account,.mf422-nav-choice'));
   }))return;
   if(mf423PendingCleanup)return;
   mf423PendingCleanup=true;
-  queueMicrotask(()=>{mf423PendingCleanup=false;mf423CleanLevelBadge(document.querySelector('.mf421-dock-progress'));mf423CleanSelectionCards();});
+  queueMicrotask(()=>{mf423PendingCleanup=false;mf423CleanLevelBadge(document.querySelector('.mf421-dock-progress'));mf423UpdateAvatar(document.querySelector('.mf421-dock-account'));mf423CleanSelectionCards();});
 });
 mf423Observer.observe(document.body,{subtree:true,childList:true});
 queueMicrotask(()=>mf421Apply(true));
