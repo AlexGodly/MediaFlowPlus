@@ -154,27 +154,89 @@ async function mf453ApplyQuick(){
  const item=mf439Item(q.id),cover=q.covers[q.coverIndex],preview=q.metadata?.preview;
  if(!item||MF453Quick.account!==mf439Account()){showToast('Title or account changed. Reopen preview.');return;}
  if(!cover&&!preview?.proposals?.some(p=>p.selected)){showToast('Choose a cover or eligible missing metadata first.');return;}
- q.applying=true;mf453PaintQuick();
+ q.applying=true;
+ const selectedMetadata=!!preview?.proposals?.some(p=>p.selected);
+ mf456QuickProgress(q,'Waiting for your confirmation…',false,(cover?2:0)+(selectedMetadata?2:0)+1);
  try{
   if(cover&&item.coverUrl&&String(item.coverUrl)!==String(cover.url)&&
    !await mf444Confirm('Replace this title’s existing cover?',
     'Apply the selected verified cover? Your old cover will be kept if you cancel.',
     'Replace Cover',false,1,'cover')){q.applying=false;mf453PaintQuick();return;}
-  const backup=structuredClone(item);let coverCount=0,metadataCount=0;
+  // Persist the cover independently; a metadata mapping failure must never
+  // roll back an artwork replacement the user explicitly confirmed.
+  let coverCount=0,metadataCount=0,metadataError='';
+  const oldCover={coverUrl:item.coverUrl,coverSource:item.coverSource,modifiedAt:item.modifiedAt,
+   externalIds:structuredClone(item.externalIds||{}),v377ManualExternalIds:structuredClone(item.v377ManualExternalIds||{})};
   if(cover&&String(item.coverUrl||'')!==String(cover.url)){
-   item.coverUrl=cover.url;item.coverSource='manual:quick:'+cover.provider;
-   item.modifiedAt=Date.now();coverCount=1;
+   mf456QuickProgress(q,'Verifying selected artwork and provider record…');
+   if(!/^https:\/\//i.test(String(cover.url||''))||!await mf424Image(cover.url,cover.provider))
+    throw new Error('Selected cover URL failed final image validation');
+   mf456QuickProgress(q,'Artwork validation complete.',true);
+   item.coverUrl=String(cover.url);
+   item.coverSource='manual:quick:'+String(cover.provider||'verified');
+   // Link only the actual provider record ID, and never overwrite an existing
+   // external ID. The chosen card previews this exact key/value first.
+   const link=mf456CandidateLink(item,cover);
+   if(link.canLink){
+    item.externalIds={...(item.externalIds||{}),[link.key]:link.id};
+    item.v377ManualExternalIds={...(item.v377ManualExternalIds||{}),[link.key]:link.id};
+   }
+   item.modifiedAt=Date.now();
+   mf456QuickProgress(q,'Saving selected cover URL and safe provider ID…');
+   try{
+    if(typeof persistLibrary==='function')await Promise.resolve(persistLibrary());
+    await saveState();
+    // Verify the Library’s canonical title (not a detached preview object)
+    // retains the chosen URL before reporting success or dismissing the modal.
+    const canonical=(S.library||[]).find(row=>String(row?.id)===String(q.id));
+    if(!canonical||String(canonical.coverUrl)!==String(cover.url))
+     throw Error('Selected cover did not persist in the Library');
+    coverCount=1;
+    mf456QuickProgress(q,'Selected cover and provider ID saved.',true);
+   }catch(e){
+    item.coverUrl=oldCover.coverUrl;item.coverSource=oldCover.coverSource;
+    item.modifiedAt=oldCover.modifiedAt;
+    item.externalIds=oldCover.externalIds;
+    item.v377ManualExternalIds=oldCover.v377ManualExternalIds;
+    throw e;
+   }
   }
   if(preview?.proposals?.some(p=>p.selected)){
-   MF439.account=mf439Account();
-   metadataCount=mf439Apply(item,preview,'review').changed||0;
+   const beforeMetadata=structuredClone(item);
+   try{
+    mf456QuickProgress(q,'Merging confirmed missing metadata…');
+    MF439.account=mf439Account();
+    const result=mf439Apply(item,preview,'review');
+    metadataCount=result.changed||0;
+    mf456QuickProgress(q,'Metadata field merge completed.',true);
+    if(metadataCount){
+     mf456QuickProgress(q,'Saving confirmed metadata fields to Library and cloud…');
+     if(typeof persistLibrary==='function')await Promise.resolve(persistLibrary());
+     await saveState();
+    }
+    mf456QuickProgress(q,'Verified metadata save complete.',true);
+   }catch(e){
+    // Keep the already committed cover. Only restore metadata fields that
+    // failed their merge/write path.
+    Object.assign(item,beforeMetadata);
+    metadataError=String(e?.message||e);
+    console.warn('Quick metadata merge failed, confirmed cover preserved',e);
+   }
   }
-  if(!coverCount&&!metadataCount){q.applying=false;mf453PaintQuick();showToast('Nothing eligible to save.');return;}
-  try{await saveState();}
-  catch(e){Object.assign(item,backup);throw e;}
+  if(!coverCount&&!metadataCount){
+   q.applying=false;mf453PaintQuick();
+   showToast(metadataError?'Metadata recovery failed: '+metadataError.slice(0,110):'Nothing eligible to save.');
+   return;
+  }
+  mf456QuickProgress(q,'Refreshing the active title editor…');
+  mf456NotifyRecoverySaved(q,item,coverCount,metadataCount);
   try{v53InvalidateLibraryCache();}catch(_){}
-  showToast('Saved '+coverCount+' cover and '+metadataCount+' verified missing metadata values.');
+  mf456QuickProgress(q,'Confirmed changes saved.',true);
+  showToast('Saved '+coverCount+' cover and '+metadataCount+' verified metadata values.'+
+   (metadataError?' Metadata warnings: '+metadataError.slice(0,80):''));
   await mf453CloseQuick();render();
+  // The editor is often a persistent modal outside render()'s main content.
+  mf456RefreshEditor(q.id);
  }catch(e){
   console.warn('Quick recovery save failed',e);showToast('Could not save quick recovery: '+String(e?.message||e).slice(0,90));
   if(MF453Quick.current){q.applying=false;mf453PaintQuick();}

@@ -188,5 +188,11 @@
   "components/331-v451-recovery-stop-priority.js",
   "components/332-v452-recovery-control-polish.js",
   "components/333-v453-recovery-presets.js",
-  "components/334-v453-quick-title-recovery.js"
+  "components/334-v453-quick-title-recovery.js",
+  "components/335-v454-preset-layout.js",
+  "components/336-v454-quick-title-hardening.js",
+  "components/337-v455-workspace-direct-recovery.js",
+  "components/338-v455-recovery-handoff-visibility.js",
+  "components/339-v456-quick-cover-candidates.js",
+  "components/340-v456-recovery-start-status.js"
 ]
