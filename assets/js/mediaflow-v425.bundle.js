@@ -11,8 +11,8 @@
 
    ============================================================ */
 
-const SUPABASE_URL='https://wgeijxfdpgehesxialxm.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_d2P0qZlvGZOSqcUzEg3BNg_3wQsHY_M';
+const SUPABASE_URL='https://puaqaobplyrdrujapznp.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_nbfeKXdimfBv7lsbiJCBAw_54HIEr0G';
 const SUPABASE_CONFIGURED=SUPABASE_URL.startsWith('https://')&&!SUPABASE_URL.includes('YOUR_')&&!!SUPABASE_PUBLISHABLE_KEY&&!SUPABASE_PUBLISHABLE_KEY.includes('YOUR_');
 let supabase=null,AUTH_USER=null,AUTH_READY=false,AUTH_MODE='login';
 if(SUPABASE_CONFIGURED&&window.supabase?.createClient)supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -269,7 +269,7 @@ const DEFAULT_SETTINGS = {
     enabled: true,
     minuteXP: 1,
     unitXP: {episodes:10, chapters:3, issues:6, movies:30},
-    rotationMultiplier: {neglected:2.0, due:1.5, healthy:1.0, overused:0.5},
+    rotationMultiplier: {neglected:10, due:8, healthy:5, overused:2},
     libraryAdditionXP: 25,
     completionXP: 50
   },
@@ -1968,6 +1968,24 @@ function mf395DashboardRecommendationHtml(task,cat){
   </section>`;
 }
 
+/* v427 On This Day restoration.
+ * The anniversary engine survived the Dashboard redesign, but the rendered
+ * Dashboard stopped calling it. Use its original data/rotation components
+ * without rewriting History, library milestones, or visibility preferences. */
+function mf427OnThisDayDashboardHtml(){
+  const cfg=typeof v192EnsureDashboardSettings==='function'
+    ?v192EnsureDashboardSettings(S.settings||DEFAULT_SETTINGS):null;
+  if(cfg?.showOnThisDay===false)return ''; // Respect explicit Dashboard visibility.
+  let content='';
+  try{
+    if(typeof renderOnThisDay==='function')content=String(renderOnThisDay()||'');
+  }catch(error){console.warn('MediaFlow: On This Day rendering failed',error);}
+  const today=new Date().toLocaleDateString(undefined,{month:'long',day:'numeric'});
+  const icon='<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>';
+  const body=content||'<div class="mf427-otd-empty"><strong>No anniversaries for '+escapeHtml(today)+' yet</strong><p>Past History activity and Library start or finish milestones will appear here when they match today’s date in a previous year. Your existing records are preserved.</p><button type="button" class="btn btn-ghost" onclick="App.setView(\'history\')">Browse History</button></div>';
+  return '<section class="mf427-otd-section" aria-label="On This Day"><div class="mf427-otd-heading"><span class="mf427-otd-heading-icon">'+icon+'</span><div><div class="section-label">ON THIS DAY</div><p>Memories and milestones from previous years</p></div></div>'+body+'</section>';
+}
+
 function renderDashboard(){
 
   const today = todaysSessions();
@@ -2149,6 +2167,7 @@ function renderDashboard(){
       </section>
     </div>
 
+    ${mf427OnThisDayDashboardHtml()}
     ${heroHtml}
     ${stopwatchHtml()}
 
@@ -16370,17 +16389,16 @@ renderSettings=function(){
   );
 
   const card=`<div class="section-label">COVER MAINTENANCE</div>
-    <div class="card" style="margin-bottom:22px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">
-        <div style="min-width:220px;flex:1">
+    <div class="card mf430-maintenance-card">
+      <div class="mf430-maintenance-layout">
+        <div class="mf430-maintenance-copy">
           <b>Fix missing Library covers</b>
           <div class="profile-note">
             ${missing.toLocaleString()} title${missing===1?'':'s'} currently ${missing===1?'has':'have'} no cover URL.
-            MediaFlow uses external IDs first and only accepts exact, disambiguated title matches.
-            Ambiguous matches are skipped instead of guessed. Images are never stored in MediaFlow — only their external URL.
+            MediaFlow searches every enabled public cover source using saved external IDs first. Uncertain matches wait for your manual review. Only cover URLs are saved, not image files.
           </div>
         </div>
-        <button class="btn btn-primary" onclick="App.v158FixMissingCovers()" ${missing?'':'disabled'}>
+        <button class="btn btn-primary mf430-maintenance-action" onclick="App.v158FixMissingCovers()" ${missing?'':'disabled'}>
           Fix missing covers
         </button>
       </div>
@@ -33866,11 +33884,22 @@ function v192MissingCoversHtml(){
             <button type="button" class="btn btn-primary" onclick="App.v192SaveMissingCover()">Save cover & Next</button>
           </div>
         </div>
-        <div class="v123-rating-xp">Paste a cover URL directly here, or use Edit title for MediaFlow's full cover search/editor. Skip moves this title behind the rest of the missing-cover queue.</div>
+        <label class="mf430-missing-auto">
+          <input type="checkbox" id="mf430-missing-auto-save" ${S.settings?.v430MissingCoversAutoSave?'checked':''} onchange="App.mf430SetMissingAutoSave(this.checked)">
+          <span><strong>Automatically save a valid cover URL &amp; go next</strong><small>After a cover URL loads successfully, save it and advance automatically. Search results must be selected manually unless exactly one confidently ID-verified match is found.</small></span>
+        </label>
+        <div class="v123-rating-xp">Turn on automatic save to advance as soon as a pasted or selected cover URL validates. Skip moves this title behind the rest of the queue.</div>
       </div>
     </div>
   </div>`;
 }
+function mf430SetMissingAutoSave(enabled){
+ S.settings=S.settings||{};
+ S.settings.v430MissingCoversAutoSave=Boolean(enabled);
+ try{Promise.resolve(persistSettings()).catch(e=>console.warn('Missing Covers auto-save setting',e));}
+ catch(error){console.warn('Missing Covers auto-save setting',error);}
+}
+App.mf430SetMissingAutoSave=mf430SetMissingAutoSave;
 function v192SkipMissingCover(){
   v192SyncMissingCoverQueue();
   if(!V192_MISSING_COVER_QUEUE.length)return;
@@ -36870,6 +36899,10 @@ function v225CleanActionText(el){
 }
 
 function v225ButtonIconName(el){
+  // v432: the entire Level/Streak + avatar group owns its artwork.
+  // The account button often contains only an <img>, which previously caused
+  // the default circled-action arrow to be inserted right BEFORE the avatar.
+  if(el?.matches?.('.mf421-dock-progress,.mf421-dock-account'))return null;
   const explicit=String(el.dataset?.v225Icon||'').trim();
   if(explicit&&V225_BUTTON_ICONS[explicit])return explicit;
   const t=v225CleanActionText(el);
@@ -36957,6 +36990,9 @@ function v225ButtonIconName(el){
 
 function v225IconEligible(el){
   if(!el||el.nodeType!==1)return false;
+  // v432: exempt BOTH progression and profile-avatar buttons from the generic
+  // action icon system, on first paint and during all subsequent DOM updates.
+  if(el.matches?.('.mf421-dock-progress,.mf421-dock-account'))return false;
   if(el.dataset?.v225Iconified==='1')return false;
   if(el.matches?.('.toggle,.v144-swatch-main,.v45-cover-choice,.account-avatar-btn,.v161-nav-grip'))return false;
   if(el.matches?.('button,a.btn,label.btn,summary.btn,.v221-settings-nav-item'))return true;
@@ -37066,6 +37102,11 @@ Object.assign(V225_BUTTON_ICONS,{
 
 const v226ButtonIconNameBase=v225ButtonIconName;
 v225ButtonIconName=function(el){
+  // v432: avatar images and Level/Streak badges never receive decorative
+  // semantic-action icons; their own content already describes each control.
+  if(el?.matches?.('.mf421-dock-progress,.mf421-dock-account'))return null;
+  // v427: explicit mf425/mf427 svg already describes the action, never inject a second icon.
+  if(el?.querySelector?.(':scope > svg.mf425-icon, :scope > svg.mf427-icon, :scope > .mf425-icon, :scope > .mf427-icon'))return null;
   const t=v225CleanActionText(el);
   const title=String(el?.getAttribute?.('title')||'').trim().toLowerCase();
   const aria=String(el?.getAttribute?.('aria-label')||'').trim().toLowerCase();
@@ -37210,6 +37251,15 @@ V226_DROPDOWN_OBSERVER.observe(document.body,{childList:true,subtree:true});
    generic icon instead of leaving the first icon that happened to render. */
 function v226RefreshSemanticButtonIcon(el){
   if(!el||el.nodeType!==1||!el.matches?.('button,a.btn,label.btn,summary.btn,.v221-settings-nav-item'))return;
+  // v432: remove leftover arrows from the ACCOUNT button as well as the
+  // previously protected progression button. Neither may be auto-iconified.
+  if(el.matches?.('.mf421-dock-progress,.mf421-dock-account')){
+    el.querySelectorAll(':scope > .v225-btn-icon').forEach(icon=>icon.remove());
+    el.classList.remove('v225-icon-button');
+    delete el.dataset.v226SemanticIcon;
+    el.dataset.v225Iconified='1';
+    return;
+  }
   const name=v225ButtonIconName(el);
   const oldName=String(el.dataset?.v226SemanticIcon||'');
   if(oldName===String(name||'')&&el.querySelector(':scope > .v225-btn-icon'))return;
@@ -58213,7 +58263,7 @@ function v365BuildSection(item){
   const star=document.createElement('button');star.type='button';star.className='mf365-favorite-button';star.dataset.mf365Favorite=item.id;star.title='Pin or unpin this section';star.setAttribute('aria-label',`Favorite ${item.displayTitle}`);star.innerHTML=v365Icon('star',18);
   head.append(title,star);
   const body=document.createElement('div');body.className='mf365-section-body';body.hidden=true;
-  for(const node of item.nodes)if(node&&node.parentNode)body.appendChild(node);
+  for(const node of item.nodes)if(node&&node.nodeType===1)body.appendChild(node); // Mount newly created, detached settings controls.
   // The heading inside the existing Settings section remains its own original
   // DOM node, but is visually hidden because the accessible section header is
   // now the toggle above it. Do not remove it: other controls reference it.
@@ -58319,6 +58369,45 @@ function v365EnhanceSettings(){
   page.querySelectorAll('[data-mf365-favorite]').forEach(btn=>{const pinned=v365Prefs().favorites.includes(btn.dataset.mf365Favorite);btn.classList.toggle('mf365-pinned',pinned);btn.setAttribute('aria-pressed',String(pinned));});
   v365UpdateView({preserveScroll:true});
 }
+// Canonical extension point for post-v365 settings. New features should add
+// their controls here, not append custom cards/accordions to category DOM.
+// The same renderer supplies the section header, expand/collapse, Pin, search
+// and theme/mobile styling used by every built-in Settings section.
+function v365MountRegisteredSection(input){
+  if(!input||typeof input!=='object')throw new TypeError('Settings section registration is required');
+  const id=String(input.id||'').trim(),title=String(input.title||'').trim();
+  const category=String(input.category||'').trim(),subgroup=String(input.subgroup||'General').trim()||'General';
+  if(!/^[a-z0-9][a-z0-9._:-]{0,119}$/i.test(id)||!title)throw new TypeError('A stable id and title are required');
+  if(!V365_CATEGORIES.some(c=>c.id===category))throw new Error('Settings section needs a registered category');
+  if(!Array.isArray(input.nodes)||!input.nodes.length||!input.nodes.every(n=>n&&n.nodeType===1))
+    throw new TypeError('Settings controls must be existing DOM elements');
+  const page=V365_CURRENT_PAGE;
+  if(String(S.view||'')!=='settings'||!page?.isConnected||page.dataset.mf365Ready!=='1')return null;
+  const target=page.querySelector('[data-mf365-content-for="'+category+'"]');
+  if(!target)return null;
+  // A section is not recreated on every enhancer pass.
+  if(V365_SECTION_MAP.has(id)&&page.querySelector('.mf365-section[data-mf365-section="'+id+'"]'))
+    return page.querySelector('.mf365-section[data-mf365-section="'+id+'"]');
+  const meta=v366RegisterSection({id,title,category,subgroup,keywords:input.keywords||[]});
+  const item={id,title,displayTitle:title,nodes:input.nodes,category:meta.category,subgroup:meta.subgroup,keywords:meta.keywords};
+  V365_SECTION_MAP.set(id,item);
+  const slug=v221Slug(meta.subgroup);
+  let group=[...target.children].find(el=>el.dataset?.mf366Subgroup===slug);
+  if(!group){
+    group=document.createElement('div');group.className='mf366-subgroup';group.dataset.mf366Subgroup=slug;
+    const heading=document.createElement('h3');heading.className='mf366-subgroup-heading';heading.textContent=meta.subgroup;
+    const body=document.createElement('div');body.className='mf366-subgroup-content';
+    group.append(heading,body);target.appendChild(group);
+  }
+  const section=v365BuildSection(item);
+  group.querySelector('.mf366-subgroup-content').appendChild(section);
+  const pinned=v365Prefs().favorites.includes(id);
+  const favorite=section.querySelector('.mf365-favorite-button');
+  if(favorite){favorite.classList.toggle('mf365-pinned',pinned);favorite.setAttribute('aria-pressed',String(pinned));}
+  v365BuildIndex([...V365_SECTION_MAP.values()]);
+  return section;
+}
+window.MediaFlowSettingsCenter=Object.freeze({mountSection:v365MountRegisteredSection});
 // v265's legacy Settings morph used an old v221 renderer, which drops v335+
 // XP Settings and reopens the old all-sections layout after any settings edit.
 // Replace it with the currently registered canonical v348 renderer; restore
@@ -60409,12 +60498,67 @@ const V377_ID_PROVIDERS=[
  ['mal','MyAnimeList','Numeric MAL ID'],['simkl','SIMKL','SIMKL ID'],
  ['anilist','AniList','Numeric AniList ID'],['tmdb','TMDB','Numeric TMDB ID'],
  ['imdb','IMDb','tt1234567'],['trakt','Trakt','Trakt ID / slug'],
- ['kitsu','Kitsu','Kitsu ID'],['isbn','ISBN','ISBN']
+ ['kitsu','Kitsu','Kitsu ID'],['isbn','ISBN','ISBN'],
+ ['episodate','EpisoDate Show','TV show ID'],
+ ['tvdb_series','TheTVDB Series','Series ID'],
+ ['tvdb_season','TheTVDB Season','Season ID'],
+ ['tvdb_episode','TheTVDB Episode','Episode ID'],
+ ['tvdb_movie','TheTVDB Movie','Movie ID'],
+ ['simkl_movie','SIMKL Movie','Movie record ID'],
+ ['simkl_show','SIMKL Show','TV show ID'],
+ ['mangadex','MangaDex','Manga UUID'],
+ ['gcd_series','Grand Comics Database Series','Series ID'],
+ ['gcd_issue','Grand Comics Database Issue','Issue ID'],
+ ['royalroad','Royal Road Fiction','Fiction ID'],
+ ['royalroad_rss','Royal Road RSS','https://.../fiction/syndication/...'],
+ ['mangaupdates','MangaUpdates Series','Series ID'],
+ ['livechart','LiveChart Anime','Anime ID'],
+ ['wikidata','Wikidata','Q123456'],
+ ['anidb','AniDB','Anime ID'],
+ ['animeschedule','AnimeSchedule','Anime ID'],
+ ['watchmode','Watchmode','Title ID'],
+ ['marvel_comic','Marvel Comic','Comic ID'],
+ ['marvel_series','Marvel Series','Series ID'],
+ ['marvel_issue','Marvel Issue','Issue ID'],
+ ['lccn','Library of Congress LCCN','LCCN'],
+ ['oclc','OCLC Control Number','OCLC ID'],
+ ['gnd','German National Library GND','GND ID'],
+ ['dnb','German National Library Record','DNB record ID'],
+ ['bnf','BnF Record','BnF record ID'],
+ ['doi','Crossref DOI','10.XXXX/...'],
+ ['comicvine_volume','Comic Vine Volume','Volume ID'],
+ ['comicvine_issue','Comic Vine Issue','Issue ID'],
+ ['comicvine_character','Comic Vine Character','Character ID'],
+ ['metron_series','Metron Series','Series ID'],
+ ['metron_issue','Metron Issue','Issue ID'],
+ ['metron_publisher','Metron Publisher','Publisher ID'],
+ ['hardcover_book','Hardcover Book','Book ID'],
+ ['hardcover_edition','Hardcover Edition','Edition ID'],
+ ['openlibrary_work','Open Library Work','OL123W'],
+ ['openlibrary_edition','Open Library Edition','OL123M'],
+ ['inventaire_work','Inventaire Work','Inventaire work ID'],
+ ['inventaire_edition','Inventaire Edition','Inventaire edition ID'],
+ ['gutendex','Gutendex Book','Gutenberg ID'],
+ ['isbn10','ISBN-10','10-character ISBN'],
+ ['isbn13','ISBN-13','13-digit ISBN'],
+ ['ean','EAN','13-digit EAN'],
+ ['youtube_video','YouTube Video','11-character video ID'],
+ ['youtube_playlist','YouTube Playlist','Playlist ID'],
+ ['tmdb_tv','TMDB TV','TV series ID'],
+ ['loc','Library of Congress Record','Library of Congress ID'],
+ ['crossref','Crossref Record','DOI'],
+ ['fribb_mapping','Fribb Mapping Reference','Optional source record ID']
 ];
 let V377_REOPEN_JIKAN_REPORT=false;
 const v377IdValid=(key,value)=>{
   if(!value)return true;
-  if(value.length>120)return false;
+  if(value.length>(['royalroad_rss'].includes(key)?512:120))return false;
+  if(['royalroad_rss'].includes(key)){try{const url=new URL(value);return url.protocol==='https:'&&url.hostname.length>3;}catch(_){return false;}}
+  if(key==='doi'||key==='crossref')return /^10\.\d{4,9}\/\S{1,100}$/i.test(value);
+  if(key==='wikidata')return /^Q[1-9]\d*$/i.test(value);
+  if(key==='mangadex')return /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value);
+  if(key==='isbn10')return /^\d{9}[\dXx]$/.test(value.replace(/[-\s]/g,''));
+  if(['isbn13','ean'].includes(key))return /^\d{13}$/.test(value.replace(/[-\s]/g,''));
   if(key==='mal'||key==='anilist'||key==='tmdb'||key==='kitsu'||key==='simkl')return /^[1-9]\d*$/.test(value);
   if(key==='imdb')return /^tt\d{7,12}$/i.test(value);
   if(key==='isbn')return /^(?:[\dXx-]{10,20})$/.test(value);
@@ -60438,8 +60582,9 @@ function v377IdsEditorHtml(item){
   Object.keys(ids).filter(key=>!known.has(key)&&/^[a-z][a-z0-9_]{0,32}$/i.test(key)).forEach(key=>providers.push([key,key.toUpperCase(),'External identifier']));
   return `<section class="mf377-external-ids" data-v377-ids-editor>
     <details><summary><span class="mf377-section-icon">⌗</span> External Media IDs <small>Optional · ${Object.values(ids).filter(v=>v!=null&&String(v).trim()).length} saved</small></summary>
-    <p class="hint">Edit service IDs without changing progress, ratings, History, or Collections. Automatic MAL Detection uses only the MyAnimeList ID.</p>
-    <div class="mf377-ids-grid">${providers.map(([key,label,placeholder])=>`<label class="field" data-v377-id-row="${escapeHtml(key)}"><span class="field-label">${escapeHtml(label)}</span><span class="mf377-id-control"><input type="text" data-v377-id="${escapeHtml(key)}" autocomplete="off" spellcheck="false" value="${escapeHtml(String(ids[key]??''))}" placeholder="${escapeHtml(placeholder)}">${key==='mal'?'<button type="button" class="btn btn-sm" onclick="App.v377VerifyMalId()">Verify</button>':''}</span></label>`).join('')}</div>
+    <p class="hint">Edit service IDs without changing progress, ratings, History, or Collections. Automatic MAL Detection uses only the MyAnimeList ID. Provider and work/edition identifiers are available for verified provider matching. New sources require explicit testing before use.</p>
+    <label class="mf433-id-search">Find an ID field <input type="search" placeholder="Search providers or identifiers…" oninput="App.mf433FilterExternalIds(this.value)" autocomplete="off"></label>
+    <div class="mf377-ids-grid">${providers.map(([key,label,placeholder])=>`<label class="field" data-v377-id-row="${escapeHtml(key)}"><span class="field-label">${escapeHtml(label)}</span><span class="mf377-id-control"><input type="text" data-v377-id="${escapeHtml(key)}" autocomplete="off" spellcheck="false" value="${escapeHtml(String(ids[key]??''))}" placeholder="${escapeHtml(placeholder)}"></span></label>`).join('')}</div>
     <div class="mf377-mal-preview" id="mf377-mal-preview" aria-live="polite"></div>
     </details>
   </section>`;
@@ -66391,7 +66536,7 @@ function mf421AddDock(){
   let bar=document.querySelector('.mf421-dock');
   if(bar)return bar;
   bar=document.createElement('nav');bar.className='mf421-dock';bar.setAttribute('aria-label','MediaFlow desktop navigation');
-  bar.innerHTML=`<div class="mf421-dock-brand" tabindex="0" role="button" aria-label="Drag MediaFlow navigation to left, top or bottom" title="Drag to change navigation position"><span class="mf421-dock-mark" aria-hidden="true">◉</span><span class="mf421-dock-name">MediaFlow</span></div><div class="mf421-dock-links"></div><div class="mf421-dock-more-wrap"><button type="button" class="mf421-dock-more" aria-expanded="false" aria-label="More navigation pages">${ICONS.more||'⋯'}<span>More</span></button><div class="mf421-dock-menu" hidden></div></div><button type="button" class="mf421-dock-progress" aria-label="Level and streak details" title="View profile and progression" onclick="App.openProfile()"><span class="mf421-level">Level</span><span class="mf421-streak"></span></button><button type="button" class="mf421-dock-account" aria-label="Open account settings" title="Account" onclick="App.openProfile()">${ICONS.profile||'♙'}</button>`;
+  bar.innerHTML=`<div class="mf421-dock-brand" tabindex="0" role="button" aria-label="Drag MediaFlow navigation to left, top or bottom" title="Drag to change navigation position"><span class="mf421-dock-mark" aria-hidden="true">◉</span><span class="mf421-dock-name">MediaFlow</span></div><div class="mf421-dock-links"></div><div class="mf421-dock-more-wrap"><button type="button" class="mf421-dock-more" aria-expanded="false" aria-label="More navigation pages">${ICONS.more||'⋯'}<span>More</span></button><div class="mf421-dock-menu" hidden></div></div><div role="button" tabindex="0" class="mf421-dock-progress" aria-label="Level and streak details" title="View profile and progression" onclick="App.mf422ToggleProgress()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.mf422ToggleProgress()}"><span class="mf421-level">Level</span><span class="mf421-streak"></span></div><button type="button" class="mf421-dock-account" aria-label="Open account settings" title="Account" onclick="App.openProfile()">${ICONS.profile||'♙'}</button>`;
   document.body.appendChild(bar);
   bar.querySelector('.mf421-dock-more').addEventListener('click',e=>{e.stopPropagation();mf421DropOpen=!mf421DropOpen;mf421UpdateMore(bar);});
   bar.querySelector('.mf421-dock-menu').addEventListener('click',e=>{const btn=e.target.closest('[data-mf421-view]');if(btn){mf421DropOpen=false;App.setView(btn.dataset.mf421View);mf421Apply(true);}});
@@ -66779,9 +66924,19 @@ function mf423CleanSelectionCards(){
 }
 function mf423UpdateAvatar(button){
   if(!button)return;
+  // v432: the default circled arrow was actually attached to the ACCOUNT
+  // button when its image replaced the original profile SVG. Earlier fixes
+  // only cleaned its sibling (the Level/Streak control).
+  button.querySelectorAll(':scope > .v225-btn-icon').forEach(icon=>icon.remove());
+  button.classList.remove('v225-icon-button');
+  button.dataset.v225Iconified='1';
+  delete button.dataset.v226SemanticIcon;
   const saved=String(getAvatarUrl()||'').trim();
   const imageUrl=/^https?:\/\//i.test(saved)?saved:'';
-  if(button.dataset.mf423Avatar===imageUrl && button.children.length)return;
+  const child=button.firstElementChild;
+  const oneChild=button.children.length===1;
+  if(button.dataset.mf423Avatar===imageUrl&&oneChild&&
+      (imageUrl?child?.matches('img.mf423-dock-avatar'):!child?.classList?.contains('v225-btn-icon')))return;
   button.dataset.mf423Avatar=imageUrl;
   button.replaceChildren();
   if(!imageUrl){button.innerHTML=ICONS.profile||'♙';return;}
@@ -66857,7 +67012,7 @@ renderAbout=function(){
   const section=about.querySelector('.mf422-donate-section');
   if(section){
     section.classList.add('mf423-support-hero');
-    section.innerHTML=`<div class="mf423-support-content"><div class="mf423-support-eyebrow"><span class="mf423-support-spark" aria-hidden="true">✦</span> INDEPENDENTLY BUILT · COMMUNITY SUPPORTED</div><h2>Help shape what<br><em>MediaFlow becomes.</em></h2><p class="mf423-support-lede">MediaFlow is built and maintained independently by Alex Godly. If it makes organizing the things you love a little better, you can help keep it growing.</p><div class="mf423-support-benefits"><span>✧ More possibilities</span><span>☁ Hosting &amp; storage</span><span>♡ Ongoing improvements</span></div><p class="mf423-support-credit">Thank you for being part of MediaFlow, whether you donate or simply enjoy using it.</p></div><div class="mf423-support-action"><div class="mf423-support-emblem" aria-hidden="true"><span>♥</span></div><strong>Support the next chapter</strong><p>Your contribution helps with resources and continued development.</p><a class="mf423-support-cta" href="${MF423_DONATE_URL}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">♥</span> Support on Ko-fi <span aria-hidden="true">↗</span></a><small>Completely optional. Existing features stay available to everyone.</small><span class="mf423-support-signer">Made with care by Alex Godly</span></div>`;
+    section.innerHTML=`<div class="mf423-support-content"><div class="mf423-support-eyebrow"><span class="mf423-support-spark" aria-hidden="true">✦</span> INDEPENDENTLY BUILT · COMMUNITY SUPPORTED</div><h2>Help shape what<br><em>MediaFlow becomes.</em></h2><p class="mf423-support-lede">MediaFlow is built and maintained independently by Alex Godly. If it makes organizing the things you love a little better, you can help keep it growing.</p><div class="mf423-support-benefits"><span>More possibilities</span><span>Hosting &amp; storage</span><span>Ongoing improvements</span></div><p class="mf423-support-credit">Thank you for being part of MediaFlow, whether you donate or simply enjoy using it.</p></div><div class="mf423-support-action"><div class="mf423-support-emblem" aria-hidden="true"><span>♥</span></div><strong>Support the next chapter</strong><p>Your contribution helps with resources and continued development.</p><a class="mf423-support-cta" href="${MF423_DONATE_URL}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">♥</span> Support on Ko-fi <span aria-hidden="true">↗</span></a><small>Completely optional. Existing features stay available to everyone.</small><span class="mf423-support-signer">Made with care by Alex Godly</span></div>`;
   }
   return root.innerHTML;
 };
@@ -66867,11 +67022,11 @@ let mf423PendingCleanup=false;
 const mf423Observer=new MutationObserver(changes=>{
   if(!changes.some(change=>{
     const n=change.target;
-    return n instanceof Element && (n.closest('.mf421-dock-progress,.mf422-nav-choice')||n.matches('.mf421-dock-progress,.mf422-nav-choice'));
+    return n instanceof Element && (n.closest('.mf421-dock-progress,.mf421-dock-account,.mf422-nav-choice')||n.matches('.mf421-dock-progress,.mf421-dock-account,.mf422-nav-choice'));
   }))return;
   if(mf423PendingCleanup)return;
   mf423PendingCleanup=true;
-  queueMicrotask(()=>{mf423PendingCleanup=false;mf423CleanLevelBadge(document.querySelector('.mf421-dock-progress'));mf423CleanSelectionCards();});
+  queueMicrotask(()=>{mf423PendingCleanup=false;mf423CleanLevelBadge(document.querySelector('.mf421-dock-progress'));mf423UpdateAvatar(document.querySelector('.mf421-dock-account'));mf423CleanSelectionCards();});
 });
 mf423Observer.observe(document.body,{subtree:true,childList:true});
 queueMicrotask(()=>mf421Apply(true));
@@ -66888,9 +67043,9 @@ const MF424_PROVIDER_META = [
   {id:'anilist',name:'AniList',types:['anime','anime-movie','manga'],limit:18,gap:3400,credentials:false,level:'experimental'},
   {id:'kitsu',name:'Kitsu',types:['anime','anime-movie','manga'],limit:30,gap:2400,credentials:false,level:'experimental'},
   {id:'tvmaze',name:'TVmaze',types:['tv'],limit:50,gap:1200,credentials:false,level:'existing'},
-  {id:'mangadex',name:'MangaDex',types:['manga'],limit:20,gap:3500,credentials:false,level:'experimental'},
+  {id:'mangadex',name:'MangaDex',types:['manga'],limit:0,gap:3500,credentials:false,level:'browser CORS blocked'},
   {id:'openlibrary',name:'Open Library',types:['book','comic','reading'],limit:20,gap:3500,credentials:false,level:'existing'},
-  {id:'googlebooks',name:'Google Books',types:['book','comic','reading'],limit:15,gap:4500,credentials:false,level:'experimental'},
+  {id:'googlebooks',name:'Google Books',types:['book','comic','reading'],limit:0,gap:4500,credentials:true,level:'requires API key'},
   {id:'simkl',name:'SIMKL',types:['anime','anime-movie','tv','movie'],limit:0,gap:0,credentials:true,level:'restricted'},
   {id:'malofficial',name:'MyAnimeList Official',types:['anime','anime-movie','manga'],limit:0,gap:0,credentials:true,level:'restricted'},
   {id:'tmdb',name:'TMDB',types:['movie','tv'],limit:0,gap:0,credentials:true,level:'setup'},
@@ -66912,8 +67067,8 @@ const MF424_PROVIDER_META = [
   {id:'crossref',name:'Crossref',types:['book'],limit:0,gap:0,credentials:false,level:'bibliographic'}
 ];
 const MF424_DEFAULT = {mode:'parts',partSize:100,continuation:'automatic',selection:'hybrid',protection:'safe',autoResume:true,
-  priorities:['tenrai','jikan','anilist','kitsu','tvmaze','mangadex','openlibrary','googlebooks'],
-  enabled:['tenrai','jikan','anilist','kitsu','tvmaze','mangadex','openlibrary','googlebooks']};
+  priorities:['tenrai','jikan','anilist','kitsu','tvmaze','openlibrary'],
+  enabled:['tenrai','jikan','anilist','kitsu','tvmaze','openlibrary']};
 const MF424 = {db:null,job:null,running:false,runner:null,leaseTimer:0,leaseToken:'',timer:0,overlay:false,expanded:false,
   history:[],rate:{},cache:new Map(),account:'',ready:false,status:'idle',toastAt:0};
 function mf424Account(){return String((typeof AUTH_USER!=='undefined'&&AUTH_USER?.id)||'local');}
@@ -66983,9 +67138,50 @@ async function mf424Image(url,provider=''){
 });}
 function mf424RetryAfter(h){const s=h?.get('Retry-After');if(!s)return 0;const n=Number(s);return Number.isFinite(n)?Math.max(0,n*1000):Math.max(0,Date.parse(s)-Date.now())||0;}
 const mf424Delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+// This registry is shared by bulk recovery and the instant Find Cover picker.
+// Future provider modules must register both metadata AND a functioning adapter;
+// a label without a handler must never be advertised as a working API.
+const MF424_EXTRA_COVER_ADAPTERS=new Map();
+function mf424RegisterCoverProvider(def,adapter){
+  const id=String(def?.id||'').trim();
+  if(!/^[a-z][a-z0-9-]{1,39}$/.test(id)||typeof adapter!=='function'||mf424Provider(id))
+    throw new Error('A new cover provider needs a unique ID and a working adapter');
+  if(!Array.isArray(def.types)||!def.types.length||!def.types.every(t=>typeof t==='string'))
+    throw new Error('A cover provider must declare supported media types');
+  MF424_PROVIDER_META.push({...def,id,name:String(def.name||id),credentials:Boolean(def.credentials),
+    limit:Math.max(0,Number(def.limit)||0),gap:Math.max(0,Number(def.gap)||0)});
+  MF424_EXTRA_COVER_ADAPTERS.set(id,adapter);
+  return id;
+}
 function mf424Provider(id){return MF424_PROVIDER_META.find(x=>x.id===id);}
-function mf424Order(item){const kind=v158ItemKind(item);const c=mf424Defaults();const seq=c.priorities.concat(c.enabled).filter((p,i,a)=>a.indexOf(p)===i);
-  const valid=seq.filter(p=>c.enabled.includes(p)&&mf424Provider(p)?.limit&&mf424Provider(p).types.includes(kind));
+function mf424Kind(item){
+  const original=v158ItemKind(item);
+  if(!['video','other','reading'].includes(original))return original;
+  const ids=item?.externalIds||{},cat=getCategory(item?.categoryId);
+  const name=String(item?.categoryId||'')+' '+String(cat?.name||'');
+  if(/anime/i.test(name)||ids.mal||ids.anilist||ids.kitsu)return /movie|film/i.test(name)?'anime-movie':'anime';
+  if(/manga|manhua|manhwa/i.test(name)||ids.mangadex)return 'manga';
+  if(/comic/i.test(name))return 'comic';
+  if(/book|novel|literature/i.test(name)||ids.isbn)return 'book';
+  if(/tv|television|series|episode/i.test(name)||ids.tvmaze||ids.imdb)return 'tv';
+  if(/movie|film/i.test(name))return 'movie';
+  return original;
+}
+function mf424ProviderSupports(item,provider){
+  const def=mf424Provider(provider),kind=mf424Kind(item);
+  // Categories are user-defined, not authoritative media classifications.
+  // The provider reports whether its API can serve the requested work.
+  return Boolean(def&&def.limit);
+}
+function mf424CoverProviderChoices(item){
+  const settings=mf424Defaults(),order=settings.priorities.concat(MF424_PROVIDER_META.map(x=>x.id));
+  return MF424_PROVIDER_META.slice().sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id)).map(def=>({
+    ...def,usable:!!def.limit,compatible:mf424ProviderSupports(item,def.id),
+    enabled:settings.enabled.includes(def.id)
+  }));
+}
+function mf424Order(item){const c=mf424Defaults(),choices=mf424CoverProviderChoices(item);
+  const valid=choices.filter(p=>p.usable&&p.enabled).map(p=>p.id);
   if(c.selection!=='smart')return valid;
   return valid.sort((a,b)=>Number(mf424HasID(item,b))-Number(mf424HasID(item,a)));
 }
@@ -66994,38 +67190,70 @@ function mf424HasID(item,provider){const x=item.externalIds||{};const keys={tenr
 async function mf424Request(provider,url,options={}){
   const def=mf424Provider(provider),settings=mf424Defaults();if(!def||!def.limit)throw new Error('Provider is unavailable without authorization');
   const state=MF424.rate[provider]||{at:[],next:0,cooldown:0,fails:0,count:0};MF424.rate[provider]=state;
+  // A repeatedly unreachable API must not freeze an entire Library recovery for every title.
+  if(Number(state.unavailableUntil)>Date.now())throw new Error(provider+' temporarily unreachable; other cover sources will be checked');
   const limit=Math.min(def.limit,Math.max(1,Math.floor(def.limit*(settings.protection==='safe'?.75:settings.protection==='balanced'?.9:1))));
   const gap=def.gap*(settings.protection==='safe'?1.5:settings.protection==='balanced'?1.15:1);
   const cacheKey=provider+':'+url+':'+(options.body||'');const hit=MF424.cache.get(cacheKey);
   if(hit&&hit.until>Date.now())return hit.data;
   let attempt=0;
   while(attempt<3){
+    if(MF424.job?.hardStop)throw Object.assign(new Error('Recovery stopped by user'),{paused:true});
     let now=Date.now();state.at=state.at.filter(t=>now-t<60000);
     const wait=Math.max(0,state.next-now,state.cooldown-now,state.at.length>=limit?state.at[0]+60000-now:0);
-    if(wait){mf424State('cooldown');await mf424Delay(Math.min(60000,wait));continue;}
+    if(wait){mf424State('cooldown');await mf424Delay(Math.min(3000,wait));continue;}
     attempt++;
     state.at.push(Date.now());state.next=Date.now()+gap;state.count++;
     if(MF424.job)MF424.job.requestCount++;
-    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),14500);
+    const controller=new AbortController();MF424.activeControllers??=new Set();MF424.activeControllers.add(controller);
+    const timer=setTimeout(()=>controller.abort(),14500);
     try{
-      const res=await fetch(url,{method:options.body?'POST':'GET',body:options.body||undefined,signal:controller.signal,headers:{'Accept':'application/json',...(options.body?{'Content-Type':'application/json'}:{})}});
-      if(res.ok){const data=await res.json();if(MF424.cache.size>400)MF424.cache.delete(MF424.cache.keys().next().value);
+      const res=await fetch(url,{method:options.body?'POST':'GET',body:options.body||undefined,signal:controller.signal,headers:{'Accept':provider==='kitsu'?'application/vnd.api+json':'application/json',...(options.body?{'Content-Type':'application/json'}:{})}});
+      if(res.ok){const data=await res.json();
+        if(provider==='anilist'&&Array.isArray(data?.errors)&&data.errors.length)throw Object.assign(new Error('AniList API: '+String(data.errors[0]?.message||'GraphQL error').slice(0,100)),{permanent:true});
+        if(MF424.cache.size>400)MF424.cache.delete(MF424.cache.keys().next().value);
         MF424.cache.set(cacheKey,{until:Date.now()+3600000,data});state.fails=0;mf424State('running');return data;}
       if(res.status===429||res.status===503){state.cooldown=Date.now()+Math.max(mf424RetryAfter(res.headers),res.status===429?90000:30000);state.fails++;if(MF424.job)MF424.job.rate=MF424.rate;
         mf424Note('cooldown',provider+' '+res.status+' — cooling down');if(MF424.job)MF424.job.cooldownEvents++;await mf424SaveJob();continue;}
       if(res.status>=500){state.fails++;await mf424Delay(1200*(attempt+1));continue;}
       throw Object.assign(new Error(provider+' HTTP '+res.status),{permanent:true});
-    }catch(e){if(e.permanent)throw e;state.fails++;if(attempt>=3)throw e;await mf424Delay(900*(attempt+1)+Math.random()*550);}
-    finally{clearTimeout(timer);}
+    }catch(e){if(e.permanent||MF424.job?.hardStop)throw e;state.fails++;if(attempt>=3){state.unavailableUntil=Date.now()+90000;throw e;}await mf424Delay(900*(attempt+1)+Math.random()*550);}
+    finally{clearTimeout(timer);MF424.activeControllers?.delete(controller);}
   }
   if(state.fails>=6)state.cooldown=Date.now()+5*60000;
   throw new Error(provider+' temporarily unavailable');
 }
 function mf424Id(item,name){return String(item.externalIds?.[name]??'').trim();}
 function mf424AsCandidate(entry,url,provider,idMatch,link,reason,confidence){url=mf424Cover(url);if(!url)return null;
-  return {url,provider,recordUrl:link||'',title:mf424Titles(entry)[0]||'',confidence:confidence??(idMatch?1:.7),reason:reason||'',idMatch:Boolean(idMatch),recordId:String(entry?.mal_id??entry?.id??entry?.idMal??'')};}
-async function mf424Discover(item,provider){
-  const title=String(cleanTitle(item.title||'')).trim();const kind=v158ItemKind(item);
+  const externalIdKey=({tenrai:'mal',jikan:'mal',anilist:'anilist',kitsu:'kitsu',tvmaze:'tvmaze',mangadex:'mangadex',openlibrary:'openlibrary',googlebooks:'googlebooks'})[provider]||'';
+  const recordId=String((provider==='openlibrary'?entry?.key:null)??entry?.mal_id??entry?.id??entry?.idMal??'').trim().replace(provider==='openlibrary'?/^\/works\//:/^\u0000/,'');
+  const candidate={url,provider,recordUrl:link||'',title:mf424Titles(entry)[0]||'',confidence:confidence??(idMatch?1:.7),reason:reason||'',idMatch:Boolean(idMatch),recordId,externalIdKey,externalIdValue:recordId};
+  return typeof mf433EnrichCoverCandidate==='function'?mf433EnrichCoverCandidate(entry,candidate):candidate;
+}
+function mf424LinkableCoverId(item,candidate){
+  if(typeof mf433CandidateLinks==='function'){
+    const links=mf433CandidateLinks(item,candidate);
+    if(links.length)return links.find(link=>!link.conflict&&link.existing!==link.value)||links[0];
+  }
+  const key=String(candidate?.externalIdKey||'').trim(),value=String(candidate?.externalIdValue||candidate?.recordId||'').trim();
+  if(!/^[a-z][a-z0-9_]{0,32}$/.test(key)||!value||value.length>120||!(/^[\w.:-]+$/.test(value)||key==='openlibrary'&&/^\/works\/OL\d+W$/.test(value)))return null;
+  const existing=String(item?.externalIds?.[key]??'').trim();
+  if(existing&&existing!==value)return {key,value,existing,conflict:true};
+  return {key,value,existing,conflict:false};
+}
+function mf424LinkSelectedCoverId(item,candidate,{manual=false}={}){
+  if(typeof mf433LinkCandidateIds==='function')
+    return mf433LinkCandidateIds(item,candidate,{manual})>0;
+  const link=mf424LinkableCoverId(item,candidate);
+  if(!link||link.conflict||link.existing===link.value)return false;
+  // Respect an intentional manual clearing of IDs during automatic recovery.
+  if(!manual&&Object.prototype.hasOwnProperty.call(item?.v377ManualExternalIds||{},link.key))return false;
+  item.externalIds={...(item.externalIds||{}),[link.key]:link.value};
+  if(manual)item.v377ManualExternalIds={...(item.v377ManualExternalIds||{}),[link.key]:link.value};
+  return true;
+}
+async function mf424DiscoverKind(item,provider,kind){
+  const title=String(cleanTitle(item.title||'')).trim();
   if(provider==='tenrai'||provider==='jikan'){
     const type=kind==='manga'?'manga':'anime', id=mf424Id(item,'mal');
     const base=provider==='tenrai'?'https://api.tenrai.org/v1/':'https://api.jikan.moe/v4/';
@@ -67063,7 +67291,7 @@ async function mf424Discover(item,provider){
     const data=await mf424Request(provider,url);
     return (Array.isArray(data)?data.map(x=>x.show):[data]).filter(Boolean).map(x=>{const direct=Boolean(tvmaze&&String(x.id)===tvmaze||!tvmaze&&imdb&&x.externals?.imdb===imdb);
       const match=mf424Match(item,{title:x.name,year:Number(String(x.premiered||'').slice(0,4))},direct);
-      return mf424AsCandidate({id:x.id,title:x.name},x.image?.original||x.image?.medium,provider,direct,x.url,match.reason,match.confidence);
+      return mf424AsCandidate({id:x.id,title:x.name,externals:x.externals},x.image?.original||x.image?.medium,provider,direct,x.url,match.reason,match.confidence);
     }).filter(Boolean);
   }
   if(provider==='mangadex'){
@@ -67086,7 +67314,7 @@ async function mf424Discover(item,provider){
     }
     const data=await mf424Request(provider,'https://openlibrary.org/search.json?title='+encodeURIComponent(title)+'&limit=8&fields=key,title,first_publish_year,cover_i');
     return (data?.docs||[]).filter(x=>x.cover_i).map(x=>{const m=mf424Match(item,{title:x.title,year:x.first_publish_year},false);
-      return mf424AsCandidate({title:x.title},'https://covers.openlibrary.org/b/id/'+x.cover_i+'-L.jpg?default=false',provider,false,'https://openlibrary.org'+x.key,m.reason,m.confidence);
+      return mf424AsCandidate({title:x.title,key:x.key},'https://covers.openlibrary.org/b/id/'+x.cover_i+'-L.jpg?default=false',provider,false,'https://openlibrary.org'+x.key,m.reason,m.confidence);
     }).filter(Boolean);
   }
   if(provider==='googlebooks'){
@@ -67099,36 +67327,77 @@ async function mf424Discover(item,provider){
   }
   return [];
 }
-async function mf424Candidates(item){const found=[],dedupe=new Set();const ordered=mf424Order(item);
+// Search each provider's own supported catalogues, not MediaFlow category names.
+// A provider may return no matching record, but it is never blocked by the
+// user's chosen category. Existing IDs get first chance; name search follows
+// if the saved ID is missing, stale, or identifies a differently named work.
+async function mf424Discover(item,provider){
+  if(MF424_EXTRA_COVER_ADAPTERS.has(provider))
+    return MF424_EXTRA_COVER_ADAPTERS.get(provider)(item,{request:mf424Request,validate:mf424AsCandidate,cover:mf424Cover,match:mf424Match});
+  const kinds=['tenrai','jikan','anilist','kitsu'].includes(provider)
+    ?(mf424Kind(item)==='manga'?['manga','anime']:['anime','manga'])
+    :[mf424Kind(item)];
+  const all=[],seen=new Set(),issues=[];
+  const append=rows=>{for(const c of rows||[]){if(!c?.url||seen.has(c.url))continue;seen.add(c.url);all.push(c);}};
+  for(const kind of kinds){
+    let direct=[];
+    try{direct=await mf424DiscoverKind(item,provider,kind);append(direct);}
+    catch(error){issues.push(error);}
+    if(mf424HasID(item,provider)&&!direct.some(c=>c.idMatch&&c.confidence>=.95)){
+      const ids={...(item.externalIds||{})};
+      if(provider==='tenrai'||provider==='jikan')delete ids.mal;
+      if(provider==='anilist'){delete ids.anilist;delete ids.mal;}
+      if(provider==='kitsu')delete ids.kitsu;
+      if(provider==='tvmaze'){delete ids.tvmaze;delete ids.imdb;}
+      if(provider==='openlibrary')delete ids.isbn;
+      try{append(await mf424DiscoverKind({...item,externalIds:ids},provider,kind));}
+      catch(error){issues.push(error);}
+    }
+  }
+  if(!all.length&&issues.length)throw issues[0];
+  return all;
+}
+async function mf424Candidates(item){
+  const found=[],dedupe=new Set(),ordered=mf424Order(item),manual=mf424Defaults().selection==='manual';
   const idFirst=ordered.filter(p=>mf424HasID(item,p)),search=ordered.filter(p=>!mf424HasID(item,p));
-  for(const p of idFirst.concat(search)){
-    try{for(const candidate of await mf424Discover(item,p)){
-      if(!candidate||candidate.confidence<.65||dedupe.has(candidate.url))continue;
-      dedupe.add(candidate.url);if(!await mf424Image(candidate.url,candidate.provider))continue;
-      found.push(candidate);
-      if(candidate.idMatch&&candidate.confidence>=.95&&mf424Defaults().selection!=='manual')return [candidate];
-      if(found.length>=4)return found;
-      if(mf424Defaults().selection==='smart'&&candidate.confidence>=.95)return found;
-    }}catch(e){if(e.paused)break;mf424Note('provider-error',p+': '+String(e.message||e),item.id);}
+  for(const provider of idFirst.concat(search)){
+    try{
+      for(const candidate of await mf424Discover(item,provider)){
+        if(!candidate||dedupe.has(candidate.url)||(!manual&&candidate.confidence<.65))continue;
+        dedupe.add(candidate.url);
+        if(!await mf424Image(candidate.url,candidate.provider))continue;
+        // Keep collecting choice candidates rather than stopping after the
+        // first confident ID match. Continue to the next registered provider.
+        if(found.length<24)found.push(candidate);
+      }
+    }catch(error){if(error.paused)break;mf424Note('provider-error',provider+': '+String(error.message||error),item.id);}
   }
   return found;
 }
-function mf424Review(item,candidates){MF424.job.reviews.push({id:String(item.id),title:String(cleanTitle(item.title||'')),
+function mf424QueueReview(item,candidates){MF424.job.reviews.push({id:String(item.id),title:String(cleanTitle(item.title||'')),
   expectedModified:Number(item.modifiedAt)||0,added:Date.now(),candidates});
   MF424.job.pending++;mf424Note('review','Manual confirmation required',item.id);
 }
-async function mf424Apply(item,candidate,expected){
+async function mf424Apply(item,candidate,expected,{manual=false,linkId=true}={}){
   if(mf424Account()!==MF424.account)throw new Error('Account changed; recovery suspended');
   if(!mf424Missing(item))return false;
   if(Number(item.modifiedAt||0)!==Number(expected||0))return false;
   if(!await mf424Image(candidate.url,candidate.provider))return false;
+  // A slow image probe may outlive this tab's lease or account session.
+  if(mf424Account()!==MF424.account||(MF424.running&&!mf424OwnLease())||
+     (MF424.running&&typeof mf442ProcessOwned==='function'&&!mf442ProcessOwned('cover')))return false;
   if(!mf424Missing(item)||Number(item.modifiedAt||0)!==Number(expected||0))return false;
   item.coverUrl=candidate.url;item.coverSource='auto:'+candidate.provider+':'+(candidate.idMatch?'external-id':'verified');
+  // A selected cover can safely link a record ID, but existing IDs are sacred.
+  // Auto jobs link only a verified direct ID; explicit user selection may link
+  // a title-search record after the user has reviewed the provider's title.
+  if(linkId&&(manual||candidate.idMatch&&candidate.confidence>=.95))mf424LinkSelectedCoverId(item,candidate,{manual});
   item.modifiedAt=Date.now();MF424.job.dirty++;if(typeof mf425CreditRecoveredCover==='function')mf425CreditRecoveredCover(item,'',candidate.url,candidate.provider);
   return true;
 }
 async function mf424Flush(){if(!MF424.job?.dirty)return;
   if(mf424Account()!==MF424.account)throw new Error('Account changed before saving');
+  if(MF424.running&&typeof mf442ProcessOwned==='function'&&!mf442ProcessOwned('cover'))throw new Error('Recovery process lock changed; cover save suspended');
   if(typeof v53InvalidateLibraryCache==='function')v53InvalidateLibraryCache();
   await saveState();MF424.job.dirty=0;MF424.byId=null;mf424BuildIndex();
 }
@@ -67141,7 +67410,7 @@ async function mf424WaitForLibrary(){
   throw new Error('Account Library is not fully loaded; recovery paused rather than skipping titles');
 }
 function mf424LeaseKey(){return 'mf-v424-owner-'+mf424Account();}
-function mf424OwnLease(){try{const row=JSON.parse(localStorage.getItem(mf424LeaseKey())||'null');return row?.token===MF424.leaseToken;}catch(_){return false;}}
+function mf424OwnLease(){try{const row=JSON.parse(localStorage.getItem(mf424LeaseKey())||'null');return Boolean(MF424.leaseToken&&row?.token===MF424.leaseToken&&Number(row.expiry)>Date.now());}catch(_){return false;}}
 function mf424Lease(){const key=mf424LeaseKey();try{
   const current=JSON.parse(localStorage.getItem(key)||'null');if(current&&current.expiry>Date.now()&&current.token!==MF424.leaseToken)return false;
   if(!MF424.leaseToken)MF424.leaseToken=String(Date.now())+'-'+Math.random();
@@ -67159,10 +67428,12 @@ async function mf424Process(item){if(!mf424Missing(item)){MF424.job.skipped++;re
   if(!candidates.length){MF424.job.unresolved++;mf424Note('unresolved','No verified cover found',item.id);return;}
   const mode=mf424Defaults().selection;
   const best=candidates.sort((a,b)=>b.confidence-a.confidence)[0];
-  if(mode==='manual'||mode==='hybrid'&&best.confidence<.95){
-    mf424Review(item,candidates);return;
+  // With user-defined categories, a title-only match cannot establish media
+  // identity. Queue it for the owner's choice rather than overwriting artwork.
+  // Automatic application requires a verified saved provider ID AND title.
+  if(mode==='manual'||!best.idMatch||best.confidence<.95){
+    mf424QueueReview(item,candidates);return;
   }
-  if(best.confidence<.95){mf424Review(item,candidates);return;}
   if(await mf424Apply(item,best,expected)){MF424.job.fixed++;mf424Note('recovered',best.provider,item.id);}
   else{MF424.job.unresolved++;mf424Note('conflict','Title changed; skipped outdated cover candidate',item.id);}
 }
@@ -67181,9 +67452,14 @@ async function mf424Run(){if(MF424.running||!MF424.job)return;
         const id=job.ids[job.cursor],item=mf424Lookup(id);
         try{if(item)await mf424Process(item);else job.skipped++;}
         catch(e){if(!e.paused){job.failed++;mf424Note('error',String(e.message||e),id);}}
+        // Never commit a checkpoint for a title processed after lease loss.
+        if(!mf424OwnLease()||(typeof mf442ProcessOwned==='function'&&!mf442ProcessOwned('cover'))){job.pauseRequested=true;break;}
         if(job.pauseRequested||job.stopRequested)break;
+        await mf424Flush(); // confirm actual Library save BEFORE moving the cursor
+        if(!mf424OwnLease()||(typeof mf442ProcessOwned==='function'&&!mf442ProcessOwned('cover'))){job.pauseRequested=true;break;}
         job.cursor++;job.processed++;
-        await mf424Flush();await mf424SaveJob(); // committed results before checkpoint advancement
+        await mf424SaveJob(); // committed results before checkpoint advancement
+        if(job.stopAfterTitle){job.stopAfterTitle=false;job.stopRequested=true;await mf424SaveJob();break;}
         mf424Paint();await mf424Delay(0);
       }
       if(job.cursor>=partEnd&&job.mode==='parts'&&job.cursor<job.ids.length){
@@ -67203,14 +67479,14 @@ async function mf424Run(){if(MF424.running||!MF424.job)return;
   finally{MF424.running=false;mf424Release();mf424Paint();}
 }
 async function mf424Start(){if(MF424.running)return;const settings=mf424ReadForm();
-  if(!MF424.ready){alert('Recovery storage is not ready. Please reload and check IndexedDB permissions.');return;}
+  if(!MF424.ready){showToast('Recovery storage is not ready. Please reload and check IndexedDB permissions.');return;}
   const missing=[];const lib=S.library||[];
   for(let i=0;i<lib.length;i+=1000){
     for(const item of lib.slice(i,i+1000))if(mf424Missing(item)&&(typeof mf425ScopeAllows!=='function'||mf425ScopeAllows(item)))missing.push(String(item.id));
     if(i%10000===0)await mf424Delay(0);
   }
   if(!missing.length){showToast('Every Library title already has a cover URL.');return;}
-  if(MF424.job&&!['complete','stopped'].includes(MF424.job.status)&&!confirm('Replace your existing recovery job? Pending confirmations will be lost.'))return;
+  if(MF424.job&&!['complete','stopped'].includes(MF424.job.status)&&!await mf427ConfirmJobReplace())return;
   MF424.job={id:'mf424-'+Date.now(),account:mf424Account(),created:Date.now(),updated:Date.now(),ended:0,
     ids:missing,cursor:0,scope:(typeof MF425!=='undefined'&&MF425.active?MF425.active:null),mode:settings.mode,partSize:settings.partSize,continuation:settings.continuation,
     status:'ready',fixed:0,unresolved:0,skipped:0,failed:0,pending:0,processed:0,dirty:0,
@@ -67226,9 +67502,9 @@ function mf424ReadForm(){const base=mf424Defaults();const form=document.getEleme
 function mf424OpenConfig(){const existing=document.getElementById('mf424-modal');if(existing)existing.remove();const cfg=mf424Defaults();
   const available=MF424_PROVIDER_META.filter(x=>x.limit).sort((a,b)=>(cfg.priorities.indexOf(a.id)<0?999:cfg.priorities.indexOf(a.id))-(cfg.priorities.indexOf(b.id)<0?999:cfg.priorities.indexOf(b.id)));const other=MF424_PROVIDER_META.filter(x=>!x.limit);
   function opts(field,values){return values.map(([v,n])=>'<option value="'+v+'" '+(cfg[field]===v?'selected':'')+'>'+n+'</option>').join('');}
-  const el=document.createElement('div');el.id='mf424-modal';el.className='mf424-modal';el.innerHTML='<div class="mf424-shade" onclick="App.mf424CloseModal()"></div>'+ 
+  const el=document.createElement('div');el.id='mf424-modal';el.className='mf424-modal mf425-themed mf430-config-modal';el.innerHTML='<div class="mf424-shade" onclick="App.mf424CloseModal()"></div>'+ 
     '<section class="mf424-dialog" role="dialog" aria-modal="true" aria-label="Advanced missing covers recovery">'+
-    '<div class="mf424-heading"><div><small>MEDIAFLOW • VERSION 424</small><h2>Advanced Cover Recovery</h2><p>Verify IDs first. Protect providers. Keep your library safe.</p></div><button class="btn btn-ghost" onclick="App.mf424CloseModal()">Close</button></div>'+
+    '<div class="mf424-heading"><div><small>COVER RECOVERY</small><h2>Cover Recovery</h2><p>Verify IDs first. Protect providers. Keep your library safe.</p></div><button class="btn btn-ghost" onclick="App.mf424CloseModal()">Close</button></div>'+
     '<div id="mf424-config" class="mf424-config"><div class="mf424-options">'+
     '<label>Recovery mode<select name="mode">'+opts('mode',[['parts','Part-by-Part'],['one','One-Go']])+'</select></label>'+
     '<label>Titles per part<input name="partSize" type="number" min="1" max="10000" value="'+cfg.partSize+'"></label>'+
@@ -67236,7 +67512,7 @@ function mf424OpenConfig(){const existing=document.getElementById('mf424-modal')
     '<label>Cover selection<select name="selection">'+opts('selection',[['hybrid','Hybrid'],['smart','Smart Automatic'],['priority','Provider Priority'],['manual','Manual Selection']])+'</select></label>'+
     '<label>Rate-limit protection<select name="protection">'+opts('protection',[['safe','Safe'],['balanced','Balanced'],['custom','Custom (provider maximums enforced)']])+'</select></label>'+
     '<label class="mf424-check"><input type="checkbox" name="autoResume" '+(cfg.autoResume?'checked':'')+'> Resume when app reopens</label></div>'+
-    '<h3>Enabled cover providers</h3><div class="mf424-provider-grid">'+available.map(x=>'<label class="mf424-provider"><input type="checkbox" data-mf424-provider value="'+x.id+'" '+(cfg.enabled.includes(x.id)?'checked':'')+'><strong>'+x.name+'</strong><span class="mf424-provider-order"><button type="button" onclick="event.preventDefault();event.stopPropagation();App.mf424MoveProvider(\''+x.id+'\',-1)">↑</button><button type="button" onclick="event.preventDefault();event.stopPropagation();App.mf424MoveProvider(\''+x.id+'\',1)">↓</button></span><small>'+x.types.join(' · ')+' · '+x.level+'</small></label>').join('')+'</div>'+
+    '<h3>Enabled cover providers</h3><div class="mf424-provider-grid">'+available.map(x=>'<div class="mf424-provider"><input type="checkbox" aria-label="Enable '+mf424Escape(x.name)+'" data-mf424-provider value="'+x.id+'" '+(cfg.enabled.includes(x.id)?'checked':'')+'><strong>'+x.name+'</strong><span class="mf424-provider-order"><button type="button" onclick="event.preventDefault();event.stopPropagation();App.mf424MoveProvider(\''+x.id+'\',-1)">↑</button><button type="button" onclick="event.preventDefault();event.stopPropagation();App.mf424MoveProvider(\''+x.id+'\',1)">↓</button></span><small>Public API · '+(x.credentials?'setup required':x.level)+'</small></div>').join('')+'</div>'+
     '<details><summary>Other researched providers (not available without credentials / additional verification)</summary><p class="mf424-note">Not presented as working APIs. Their current limitations are documented in the provider report.</p>'+other.map(x=>'<span class="mf424-unavailable">'+x.name+' — '+x.level+'</span>').join('')+'</details>'+
     '<p class="mf424-note">Jobs run while the app is active and resume after reopening. Closing the browser suspends processing. Broken existing URLs are not scanned.</p>'+ 
     '<div class="mf424-actions"><button class="btn btn-ghost" onclick="App.mf424CloseModal()">Cancel</button><button class="btn btn-primary" onclick="App.mf424Start()">Start Recovery</button></div></div></section>';
@@ -67279,10 +67555,27 @@ async function mf424Resume(){if(!MF424.job||MF424.running)return;MF424.job.stopR
   mf424State('ready');await mf424SaveJob();mf424Run();}
 async function mf424StopTitle(){if(!MF424.job)return;MF424.job.stopRequested=true;await mf424SaveJob();mf424Paint();}
 async function mf424StopPart(){if(!MF424.job)return;MF424.job.stopAfterPart=true;await mf424SaveJob();mf424Paint();}
+function mf424ReviewIcon(name){const shapes={
+  close:'<path d="M5 5l14 14M19 5L5 19"/>',
+  check:'<path d="m5 12 4 4 10-10"/><circle cx="12" cy="12" r="9"/>',
+  skip:'<path d="M6 5v14m4-14 9 7-9 7Z"/>',
+  alert:'<path d="M12 3 2 20h20L12 3Z"/><path d="M12 9v5m0 3h.01"/>',
+  image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m3 17 6-6 4 4 3-3 5 5"/>'
+};return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(shapes[name]||shapes.image)+'</svg>';}
+function mf424CoverIdControl(item,candidate,index,scope='mf424'){
+  if(typeof mf433CoverIdMarkup==='function')
+    return mf433CoverIdMarkup(item,candidate,index,scope);
+  const link=mf424LinkableCoverId(item,candidate);
+  if(!link)return '<small class="mf424-cover-id-note">No usable external record ID supplied by this cover source.</small>';
+  const name=mf424Escape(link.key==='mal'?'MAL':link.key.toUpperCase());
+  if(link.conflict)return '<small class="mf424-cover-id-conflict">Existing '+name+' ID '+mf424Escape(link.existing)+' is protected. This cover uses '+mf424Escape(link.value)+'; the ID will not be replaced.</small>';
+  if(link.existing===link.value)return '<small class="mf424-cover-id-note">'+name+' ID '+mf424Escape(link.value)+' already linked.</small>';
+  return '<label class="mf424-cover-id-control"><input type="checkbox" data-'+mf424Escape(scope)+'-cover-link-id="'+Number(index)+'" checked> Save '+name+' external ID <strong>'+mf424Escape(link.value)+'</strong> with this cover</label>';
+}
 function mf424Review(){if(!MF424.job?.reviews.length)return;const x=MF424.job.reviews[0],item=mf424Lookup(x.id);
-  const old=document.getElementById('mf424-review');if(old)old.remove();const root=document.createElement('div');root.id='mf424-review';root.className='mf424-modal';
-  root.innerHTML='<div class="mf424-shade" onclick="App.mf424CloseReview()"></div><section class="mf424-dialog" role="dialog" aria-modal="true"><div class="mf424-heading"><div><small>MANUAL REVIEW · '+MF424.job.pending+' PENDING</small><h2>'+mf424Escape(x.title)+'</h2><p>'+mf424Escape(item?String(getCategory(item.categoryId)?.name||''):'Title no longer exists')+'</p></div><button class="btn btn-ghost" onclick="App.mf424CloseReview()">Close</button></div>'+ 
-    '<div class="mf424-review-candidates">'+x.candidates.map((c,i)=>'<article><img loading="lazy" src="'+mf424Escape(c.url)+'" alt="Cover candidate"><div><b>'+mf424Escape(c.title||c.provider)+'</b><small>'+mf424Escape(c.provider)+' · '+Math.round(c.confidence*100)+'% match</small><p>'+mf424Escape(c.reason)+'</p>'+(c.recordUrl?'<a href="'+mf424Escape(c.recordUrl)+'" target="_blank" rel="noopener noreferrer">Source record</a>':'')+'<button class="btn btn-primary" onclick="App.mf424Confirm('+i+')">Use cover</button></div></article>').join('')+'</div><div class="mf424-actions"><button class="btn btn-ghost" onclick="App.mf424DiscardReview()">Mark unresolved</button><button class="btn btn-ghost" onclick="App.mf424CloseReview()">Later</button></div></section>';
+  const old=document.getElementById('mf424-review');if(old)old.remove();const root=document.createElement('div');root.id='mf424-review';root.className='mf424-modal mf425-themed mf427-manual-review';
+  root.innerHTML='<div class="mf424-shade" onclick="App.mf424CloseReview()"></div><section class="mf424-dialog" role="dialog" aria-modal="true"><div class="mf424-heading"><div><small>MANUAL REVIEW · '+MF424.job.pending+' PENDING</small><h2>'+mf424Escape(x.title)+'</h2><p>'+mf424Escape(item?String(getCategory(item.categoryId)?.name||''):'Title no longer exists')+'</p></div><button class="btn btn-ghost" onclick="App.mf424CloseReview()">'+mf424ReviewIcon('close')+' Close</button></div>'+ 
+    '<div class="mf424-review-candidates">'+x.candidates.map((c,i)=>'<article><img loading="lazy" src="'+mf424Escape(c.url)+'" alt="Cover candidate"><div><b>'+mf424Escape(c.title||c.provider)+'</b><small>'+mf424Escape(c.provider)+' · '+Math.round(c.confidence*100)+'% match</small><p>'+mf424Escape(c.reason)+'</p>'+(c.recordUrl?'<a href="'+mf424Escape(c.recordUrl)+'" target="_blank" rel="noopener noreferrer">Source record</a>':'')+mf424CoverIdControl(item,c,i,'mf424')+'<button class="btn btn-primary" onclick="App.mf424Confirm('+i+')">'+mf424ReviewIcon('check')+' Use cover</button></div></article>').join('')+'</div><div class="mf424-actions"><button class="btn btn-ghost" onclick="App.mf424DiscardReview()">'+mf424ReviewIcon('alert')+' Mark unresolved</button><button class="btn btn-ghost" onclick="App.mf424CloseReview()">'+mf424ReviewIcon('skip')+' Later</button></div></section>';
   document.body.appendChild(root);
 }
 function mf424CloseReview(){document.getElementById('mf424-review')?.remove();}
@@ -67292,7 +67585,8 @@ async function mf424Confirm(i){if(!MF424.job?.reviews.length)return;const x=MF42
   if(!candidate||!item||!mf424Missing(item)||Number(item.modifiedAt||0)!==x.expectedModified){
     showToast('This title changed after review was queued. Its cover was not overwritten.');return;
   }
-  if(await mf424Apply(item,candidate,x.expectedModified)){await mf424Flush();MF424.job.fixed++;mf424Note('recovered','Manual selection: '+candidate.provider,x.id);
+  const linkId=document.querySelector('#mf424-review [data-mf424-cover-link-id="'+Number(i)+'"]')?.checked===true;
+  if(await mf424Apply(item,candidate,x.expectedModified,{manual:true,linkId})){await mf424Flush();MF424.job.fixed++;mf424Note('recovered','Manual selection: '+candidate.provider,x.id);
     MF424.job.reviews.shift();MF424.job.pending--;await mf424ReviewSave();}else showToast('Unable to validate this cover safely.');
 }
 async function mf424ReviewSave(){if(MF424.job.cursor>=MF424.job.ids.length&&!MF424.job.pending)mf424State('complete');
@@ -67301,8 +67595,8 @@ async function mf424RetryUnresolved(){if(!MF424.job||MF424.running)return;
   const old=MF424.job;const ids=[...new Set([...(old.unresolvedIds||[]),...old.results.filter(x=>x.type==='unresolved'||x.type==='provider-error'||x.type==='error').map(x=>x.id).filter(Boolean)])]
     .filter(id=>mf424Missing(mf424Item(id)));
   if(!ids.length){showToast('No unresolved missing-cover titles to retry.');return;}
-  if(old.pending&&!confirm('Pending confirmations will remain only in the exported previous report. Continue?'))return;
-  if(!confirm('Retry '+ids.length+' unresolved titles as a new recovery job?'))return;
+  if(old.pending&&!await mf427ConfirmRetryPending())return;
+  if(!await mf427ConfirmRetry(ids.length))return;
   await mf424Storage('put','history:'+mf424Account()+':'+old.id,{...old,ids:undefined});
   MF424.job={...old,id:'mf424-'+Date.now(),ids,cursor:0,created:Date.now(),ended:0,status:'ready',fixed:0,unresolved:0,skipped:0,failed:0,pending:0,processed:0,dirty:0,
     requestCount:0,cooldownEvents:0,rate:{},unresolvedIds:[],results:[],reviews:[],stopRequested:false,pauseRequested:false,stopAfterPart:false};
@@ -67324,6 +67618,12 @@ async function mf424Init(){try{await mf424DB();MF424.account=mf424Account();MF42
   if(interrupted){MF424.job.status='paused';MF424.job.pauseRequested=false;}
   MF424.ready=true;mf424Paint();if(MF424.job&&mf424Defaults().autoResume&&!MF424.job.pauseRequested&&!['stopped','complete','waiting-review','waiting-part'].includes(MF424.job.status))mf424Resume();
 }catch(e){console.warn('MediaFlow v424 persistence unavailable:',e);mf424Paint();}}
+// Public extension point: registering a future provider with a real adapter
+// adds it automatically to Cover Recovery and Find Cover source options.
+window.MediaFlowCoverProviders=Object.freeze({
+ register:mf424RegisterCoverProvider,
+ list:()=>mf424CoverProviderChoices({categoryId:''}).map(({id,name,types,limit,credentials,level})=>({id,name,types,limit,credentials,level}))
+});
 Object.assign(App,{mf424Start,mf424OpenConfig,mf424MoveProvider,mf424CloseModal,mf424Toggle,mf424Pause,mf424Resume,mf424StopTitle,mf424StopPart,
   mf424Review,mf424CloseReview,mf424DiscardReview,mf424Confirm,mf424Export,mf424ExportCSV,mf424RetryUnresolved});
 // Preserve the existing Settings button and Dashboard manual-cover behavior.
@@ -67406,8 +67706,8 @@ function mf425UpdateCount(){const root=document.getElementById('mf425-scope');if
  const start=document.querySelector('#mf424-modal .mf424-actions .btn-primary');if(start){start.disabled=!counts.eligible;start.title=counts.eligible?'Start recovery for the selected scope':'No missing covers in this scope';}}
 function mf425DecorateConfig(){const modal=document.getElementById('mf424-modal');if(!modal||modal.dataset.mf425Ready==='1')return;modal.dataset.mf425Ready='1';modal.classList.add('mf425-themed');
  const form=modal.querySelector('#mf424-config');if(!form)return;form.insertAdjacentHTML('afterbegin',mf425ScopeFields());
- const head=modal.querySelector('.mf424-heading small');if(head)head.textContent='MEDIAFLOW · ARTWORK RECOVERY';
- const h=modal.querySelector('.mf424-heading h2');if(h)h.innerHTML=mf425Icon('images',24)+' Advanced Cover Recovery';
+ const head=modal.querySelector('.mf424-heading small');if(head)head.textContent='COVER RECOVERY';
+ const h=modal.querySelector('.mf424-heading h2');if(h)h.innerHTML=mf425Icon('images',24)+' Cover Recovery';
  const providerHeading=form.querySelector('h3');if(providerHeading)providerHeading.innerHTML=mf425Icon('database')+' 3. Cover providers & priorities';
  const options=form.querySelector('.mf424-options');if(options)options.insertAdjacentHTML('beforebegin','<h3 class="mf425-section-title">'+mf425Icon('settings')+' 2. Processing & matching</h3>');
  const footer=modal.querySelector('.mf424-actions');if(footer){for(const b of footer.querySelectorAll('button')){if(b.textContent.includes('Start Recovery'))b.innerHTML=mf425Icon('play')+' Start Recovery';else if(b.textContent.includes('Cancel'))b.innerHTML=mf425Icon('x')+' Cancel';}}
@@ -67435,18 +67735,18 @@ renderLibrary=function(){let h=String(mf425OldLibrary.apply(this,arguments)||'')
 // Dashboard's existing validated paste/save UI stays untouched.
 const mf425OldMissing=v192MissingCoversHtml;
 v192MissingCoversHtml=function(){let h=String(mf425OldMissing.apply(this,arguments)||'');if(!h.includes('v192-cover-url-input'))return h;
- const btn='<div class="mf425-dashboard-cover-actions"><button type="button" class="btn btn-ghost" onclick="App.mf425Instant(\'dashboard\')">'+mf425Icon('search')+' Find cover automatically</button><button type="button" class="btn btn-ghost" onclick="App.mf425OpenConfig(\'dashboard\',String(v192CurrentMissingCoverItem()?.id||\'\'))">'+mf425Icon('settings')+' Advanced Recovery</button></div>';
- return h.replace('<div class="v123-rating-actions v192-cover-actions">',btn+'<div class="v123-rating-actions v192-cover-actions">');};
+ const btn='<button type="button" class="btn btn-ghost mf430-find-cover" onclick="App.mf425Instant(\'dashboard\')">'+mf425Icon('search')+' Find cover automatically</button>';
+ return h.replace('<div class="v123-rating-actions v192-cover-actions">','<div class="v123-rating-actions v192-cover-actions">'+btn);};
 
 // Preserve the established fast cover picker and improve its entire contrast layer.
 const mf425OldPicker=coverPickerModalHtml;
 coverPickerModalHtml=function(data){const h=String(mf425OldPicker.apply(this,arguments)||'');return '<div class="mf425-legacy-picker"><p class="mf425-picker-explain">'+mf425Icon('shield')+' Compare the matched title, source and media type before choosing. The selected cover URL is not saved until you confirm the title.</p>'+h+'</div>';};
 
-// Add both actions to Add/Edit Title without removing Find Cover Automatically.
+// Keep Find Cover Automatically in Add/Edit Title; advanced jobs remain available in Library and Settings.
 const mf425OldEditor=libraryModalHtml;
 libraryModalHtml=function(data){let h=String(mf425OldEditor.apply(this,arguments)||'');if(!h||h.includes('mf425-editor-tools'))return h;
  const extra=h.includes('Find cover automatically')?'':'<button type="button" class="btn btn-ghost" onclick="App.mf425Instant(\'editor\')">'+mf425Icon('search')+' Find cover automatically</button>';
- const controls='<div class="mf425-editor-tools">'+extra+'<button type="button" class="btn btn-ghost" onclick="App.mf425OpenConfig(\'editor\',String(S.modal?.data?.id||\'\'))">'+mf425Icon('settings')+' Advanced Recovery</button></div>';
+ const controls=extra?'<div class="mf425-editor-tools">'+extra+'</div>':'';
  const marker='</div>';const coverLabel=/(<label[^>]*>\s*(?:Cover art|Cover URL|Cover image)\s*<\/label>)/i;
  if(coverLabel.test(h))h=h.replace(coverLabel,'$1'+controls);
  else h=h.replace(/(<div class="modal-title">[^<]*<\/div>)/,'$1'+controls);
@@ -67464,23 +67764,32 @@ async function mf425Instant(entry){if(MF425.quickBusy)return;MF425.quickBusy=tru
  const item=MF425.draft;if(!item.title){MF425.quickBusy=false;showToast('Enter the title before searching for artwork.');return;}
  document.getElementById('mf425-instant-modal')?.remove();
  const root=document.createElement('div');root.id='mf425-instant-modal';root.className='mf424-modal mf425-themed mf425-instant-modal';
- root.innerHTML='<div class="mf424-shade" onclick="App.mf425CloseInstant()"></div><section class="mf424-dialog" role="dialog" aria-modal="true" aria-label="Instant cover search"><header class="mf425-instant-head"><div><small>INSTANT COVER SEARCH</small><h2>'+mf425Icon('search')+' Cover matches for '+mf425Esc(item.title)+'</h2><p>Library title: <strong>'+mf425Esc(item.title)+'</strong> · IDs checked first · no automatic replacements</p></div><button type="button" class="btn btn-ghost" onclick="App.mf425CloseInstant()">'+mf425Icon('x')+' Close</button></header><div id="mf425-instant-results" class="mf425-instant-results" role="status" aria-live="polite"><div class="mf425-loading">'+mf425Icon('database')+' Checking enabled cover providers safely…</div></div><div class="mf424-actions"><button type="button" class="btn btn-ghost" onclick="App.mf425CloseInstant()">Cancel</button><button type="button" class="btn btn-primary" onclick="App.mf425InstantAdvanced()">'+mf425Icon('settings')+' Advanced Recovery</button></div></section>';
+ const availableProviders=mf424Order(item),activeProvider=MF425.providerPick||'';
+ root.innerHTML='<div class="mf424-shade" onclick="App.mf425CloseInstant()"></div><section class="mf424-dialog" role="dialog" aria-modal="true" aria-label="Instant cover search"><header class="mf425-instant-head"><div><small>INSTANT COVER SEARCH</small><h2>'+mf425Icon('search')+' Cover matches for '+mf425Esc(item.title)+'</h2><p>Library title: <strong>'+mf425Esc(item.title)+'</strong> · IDs checked first · no automatic replacements</p></div><button type="button" class="btn btn-ghost" onclick="App.mf425CloseInstant()">'+mf425Icon('x')+' Close</button></header><div class="mf425-instant-provider-picker" style="display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin:12px 0"><label style="flex:1;min-width:180px">Search source<select id="mf425-source-choice" class="mf425-source-choice"><option value="">All enabled providers</option>'+availableProviders.map(p=>'<option value="'+mf425Esc(p)+'" '+(activeProvider===p?'selected':'')+'>'+mf425Esc(mf424Provider(p)?.name||p)+'</option>').join('')+'</select></label><button type="button" class="btn btn-ghost" onclick="App.mf425RetryProvider()">Search selected source</button></div><div id="mf425-instant-results" class="mf425-instant-results" role="status" aria-live="polite"><div class="mf425-loading">'+mf425Icon('database')+' Checking enabled cover providers safely…</div></div><div class="mf424-actions"><button type="button" class="btn btn-ghost" onclick="App.mf425CloseInstant()">Cancel</button></div></section>';
  document.body.append(root);
- const found=[],seen=new Set(),ordered=mf424Order(item);const byId=ordered.filter(p=>mf424HasID(item,p)),rest=ordered.filter(p=>!mf424HasID(item,p));
+ const found=[],seen=new Set(),ordered=availableProviders.filter(p=>!activeProvider||p===activeProvider),outcomes=[];const byId=ordered.filter(p=>mf424HasID(item,p)),rest=ordered.filter(p=>!mf424HasID(item,p));
  try{for(const provider of byId.concat(rest)){
   if(!root.isConnected)break;
-  try{for(const c of await mf424Discover(item,provider)){if(!c||c.confidence<.55||seen.has(c.url))continue;seen.add(c.url);if(await mf424Image(c.url,c.provider)){found.push(c);MF425.quick={candidates:found};}}}
-  catch(e){console.warn('v425 quick cover provider',provider,e);}
-  const display=root.querySelector('#mf425-instant-results');if(display)display.innerHTML=mf425CandidatesHtml(found,item);
+  let count=0,matched=0,failed='';
+  try{const candidates=await mf424Discover(item,provider);matched=candidates.length;
+   for(const c of candidates){if(!c||c.confidence<.55||seen.has(c.url))continue;seen.add(c.url);if(await mf424Image(c.url,c.provider)){found.push(c);count++;MF425.quick={candidates:found};}}}
+  catch(e){failed=String(e?.message||e).slice(0,120);console.warn('v425 quick cover provider',provider,e);}
+  outcomes.push({name:mf424Provider(provider)?.name||provider,count,matched,failed});
+  const display=root.querySelector('#mf425-instant-results');if(display)display.innerHTML=mf425CandidatesHtml(found,item)+mf425ProviderStatuses(outcomes);
   if(found.length>=16)break;
- }}finally{const display=root.querySelector('#mf425-instant-results');if(display)display.innerHTML=mf425CandidatesHtml(found,item);MF425.quickBusy=false;}
+ }}finally{const display=root.querySelector('#mf425-instant-results');if(display)display.innerHTML=mf425CandidatesHtml(found,item)+mf425ProviderStatuses(outcomes);MF425.quickBusy=false;}
 }
-function mf425CandidatesHtml(found,item){if(!found.length)return '<div class="mf425-no-results">No validated candidates yet. You can try Advanced Recovery or paste a cover URL.</div>';
+function mf425ProviderStatuses(rows){return '<details open><summary>Provider results ('+rows.length+' checked)</summary><div class="mf424-note" role="status">'+rows.map(x=>'<div><strong>'+mf425Esc(x.name)+'</strong>: '+(x.failed?'Unavailable — '+mf425Esc(x.failed):x.count?x.count+' verified image'+(x.count===1?'':'s'):x.matched?'Records found but artwork could not be validated':'No matching record for this title')+'</div>').join('')+'</div></details>';}
+function mf425RetryProvider(){if(MF425.quickBusy){showToast('Cover search is still checking its current sources.');return;}
+ const chosen=document.getElementById('mf425-source-choice')?.value||'';
+ if(chosen&&!mf424Order(MF425.draft||{}).includes(chosen)){showToast('This provider is not available for the selected media type.');return;}
+ MF425.providerPick=chosen;return mf425Instant(MF425.quickEntry||'editor');}
+function mf425CandidatesHtml(found,item){if(!found.length)return '<div class="mf425-no-results">No validated candidates yet. Try a different enabled provider or paste a cover URL.</div>';
  return '<div class="mf425-found-count">'+found.length+' verified-loading image candidates · choose the correct title and edition</div><div class="mf425-candidate-grid">'+found.map((c,i)=>{
- const id=mf425IdText(item,c.provider,c);return '<article class="mf425-candidate"><img src="'+mf425Esc(c.url)+'" alt="'+mf425Esc(c.title||item.title)+' poster" loading="lazy"><div class="mf425-candidate-copy"><strong>'+mf425Esc(c.title||'Untitled provider record')+'</strong><small>Library: '+mf425Esc(item.title)+'</small><span class="mf425-source">'+mf425Icon('database')+' '+mf425Esc(c.provider)+'</span><small>'+mf425Esc(id)+'</small><small>'+mf425Esc(c.reason||'Title match')+'</small>'+(c.recordUrl?'<a href="'+mf425Esc(c.recordUrl)+'" target="_blank" rel="noopener noreferrer">'+mf425Icon('external')+' Provider record</a>':'')+'<button class="btn btn-primary" onclick="App.mf425ChooseInstant('+i+')">'+mf425Icon('check')+' Use this cover</button></div></article>';
+ const id=mf425IdText(item,c.provider,c);return '<article class="mf425-candidate"><img src="'+mf425Esc(c.url)+'" alt="'+mf425Esc(c.title||item.title)+' poster" loading="lazy"><div class="mf425-candidate-copy"><strong>'+mf425Esc(c.title||'Untitled provider record')+'</strong><small>Library: '+mf425Esc(item.title)+'</small><span class="mf425-source">'+mf425Icon('database')+' '+mf425Esc(c.provider)+'</span><small>'+mf425Esc(id)+'</small><small>'+mf425Esc(c.reason||'Title match')+'</small>'+(c.recordUrl?'<a href="'+mf425Esc(c.recordUrl)+'" target="_blank" rel="noopener noreferrer">'+mf425Icon('external')+' Provider record</a>':'')+mf424CoverIdControl(item,c,i,'mf425')+'<button class="btn btn-primary" onclick="App.mf425ChooseInstant('+i+')">'+mf425Icon('check')+' Use this cover</button></div></article>';
  }).join('')+'</div>';}
 // Only validated, visible candidates are selectable, in precisely the displayed order.
-function mf425ChooseInstant(index){const candidate=MF425.quick?.candidates?.[Number(index)];if(!candidate){showToast('This cover result is no longer available. Retry the search.');return;}
+async function mf425ChooseInstant(index){const candidate=MF425.quick?.candidates?.[Number(index)];if(!candidate){showToast('This cover result is no longer available. Retry the search.');return;}
  const entry=MF425.quickEntry||MF425.quickSource||'editor';const url=candidate.url;
  if(entry==='dashboard'){
   const input=document.getElementById('v192-cover-url-input');if(input){input.value=url;App.v235ValidateMissingCover?.(url);showToast('Cover selected. Confirm Save cover & Next to earn XP.');}
@@ -67490,21 +67799,21 @@ function mf425ChooseInstant(index){const candidate=MF425.quick?.candidates?.[Num
   const all=[...document.querySelectorAll('#modal-root input')];const input=all.find(x=>/cover|image/i.test(x.id+' '+x.placeholder)&&x.type!=='file');
   if(input){input.value=url;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));showToast('Cover selected. Save the title to apply it and earn XP.');}
   else if(MF425.draft?.id&&MF425.draft.id!=='draft'){
-    const item=mf424Lookup(MF425.draft.id);if(item&&(!item.coverUrl||confirm('Replace this title’s existing cover?'))){const previous=String(item.coverUrl||'');item.coverUrl=url;item.coverSource='manual:instant:'+candidate.provider;item.modifiedAt=Date.now();mf425Credit(item,previous,url,'instant');saveState();render();}
+    const item=mf424Lookup(MF425.draft.id);if(item&&(!item.coverUrl||await mf444Confirm('Replace existing cover?', 'You can replace this title’s current artwork with the selected validated cover. Other title data remains unchanged.', 'Use Cover', false, 1, 'cover'))){const previous=String(item.coverUrl||'');item.coverUrl=url;item.coverSource='manual:instant:'+candidate.provider;item.modifiedAt=Date.now();mf425Credit(item,previous,url,'instant');saveState();render();}
   }
  }
  mf425CloseInstant();}
 function mf425CloseInstant(){document.getElementById('mf425-instant-modal')?.remove();MF425.quick=null;MF425.quickBusy=false;}
 function mf425InstantAdvanced(){const entry=MF425.quickEntry||'editor',id=MF425.draft?.id==='draft'?'':MF425.draft?.id||'';mf425CloseInstant();mf425OpenConfig(entry,id);}
-App.mf425Instant=function(entry){MF425.quick=null;MF425.quickEntry=entry;return mf425Instant(entry);};
-Object.assign(App,{mf425ChooseInstant,mf425CloseInstant,mf425InstantAdvanced});
+App.mf425Instant=function(entry){MF425.quick=null;MF425.quickEntry=entry;MF425.providerPick='';return mf425Instant(entry);};
+Object.assign(App,{mf425ChooseInstant,mf425CloseInstant,mf425InstantAdvanced,mf425RetryProvider});
 
-// The existing Title Details quick Cover URL editor gets the same two actions.
+// The Title Details Quick Cover URL editor only offers Find Cover Automatically.
 const mf425OldOpenQuick=App.v181QuickEditDetail;
 App.v181QuickEditDetail=function(id,key){const result=mf425OldOpenQuick.apply(this,arguments);if(key!=='coverUrl')return result;
  const field=document.querySelector('#v181-quick-detail-overlay .field');if(!field)return result;
  MF425.oneId=String(id);
- field.insertAdjacentHTML('afterend','<div class="mf425-editor-tools"><button type="button" class="btn btn-ghost" onclick="App.mf425Instant(\'details\')">'+mf425Icon('search')+' Find cover automatically</button><button type="button" class="btn btn-ghost" onclick="App.mf425OpenConfig(\'details\',String(MF425.oneId))">'+mf425Icon('settings')+' Advanced Recovery</button></div>');
+ field.insertAdjacentHTML('afterend','<div class="mf425-editor-tools"><button type="button" class="btn btn-ghost" onclick="App.mf425Instant(\'details\')">'+mf425Icon('search')+' Find cover automatically</button></div>');
  return result;};
 const mf425OldSaveQuick=App.v181SaveQuickDetail;
 App.v181SaveQuickDetail=function(id,key){if(key!=='coverUrl')return mf425OldSaveQuick.apply(this,arguments);
@@ -67584,24 +67893,7832 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 // Existing v365 Settings Center: inject a real Library subgroup, not a popup
 // pretending to be settings. Preferences use S.settings and existing cloud sync.
 function mf425SettingsMarkup(){const prefs=mf424Defaults(),xp=S.settings?.leveling?.coverChangeXP??DEFAULT_SETTINGS.leveling.coverChangeXP;
+ const sources=MF424_PROVIDER_META.slice().sort((a,b)=>(prefs.priorities.indexOf(a.id)<0?999:prefs.priorities.indexOf(a.id))-(prefs.priorities.indexOf(b.id)<0?999:prefs.priorities.indexOf(b.id)));
+ const providerUi='<fieldset class="mf430-settings-providers" data-mf-setting-id="cover-providers"><legend>'+mf425Icon('database')+' Cover providers & priority</legend><p class="mf425-settings-note">Every registered provider stays visible. Only providers with real working adapters and the required configuration can run. No API test is required. Your disabled sources stay disabled.</p><div class="mf430-settings-provider-list">'+sources.map(p=>'<div class="mf430-settings-provider" data-mf430-provider="'+mf425Esc(p.id)+'"><label><input type="checkbox" value="'+mf425Esc(p.id)+'" data-mf430-provider-enabled '+(prefs.enabled.includes(p.id)?'checked':'')+' onchange="App.mf430SaveSettingsProviders()"><span><strong>'+mf425Esc(p.name)+'</strong><small>'+mf425Esc(p.limit?(p.credentials?'Configured gateway · ready without testing':'Public adapter · ready without testing'):(p.credentials?'Credential or working adapter required':'Working adapter unavailable · listed for reference'))+'</small></span></label><div class="mf430-settings-provider-order"><button class="btn btn-ghost" type="button" onclick="App.mf430MoveSettingsProvider(\''+p.id+'\',-1)" title="Move '+mf425Esc(p.name)+' higher" aria-label="Move '+mf425Esc(p.name)+' higher">'+mf425Icon('chevronUp')+'</button><button class="btn btn-ghost" type="button" onclick="App.mf430MoveSettingsProvider(\''+p.id+'\',1)" title="Move '+mf425Esc(p.name)+' lower" aria-label="Move '+mf425Esc(p.name)+' lower">'+mf425Icon('chevronDown')+'</button></div></div>').join('')+'</div></fieldset>';
  const option=(v,label,current)=>'<option value="'+v+'" '+(v===current?'selected':'')+'>'+label+'</option>';
- return '<section class="mf425-settings-card" aria-label="Cover Recovery Settings"><div class="mf425-settings-lead">'+mf425Icon('images',21)+'<div><strong>Cover Recovery</strong><p>Default processing, providers, background recovery and XP rewards.</p></div></div>'+ 
- '<div class="mf425-settings-grid"><label>Recovery mode<select onchange="App.mf425SavePref(\'mode\',this.value)">'+option('parts','Part-by-Part',prefs.mode)+option('one','One-Go',prefs.mode)+'</select></label>'+ 
- '<label>Titles per part<input type="number" min="1" max="10000" value="'+Number(prefs.partSize||100)+'" onchange="App.mf425SavePref(\'partSize\',this.value)"></label>'+ 
- '<label>Continuation<select onchange="App.mf425SavePref(\'continuation\',this.value)">'+option('automatic','Automatic',prefs.continuation)+option('manual','Manual',prefs.continuation)+'</select></label>'+ 
- '<label>Cover selection<select onchange="App.mf425SavePref(\'selection\',this.value)">'+option('hybrid','Hybrid',prefs.selection)+option('smart','Smart Automatic',prefs.selection)+option('priority','Provider Priority',prefs.selection)+option('manual','Manual Selection',prefs.selection)+'</select></label>'+ 
- '<label>Rate-limit protection<select onchange="App.mf425SavePref(\'protection\',this.value)">'+option('safe','Safe',prefs.protection)+option('balanced','Balanced',prefs.protection)+option('custom','Custom',prefs.protection)+'</select></label>'+ 
- '<label>Cover XP per changed URL<input type="number" min="0" max="100000" value="'+Number(xp)+'" onchange="App.mf425SaveCoverXP(this.value)"></label></div>'+ 
- '<label class="mf425-settings-check"><input type="checkbox" '+(prefs.autoResume?'checked':'')+' onchange="App.mf425SavePref(\'autoResume\',this.checked)"> Resume background recovery when MediaFlow reopens</label>'+ 
+ return '<section class="mf425-settings-card" aria-label="Cover Recovery Settings"><div class="mf425-settings-lead">'+mf425Icon('images',21)+'<div><strong>Recovery preferences</strong><p>Default processing, providers, background recovery and XP rewards.</p></div></div>'+ 
+ '<div class="mf425-settings-grid"><label data-mf-setting-id="cover-mode">Recovery mode<select onchange="App.mf425SavePref(\'mode\',this.value)">'+option('parts','Part-by-Part',prefs.mode)+option('one','One-Go',prefs.mode)+'</select></label>'+ 
+ '<label data-mf-setting-id="cover-part-size">Titles per part<input type="number" min="1" max="10000" value="'+Number(prefs.partSize||100)+'" onchange="App.mf425SavePref(\'partSize\',this.value)"></label>'+ 
+ '<label data-mf-setting-id="cover-continuation">Continuation<select onchange="App.mf425SavePref(\'continuation\',this.value)">'+option('automatic','Automatic',prefs.continuation)+option('manual','Manual',prefs.continuation)+'</select></label>'+ 
+ '<label data-mf-setting-id="cover-selection">Cover selection<select onchange="App.mf425SavePref(\'selection\',this.value)">'+option('hybrid','Hybrid',prefs.selection)+option('smart','Smart Automatic',prefs.selection)+option('priority','Provider Priority',prefs.selection)+option('manual','Manual Selection',prefs.selection)+'</select></label>'+ 
+ '<label data-mf-setting-id="cover-protection">Rate-limit protection<select onchange="App.mf425SavePref(\'protection\',this.value)">'+option('safe','Safe',prefs.protection)+option('balanced','Balanced',prefs.protection)+option('custom','Custom',prefs.protection)+'</select></label>'+ 
+ '<label data-mf-setting-id="cover-xp">Cover XP per changed URL<input type="number" min="0" max="100000" value="'+Number(xp)+'" onchange="App.mf425SaveCoverXP(this.value)"></label></div>'+ 
+ '<label class="mf425-settings-check" data-mf-setting-id="cover-auto-resume"><input type="checkbox" '+(prefs.autoResume?'checked':'')+' onchange="App.mf425SavePref(\'autoResume\',this.checked)"> Resume background recovery when MediaFlow reopens</label>'+ 
+ '<label class="mf425-settings-check mf430-settings-auto" data-mf-setting-id="cover-dashboard-auto"><input type="checkbox" '+(S.settings?.v430MissingCoversAutoSave?'checked':'')+' onchange="App.mf430SetMissingAutoSave(this.checked)"><span><strong>Automatically save valid cover URL & go next</strong><small>Dashboard Missing Covers · validated pasted or selected URLs save automatically. Unselected search results must pass unique ID verification.</small></span></label>'+
+ providerUi+
  '<p class="mf425-settings-note">A saved cover change earns XP whether manual or automatic. Previews, retries, unchanged URLs and cloud sync do not award XP again. Provider limits remain enforced.</p>'+ 
  '<div class="mf425-settings-actions"><button type="button" class="btn btn-primary" onclick="App.mf425OpenConfig(\'settings\')">'+mf425Icon('settings')+' Configure & Start Recovery</button></div></section>';}
-function mf425SettingsEnhance(){if(S.view!=='settings')return;const lib=document.querySelector('.mf365-detail[data-mf365-category="library"] [data-mf365-content-for="library"]');if(!lib||lib.querySelector('.mf425-settings-card'))return;
- const group=document.createElement('div');group.className='mf366-subgroup mf425-settings-group';group.dataset.mf366Subgroup='cover-recovery';group.innerHTML='<h3 class="mf366-subgroup-heading">Cover Recovery</h3><div class="mf366-subgroup-content">'+mf425SettingsMarkup()+'</div>';lib.appendChild(group);}
+function mf425SettingsEnhance(){
+ if(S.view!=='settings')return;
+ const center=window.MediaFlowSettingsCenter;
+ if(!center?.mountSection)return;
+ // Use the very same Settings Center component, registry and styles as
+ // Library Integrity / Library Maintenance (header, caret, Pin, search).
+ // Never inject a custom accordion or a separate Cover Recovery subgroup.
+ if(document.querySelector('.mf365-section[data-mf365-section="v221-settings-cover-recovery"]'))return;
+ const reg=window.MediaFlowSettingsRegistry;
+ if(reg?.registerSetting){
+   for(const [id,label,keywords] of [
+     ['cover-mode','Recovery mode','batch processing'],
+     ['cover-part-size','Titles per part','batch size'],
+     ['cover-continuation','Continuation','automatic manual'],
+     ['cover-selection','Cover selection','hybrid priority manual'],
+     ['cover-protection','Rate-limit protection','providers cooldown'],
+     ['cover-xp','Cover XP per changed URL','leveling rewards'],
+     ['cover-auto-resume','Resume background recovery','reopen resume'],
+     ['cover-dashboard-auto','Dashboard Missing Covers automatic save','verified candidate auto next'],
+     ['cover-providers','Enabled cover providers','priority enabled configuration'],
+     ['cover-confirm','Confirm before applying a selected cover','review confirmation']
+   ])reg.registerSetting({id,section:'v221-settings-cover-recovery',selector:'[data-mf-setting-id="'+id+'"]',label,keywords:[keywords]});
+ }
+ const body=document.createElement('div');body.className='mf425-settings-content';
+ body.innerHTML=mf425SettingsMarkup();
+ center.mountSection({
+   id:'v221-settings-cover-recovery',
+   title:'COVER RECOVERY',
+   category:'library',
+   subgroup:'Library maintenance',
+   keywords:['cover','poster','artwork','recovery','providers','XP','background'],
+   nodes:[body]
+ });
+}
 MediaFlowRuntime.registerPageEnhancer('settings',mf425SettingsEnhance);
+function mf430SaveSettingsProviders(){
+ const root=document.querySelector('.mf430-settings-provider-list');if(!root)return;
+ const inputs=[...root.querySelectorAll('[data-mf430-provider-enabled]')];
+ const priorities=inputs.map(n=>n.value),enabled=inputs.filter(n=>n.checked).map(n=>n.value);
+ S.settings=S.settings||{};
+ S.settings.v424Covers={...mf424Defaults(),priorities,enabled};
+ Promise.resolve(saveState()).catch(e=>console.warn('Cover recovery providers could not be saved',e));
+}
+function mf430MoveSettingsProvider(id,delta){
+ const node=[...document.querySelectorAll('.mf430-settings-provider')].find(n=>n.dataset.mf430Provider===id);
+ const sibling=delta<0?node?.previousElementSibling:node?.nextElementSibling;
+ if(!node||!sibling)return;
+ if(delta<0)node.parentElement.insertBefore(node,sibling);else node.parentElement.insertBefore(sibling,node);
+ mf430SaveSettingsProviders();
+}
+Object.assign(App,{mf430SaveSettingsProviders,mf430MoveSettingsProvider});
 function mf425SavePref(key,value){if(!['mode','partSize','continuation','selection','protection','autoResume'].includes(key))return;
  S.settings=S.settings||DEFAULT_SETTINGS;S.settings.v424Covers={...mf424Defaults(),[key]:key==='partSize'?Math.min(10000,Math.max(1,Number(value)||100)):value};saveState().catch(e=>console.warn('v425 settings',e));}
 function mf425SaveCoverXP(value){const xp=Math.min(100000,Math.max(0,Math.round(Number(value)||0)));S.settings.leveling=S.settings.leveling||{};S.settings.leveling.coverChangeXP=xp;saveState().catch(e=>console.warn('v425 cover xp',e));}
 Object.assign(App,{mf425SavePref,mf425SaveCoverXP});
 MediaFlowRuntime.version=MF425_VERSION;
+/* MediaFlow v427 — Unified Cover Recovery UX & Stability.
+   Works with v424/v425 storage, matching, XP and title IDs; no schema change. */
+const MF427_VERSION = 427;
+const MF427 = {dialog:null,returnFocus:null,source:'',draft:null,providerIds:null,requestSerial:0,busySave:false,activeSingle:false};
+function mf427Icon(name,size=16){const paths={
+  recovered:'<path d="m5 12 4 4L19 6"/><circle cx="12" cy="12" r="9"/>',
+  unresolved:'<path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 8v5M12 17h.01"/>',
+  reviews:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4M8.5 10.5l1.5 1.5 3-3"/>',
+  error:'<path d="M12 3 2 20h20L12 3Z"/><path d="M12 9v5m0 3h.01"/>',
+  json:'<path d="M8 3H5v18h14V7l-4-4H8Z"/><path d="m9 12-2 2 2 2m6-4 2 2-2 2"/>',
+  csv:'<path d="M8 3H5v18h14V7l-4-4H8Z"/><path d="M8 12h8M8 16h8M12 9v10"/>',
+  wrench:'<path d="M14 7a5 5 0 0 0 6 6l-9 9-4-4 9-9M7 3l4 4-4 4-4-4 4-4Z"/>',
+  server:'<rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/><path d="M7 7h.01M7 17h.01"/>',
+  spark:'<path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5Z"/>',
+  pause:'<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>',
+  play:'<path d="m8 5 11 7-11 7Z"/>',
+  stop:'<rect x="5" y="5" width="14" height="14" rx="2"/>',
+  flag:'<path d="M5 21V4M5 5h13l-3 4 3 4H5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  download:'<path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/>',
+  image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="9" r="2"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',
+  sliders:'<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="16" cy="17" r="2"/>',
+  close:'<path d="M5 5 19 19M19 5 5 19"/>',
+  check:'<path d="m5 12 4 4L19 6"/>',
+  alert:'<path d="M12 3 2 20h20L12 3Z"/><path d="M12 9v5m0 3h.01"/>'
+};return '<svg class="mf427-icon" viewBox="0 0 24 24" width="'+size+'" height="'+size+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[name]||paths.image)+'</svg>';}
+function mf427Escape(value){return mf424Escape(value);}
+function mf427CurrentSaved(entry,id=''){
+  const target=String(id|| (entry==='dashboard'?v192CurrentMissingCoverItem()?.id:entry==='details'?MF425.oneId:S.modal?.data?.id)||'');
+  return target?mf424Lookup(target):null;
+}
+function mf427CurrentDraft(entry){
+  const saved=mf427CurrentSaved(entry);
+  if(entry==='dashboard'||entry==='details')return saved?{...saved,externalIds:{...(saved.externalIds||{})}}:null;
+  const d=S.modal?.data||{};
+  const original=saved||d;
+  const title=document.getElementById('l-title')?.value||original.title||'';
+  const categoryId=document.getElementById('l-category')?.value||original.categoryId||'';
+  const ids={...(original.externalIds||{})};
+  document.querySelectorAll('#modal-root [data-v377-id]').forEach(el=>{const k=el.dataset.v377Id;if(k&&String(el.value||'').trim())ids[k]=el.value.trim();});
+  return {...original,id:saved?.id||'draft',title:String(title).trim(),categoryId,externalIds:ids};
+}
+function mf427PrefConfirm(){return S.settings?.v427CoverRecovery?.confirmBeforeApply===true;}
+function mf427SetConfirmation(on){
+  S.settings=S.settings||{};
+  S.settings.v427CoverRecovery={...(S.settings.v427CoverRecovery||{}),confirmBeforeApply:Boolean(on)};
+  Promise.resolve(saveState()).catch(e=>{console.warn('Cover confirmation setting could not sync',e);showToast('Unable to sync cover confirmation setting.');});
+}
+function mf427DialogDismiss(approved){
+  const d=MF427.dialog;if(!d)return;
+  MF427.dialog=null;document.getElementById('mf427-confirm')?.remove();
+  document.removeEventListener('keydown',mf427DialogKey,true);
+  try{d.focus?.focus?.()}catch(_){};
+  d.resolve(Boolean(approved));
+}
+function mf427DialogKey(ev){if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();mf427DialogDismiss(false);} }
+function mf427Confirm(title,detail,action='Continue',destructive=false){
+  if(MF427.dialog)return Promise.resolve(false);
+  const focus=document.activeElement;
+  return new Promise(resolve=>{
+    MF427.dialog={resolve,focus};
+    const el=document.createElement('div');el.id='mf427-confirm';el.className='mf427-confirm mf425-themed';
+    el.innerHTML='<div class="mf427-confirm-shade"></div><section class="mf427-confirm-panel" role="alertdialog" aria-modal="true" aria-labelledby="mf427-confirm-title" aria-describedby="mf427-confirm-detail">'+
+    '<div class="mf427-confirm-head">'+mf427Icon(destructive?'alert':'check',24)+'<div><h2 id="mf427-confirm-title">'+mf427Escape(title)+'</h2><p id="mf427-confirm-detail">'+mf427Escape(detail)+'</p></div></div>'+
+    '<div class="mf427-confirm-actions"><button type="button" class="btn btn-ghost" onclick="App.mf427DialogDismiss(false)">Cancel</button><button type="button" class="btn '+(destructive?'btn-danger':'btn-primary')+'" onclick="App.mf427DialogDismiss(true)">'+mf427Icon(destructive?'alert':'check')+' '+mf427Escape(action)+'</button></div></section>';
+    document.body.appendChild(el);document.addEventListener('keydown',mf427DialogKey,true);
+    el.querySelector('.mf427-confirm-actions .btn-ghost')?.focus();
+  });
+}
+App.mf427DialogDismiss=mf427DialogDismiss;
+App.mf427SetConfirmation=mf427SetConfirmation;
+// v424 start/retry now await this themed replacement for native confirm().
+async function mf427ConfirmJobReplace(){return mf427Confirm('Replace existing recovery?',
+  'Completed covers and earned XP stay saved. Pending cover confirmations from the existing job will be lost.',
+  'Replace recovery',true);}
+async function mf427ConfirmRetryPending(){return mf427Confirm('Discard pending reviews?',
+  'Unresolved confirmations from the previous job are kept only in its exported report.',
+  'Continue with retry',true);}
+async function mf427ConfirmRetry(count){return mf427Confirm('Retry unresolved titles?',
+  'Create a new safe recovery job for '+Number(count).toLocaleString()+' unresolved title(s).',
+  'Retry unresolved',false);}
+function mf427SingleContext(entry,explicitId){
+  const selected=String(explicitId|| (entry==='details'?MF425.oneId:entry==='dashboard'?v192CurrentMissingCoverItem()?.id:S.modal?.data?.id)||'');
+  const saved=selected?mf424Lookup(selected):null;
+  if(entry==='details'&&saved)MF425.oneId=String(saved.id);
+  return {entry,id:saved?.id||'',item:mf427CurrentDraft(entry)};
+}
+const mf427OldOpenConfig=App.mf425OpenConfig;
+App.mf425OpenConfig=function(entry='settings',id=''){
+  const single=['editor','details','dashboard'].includes(entry);
+  if(!single)return mf427OldOpenConfig.apply(this,arguments);
+  const ctx=mf427SingleContext(entry,id);
+  if(!ctx.item?.title){showToast('Enter a title first to search for its cover.');return;}
+  MF427.source=entry;MF427.draft=ctx.item;
+  MF427.activeSingle=true;
+  // Use exactly the existing v424 provider / selection configuration UI.
+  // For a saved uncovered title the current v425 scoped background engine remains available.
+  if(ctx.id&&mf424Missing(mf424Lookup(ctx.id))){
+    const res=mf427OldOpenConfig.call(this,entry,ctx.id);
+    const modal=document.getElementById('mf424-modal');modal?.classList.add('mf427-above-editor');
+    mf427CleanAdvancedIcons(modal);
+    return res;
+  }
+  // An unsaved draft or already-covered title must never start a Library-wide job.
+  MF425.oneId=ctx.id||'draft';MF425.locked=true;MF425.selected=[];MF425.startMode='single';
+  mf425OldConfig();mf425DecorateConfig();
+  const modal=document.getElementById('mf424-modal');if(!modal)return;
+  modal.classList.add('mf427-above-editor','mf427-single-config');
+  const start=modal.querySelector('.mf424-actions .btn-primary');if(start){start.disabled=false;start.title='Search only this title';start.innerHTML=mf427Icon('image')+' Find cover candidates';start.setAttribute('onclick','App.mf427StartSingle()');}
+  const count=modal.querySelector('#mf425-scope-count');if(count)count.innerHTML=mf427Icon('image')+' Searching <strong>'+mf427Escape(ctx.item.title)+'</strong> only — no new Library title or bulk job will be created.';
+  mf427CleanAdvancedIcons(modal);
+};
+// Keep the existing Settings / Library controls routed to the new single-title dispatcher.
+App.mf424OpenConfig=()=>App.mf425OpenConfig('settings');
+function mf427CleanAdvancedIcons(root=document){
+  if(!root)return;
+  root.querySelectorAll('button').forEach(btn=>{
+    if(!/Advanced Recovery/.test(btn.textContent||''))return;
+    btn.querySelectorAll(':scope > .v225-btn-icon').forEach(x=>x.remove());
+    const icons=[...btn.querySelectorAll(':scope > svg')];
+    if(icons.length>1)icons.slice(1).forEach(n=>n.remove());
+    if(!icons.length)btn.insertAdjacentHTML('afterbegin',mf427Icon('sliders'));
+    btn.dataset.v225Iconified='1';btn.dataset.v226SemanticIcon='';
+  });
+}
+function mf427ProvidersFromForm(){const form=document.getElementById('mf424-config');return [...(form?.querySelectorAll('[data-mf424-provider]')||[])].filter(x=>x.checked).map(x=>x.value);}
+App.mf427StartSingle=async function(){
+  if(!MF427.draft?.title)return;
+  const providers=mf427ProvidersFromForm();
+  if(!providers.length){showToast('Enable at least one compatible cover provider.');return;}
+  const entry=MF427.source||'editor',item={...MF427.draft};
+  document.getElementById('mf424-modal')?.remove();
+  await mf427OpenSearch(entry,item,providers);
+};
+// Show the same modern picker from all entry points, preserving existing editor drafts.
+async function mf427OpenSearch(entry='editor',item=null,providers=null){
+  const current=item||mf427CurrentDraft(entry);
+  if(!current?.title){showToast('Enter a title first to find cover artwork.');return;}
+  if(MF425.quickBusy){showToast('Cover search is already running.');return;}
+  MF425.quickBusy=true;MF425.quick=null;MF425.quickEntry=entry;
+  MF425.draft={...current,externalIds:{...(current.externalIds||{})}};
+  const serial=++MF427.requestSerial;
+  // Use the live shared Recovery registry, including provider modules added
+  // later. Saved bulk preferences determine "All enabled", but users can
+  // search any supported public source individually without rewriting prefs.
+  const catalog=mf424CoverProviderChoices(current),eligible=catalog.filter(p=>p.usable);
+  const enabled=eligible.filter(p=>p.enabled),chosen=providers?new Set(providers):null;
+  const allowed=(chosen?eligible.filter(p=>chosen.has(p.id)):(enabled.length?enabled:eligible)).map(p=>p.id);
+  const sourceOptions=catalog.map(p=>{
+    const reason=!p.usable?(p.credentials?'requires configuration':p.level||'unavailable in browser'):p.enabled?'':'off for background recovery';
+    return '<option value="'+mf427Escape(p.id)+'" '+(!p.usable?'disabled':'')+'>'+mf427Escape(p.name+(reason?' — '+reason:''))+'</option>';
+  }).join('');
+  document.getElementById('mf425-instant-modal')?.remove();
+  const root=document.createElement('div');root.id='mf425-instant-modal';root.className='mf424-modal mf425-themed mf425-instant-modal mf427-above-editor mf427-search';
+  root.innerHTML='<div class="mf424-shade" onclick="App.mf425CloseInstant()"></div><section class="mf424-dialog" role="dialog" aria-modal="true" aria-label="Instant cover search">'+
+    '<header class="mf425-instant-head"><div><small>COVER SEARCH</small><h2>'+mf427Icon('image',23)+' Cover matches for '+mf427Escape(current.title)+'</h2><p>Library title: <strong>'+mf427Escape(current.title)+'</strong> · Verify matched titles and external IDs before selecting.</p></div><button type="button" class="btn btn-ghost" onclick="App.mf425CloseInstant()">Close</button></header>'+
+    '<div class="mf427-provider-picker"><label for="mf427-provider-select">Cover source</label><select id="mf427-provider-select"><option value="">'+(enabled.length?'All enabled compatible providers':'All compatible public providers')+'</option>'+sourceOptions+'</select><button type="button" class="btn btn-ghost" onclick="App.mf427RetryProvider()">Search source</button><p class="mf427-provider-hint">'+(eligible.length?eligible.length+' supported source'+(eligible.length===1?'':'s')+' across all categories. Disabled background sources can be searched individually.':'No browser-ready source is available. Providers needing keys or restricted browser access cannot be queried.')+'</p></div>'+ 
+    '<div id="mf425-instant-results" class="mf425-instant-results" role="status" aria-live="polite"><p class="mf425-loading">Checking permitted cover providers safely…</p></div>'+ 
+    '<div class="mf424-actions"><button type="button" class="btn btn-ghost" onclick="App.mf425CloseInstant()">Cancel</button></div></section>';
+  document.body.appendChild(root);mf427CleanAdvancedIcons(root);
+  const found=[],seen=new Set(),outcomes=[];let exhausted=false;
+  const ordered=allowed.filter(p=>mf424HasID(current,p)).concat(allowed.filter(p=>!mf424HasID(current,p)));
+  try{
+    for(const provider of ordered){
+      if(!root.isConnected||serial!==MF427.requestSerial)break;
+      let checked=0,validated=0,failed='';
+      try{
+        const candidates=await mf424Discover(current,provider);checked=candidates.length;
+        for(const c of candidates){
+          if(!root.isConnected||serial!==MF427.requestSerial)break;
+          if(!c||seen.has(c.url))continue;
+          seen.add(c.url);
+          if(await mf424Image(c.url,c.provider)){if(found.length<64)found.push(c);validated++;}
+        }
+      }catch(e){failed=String(e?.message||e).slice(0,160);console.warn('Cover search provider temporarily unavailable',provider,e);}
+      outcomes.push({name:mf424Provider(provider)?.name||provider,checked,validated,failed});
+      if(!root.isConnected||serial!==MF427.requestSerial)break;
+      MF425.quick={candidates:found};
+      const display=root.querySelector('#mf425-instant-results');if(display)display.innerHTML=mf425CandidatesHtml(found,current)+mf427ProviderSummary(outcomes);
+      // Continue checking all eligible sources even after the results view is full.
+    }
+    exhausted=true;
+  }finally{
+    if(serial===MF427.requestSerial){
+      MF425.quick={candidates:found};MF425.quickBusy=false;
+      const display=root.querySelector('#mf425-instant-results');if(display)display.innerHTML=mf425CandidatesHtml(found,current)+mf427ProviderSummary(outcomes);
+      // Opt-in: auto-apply only one uniquely ID-verified image across ALL checked
+      // providers. A title-only match, provider error, conflicting artwork,
+      // cancellation, or changed Dashboard title ALWAYS falls back to review.
+      if(exhausted&&entry==='dashboard'&&S.settings?.v430MissingCoversAutoSave&&found.length===1){
+        const selected=found[0],live=v192CurrentMissingCoverItem();
+        const stillSame=live&&String(live.id)===String(current.id);
+        if(stillSame&&selected.idMatch&&Number(selected.confidence)>=.95){
+          const input=document.getElementById('v192-cover-url-input');
+          if(input){
+            // v431: the v235 image probe is asynchronous. Never invoke the
+            // guarded Save action until it reports that this URL actually loaded.
+            input.value=selected.url;
+            App.v235ValidateMissingCover?.(selected.url);
+            App.mf425CloseInstant();
+          }
+        }
+      }
+    }
+  }
+}
+function mf427ProviderSummary(rows){return '<details class="mf427-provider-summary"><summary>Provider checks ('+rows.length+')</summary><div>'+rows.map(r=>'<p><strong>'+mf427Escape(r.name)+'</strong> — '+(r.failed?'Unavailable: '+mf427Escape(r.failed):r.validated?r.validated+' verified image'+(r.validated===1?'':'s'):r.checked?'Records found, but images did not validate':'No matching records')+'</p>').join('')+'</div></details>';}
+App.mf427RetryProvider=function(){if(MF425.quickBusy){showToast('Current cover-source checks are still running.');return;}
+ const choice=document.getElementById('mf427-provider-select')?.value||'';
+ if(choice&&!mf424CoverProviderChoices(MF425.draft||{}).some(p=>p.id===choice&&p.usable)){
+   showToast('This source requires setup or is not accessible from the website.');return;
+ }
+ return mf427OpenSearch(MF425.quickEntry||'editor',MF425.draft,choice?[choice]:null);
+};
+const mf427OldCloseInstant=App.mf425CloseInstant;
+App.mf425CloseInstant=function(){++MF427.requestSerial;MF425.quickBusy=false;return mf427OldCloseInstant.apply(this,arguments);};
+App.mf425Instant=function(entry='editor'){return mf427OpenSearch(entry);};
+// The existing legacy Add/Edit picker button is intercepted in capture phase,
+// before inline handlers open the old dark, low-contrast modal.
+document.addEventListener('click',function(ev){
+  const btn=ev.target?.closest?.('button');if(!btn||!btn.isConnected)return;
+  if(!btn.closest('#modal-root')||btn.closest('#mf425-instant-modal,#mf424-modal'))return;
+  if(!/Find cover automatically/i.test(btn.textContent||'')&&!/Find cover automatically/i.test(btn.title||''))return;
+  ev.preventDefault();ev.stopImmediatePropagation();App.mf425Instant('editor');
+},true);
+// Explicit modern picker replaces old cover-picker modal rendering on all legacy flows.
+const mf427LegacyPicker=coverPickerModalHtml;
+coverPickerModalHtml=function(data){return mf427LegacyPicker.apply(this,arguments);};
+function mf427FillEditor(url){
+  const inputs=[...document.querySelectorAll('#modal-root input')];
+  const input=inputs.find(x=>x.type!=='file'&&/cover|image/i.test(x.id+' '+x.placeholder+' '+x.name))||inputs.find(x=>x.type==='url');
+  if(!input)return false;
+  input.value=url;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));return true;
+}
+function mf427SelectedLinkId(index){
+  return document.querySelector('#mf425-instant-modal [data-mf425-cover-link-id="'+Number(index)+'"]')?.checked===true;
+}
+function mf427FillDraftExternalId(candidate){
+  if(typeof mf433FillDraftExternalIds==='function')
+    return mf433FillDraftExternalIds(candidate);
+  const live=MF425.draft||{},link=mf424LinkableCoverId(live,candidate);
+  if(!link||link.conflict||link.existing===link.value)return false;
+  const root=document.querySelector('#modal-root [data-v377-ids-editor]');
+  const grid=root?.querySelector('.mf377-ids-grid');
+  if(!grid)return false;
+  let input=[...grid.querySelectorAll('[data-v377-id]')].find(el=>el.dataset.v377Id===link.key);
+  if(!input){
+    const row=document.createElement('label');row.className='field';row.dataset.v377IdRow=link.key;
+    row.innerHTML='<span class="field-label">'+mf427Escape(link.key.toUpperCase())+'</span><span class="mf377-id-control"><input type="text" data-v377-id="'+mf427Escape(link.key)+'" autocomplete="off"></span>';
+    grid.appendChild(row);input=row.querySelector('input');
+  }
+  if(input&&(!input.value||input.value.trim()===link.value)){
+    input.value=link.value;input.dispatchEvent(new Event('input',{bubbles:true}));
+    return true;
+  }
+  return false;
+}
+async function mf427SaveExisting(item,url,candidate,linkId=false){
+  if(!item||!url)return false;
+  const provider=candidate?.provider||'unknown',before=String(item.coverUrl||'');
+  const link=linkId?mf424LinkableCoverId(item,candidate):null;
+  const shouldLink=!!(linkId&&(typeof mf433CandidateLinks==='function'
+    ?mf433CandidateLinks(item,candidate).some(x=>!x.conflict&&x.existing!==x.value)
+    :link&&!link.conflict&&link.existing!==link.value));
+  if(before===url&&!shouldLink){showToast('This cover and its provider ID are already saved.');return true;}
+  if(MF427.busySave)return false;
+  MF427.busySave=true;
+  const old={coverUrl:item.coverUrl,coverSource:item.coverSource,modifiedAt:item.modifiedAt,
+    externalIds:{...(item.externalIds||{})},v377ManualExternalIds:{...(item.v377ManualExternalIds||{})},
+    richMetadataManual:item.richMetadataManual?{...item.richMetadataManual}:null};
+  try{
+    if(mf424Account()!==String((typeof AUTH_USER!=='undefined'&&AUTH_USER?.id)||'local'))throw new Error('Account changed');
+    if(before!==url){
+      item.coverUrl=url;item.coverSource='manual:instant:'+provider;
+      if(typeof V178_EDITABLE_RICH_FIELDS!=='undefined'&&V178_EDITABLE_RICH_FIELDS.includes('coverUrl')){
+        item.richMetadataManual=typeof v178ManualMap==='function'?v178ManualMap(item):(item.richMetadataManual||{});
+        item.richMetadataManual.coverUrl=true;
+      }
+    }
+    const linked=shouldLink&&mf424LinkSelectedCoverId(item,candidate,{manual:true});
+    item.modifiedAt=Date.now();
+    const earned=before!==url?mf425Credit(item,before,url,'instant:'+provider):0;
+    if(typeof v53InvalidateLibraryCache==='function')v53InvalidateLibraryCache();
+    await saveState();
+    mf427FillEditor(url);
+    showToast('Cover saved'+(linked?' · verified External IDs linked':'')+(earned?' · +'+earned.toLocaleString()+' XP':'')+' ✓');
+    return true;
+  }catch(e){
+    item.coverUrl=old.coverUrl;item.coverSource=old.coverSource;item.modifiedAt=old.modifiedAt;
+    item.externalIds=old.externalIds;item.v377ManualExternalIds=old.v377ManualExternalIds;
+    item.richMetadataManual=old.richMetadataManual;
+    console.error('Instant cover save failed',e);showToast('Cover could not be saved. Please try again.');return false;
+  }finally{MF427.busySave=false;}
+}
+async function mf427LinkAfterExternalSave(item,candidate,url,linkId){
+  if(!linkId||!item||String(item.coverUrl||'')!==String(url))return false;
+  const link=mf424LinkableCoverId(item,candidate);
+  if(!(typeof mf433CandidateLinks==='function'
+    ?mf433CandidateLinks(item,candidate).some(x=>!x.conflict&&x.existing!==x.value)
+    :link&&!link.conflict&&link.existing!==link.value))return false;
+  const oldIds={...(item.externalIds||{})},oldOverrides={...(item.v377ManualExternalIds||{})},oldModified=item.modifiedAt;
+  if(!mf424LinkSelectedCoverId(item,candidate,{manual:true}))return false;
+  item.modifiedAt=Date.now();
+  try{await saveState();showToast('Verified provider External IDs linked');return true;}
+  catch(e){
+    item.externalIds=oldIds;item.v377ManualExternalIds=oldOverrides;item.modifiedAt=oldModified;
+    console.error('Cover provider ID sync failed',e);
+    showToast('Cover saved, but provider ID could not be linked. Try again.');
+    return false;
+  }
+}
+App.mf425ChooseInstant=async function(index){
+  const candidate=MF425.quick?.candidates?.[Number(index)];
+  if(!candidate){showToast('Cover result no longer available. Retry search.');return;}
+  const entry=MF425.quickEntry||'editor',url=candidate.url;
+  const linkId=mf427SelectedLinkId(index);
+  const item=MF425.draft||mf427CurrentDraft(entry);
+  const title=item?.title||candidate.title;
+  if(mf427PrefConfirm()){
+    const ok=await mf427Confirm('Use this cover?',
+      'Use '+candidate.provider+' artwork matched to "'+(candidate.title||title)+'" for "'+title+'"?',
+      'Use this cover',false);
+    if(!ok)return;
+  }
+  if(entry==='dashboard'){
+    const input=document.getElementById('v192-cover-url-input');
+    if(!input){showToast('Missing Covers panel changed. Reopen the title.');return;}
+    const before=v192CurrentMissingCoverItem()?.id;
+    if(before&&String(before)!==String(item.id)){showToast('The queue changed. Please reopen cover search.');return;}
+    const live=mf424Lookup(String(item.id||''));
+    try{
+      // v431 waits for direct-image validation instead of calling the
+      // v235 guarded saver prematurely and silently leaving a URL in the bar.
+      const saved=await App.mf431UseDashboardCover(url,String(item.id));
+      if(saved){await mf427LinkAfterExternalSave(live,candidate,url,linkId);App.mf425CloseInstant();}
+      else showToast('The selected cover was not saved. Check its URL or try again.');
+    }catch(e){console.error('Dashboard cover selection',e);showToast('Unable to save the selected cover.');}
+    return;
+  }
+  if(entry==='details'){
+    const field=document.getElementById('v181-quick-value');
+    if(!field){showToast('Quick Cover Edit has closed. Reopen the editor.');return;}
+    const live=mf424Lookup(String(item.id||''));
+    if(!live){showToast('The Library title has changed.');return;}
+    field.value=url;field.dispatchEvent(new Event('input',{bubbles:true}));
+    await Promise.resolve(App.v181SaveQuickDetail(live.id,'coverUrl'));
+    await mf427LinkAfterExternalSave(live,candidate,url,linkId);
+    App.mf425CloseInstant();
+    return;
+  }
+  if(item?.id&&item.id!=='draft'){
+    const live=mf424Lookup(String(item.id));
+    if(!live){showToast('Could not locate this Library title.');return;}
+    if(await mf427SaveExisting(live,url,candidate,linkId))App.mf425CloseInstant();
+    return;
+  }
+  // Unsaved Add Title is intentionally a draft: never create cloud data early.
+  if(!mf427FillEditor(url)){showToast('Cover URL field could not be found in the Add Title draft.');return;}
+  const linked=linkId&&mf427FillDraftExternalId(candidate);
+  showToast(linked?'Cover and verified provider IDs added to the draft. Save the title when ready.':'Cover added to the draft. Save the title when ready.');
+  App.mf425CloseInstant();
+};
+App.mf425InstantAdvanced=function(){
+  const entry=MF425.quickEntry||'editor',item=MF425.draft;
+  App.mf425CloseInstant();App.mf425OpenConfig(entry,item?.id==='draft'?'':item?.id||'');
+};
+// Confirm only when the user enabled confirmation, including background review queue selections.
+const mf427PreviousReviewConfirm=App.mf424Confirm;
+App.mf424Confirm=async function(index){
+  const candidate=MF424.job?.reviews?.[0]?.candidates?.[index];
+  if(candidate&&mf427PrefConfirm()&&!await mf427Confirm('Apply reviewed cover?',
+    'Save the '+candidate.provider+' cover for "'+(MF424.job?.reviews?.[0]?.title||'this title')+'"?',
+    'Use this cover'))return;
+  return mf427PreviousReviewConfirm.apply(this,arguments);
+};
+const mf427PreviousSettings=mf425SettingsMarkup;
+mf425SettingsMarkup=function(){return mf427PreviousSettings()+
+  '<label class="mf427-settings-confirm" data-mf-setting-id="cover-confirm"><input type="checkbox" '+(mf427PrefConfirm()?'checked':'')+' onchange="App.mf427SetConfirmation(this.checked)"><span><b>Confirm before applying a selected cover</b><small>Off by default: Use This Cover saves immediately. Turn on to review each selection before saving.</small></span></label>';};
+// The v425 painter is the single source for counts and actions. Reorganize its elements only.
+const mf427PreviousPaint=mf424Paint;
+mf424Paint=function(){mf427PreviousPaint.apply(this,arguments);
+  const root=document.getElementById('mf424-indicator');if(!root)return;
+  const stats=root.querySelector('.mf424-stats');
+  if(stats){const icons=['recovered','unresolved','reviews','error'];
+    [...stats.children].slice(0,4).forEach((el,i)=>{el.classList.add('mf427-stat');el.insertAdjacentHTML('afterbegin',mf427Icon(icons[i]));});}
+  const controls=root.querySelector('.mf424-controls');
+  if(!controls)return;
+  const buttons=[...controls.querySelectorAll(':scope > button')];
+  const group=(name,className,matcher)=>{const matched=buttons.filter(b=>matcher.test(b.textContent||''));if(!matched.length)return;
+    const section=document.createElement('div');section.className='mf427-action-group '+className;
+    section.insertAdjacentHTML('beforeend','<small>'+name+'</small>');matched.forEach(b=>{b.querySelectorAll(':scope > .v225-btn-icon').forEach(x=>x.remove());section.appendChild(b);});controls.appendChild(section);};
+  group('CURRENT RECOVERY','mf427-main-controls',/^(Pause|Continue|Resume|Stop after title|Finish part & stop|Review)/i);
+  group('EXPORT & RETRY','mf427-export-controls',/^(JSON report|CSV report|Retry unresolved)/i);
+  group('NEW JOB','mf427-new-controls',/^New Recovery/i);
+  controls.querySelectorAll('button').forEach(btn=>{
+    const label=(btn.textContent||'').trim();
+    const name=/^New Recovery/i.test(label)?'plus':/^(Pause)/i.test(label)?'pause':/^(Continue|Resume)/i.test(label)?'play':/Stop after title/i.test(label)?'stop':/Finish part/i.test(label)?'flag':/JSON/i.test(label)?'json':/CSV/i.test(label)?'csv':/Review/i.test(label)?'reviews':/Retry/i.test(label)?'play':'image';
+    btn.querySelectorAll(':scope > svg, :scope > .v225-btn-icon').forEach(x=>x.remove());
+    btn.insertAdjacentHTML('afterbegin',mf427Icon(name));btn.dataset.v225Iconified='1';
+  });
+};
+// Remove text glyphs in Support chips and keep one inline icon per label.
+const mf427OriginalPolishSupport=mf425PolishSupport;
+mf425PolishSupport=function(){mf427OriginalPolishSupport();
+  document.querySelectorAll('.mf423-support-benefits span').forEach(node=>{
+    const text=(node.textContent||'').replace(/[✧☁♡♥✦↗◉]/g,'').replace(/\s+/g,' ').trim();
+    const icon=/More possibilities/i.test(text)?'spark':/Hosting & storage/i.test(text)?'server':/Ongoing improvements/i.test(text)?'wrench':null;
+    if(!icon)return;
+    if(node.dataset.mf427Icon===icon&&node.querySelectorAll(':scope > svg').length===1)return;
+    node.dataset.mf427Icon=icon;node.textContent='';node.insertAdjacentHTML('afterbegin',mf427Icon(icon)+' '+mf427Escape(text));
+  });
+};
+function mf427PolishControls(){
+  document.querySelectorAll('.mf425-editor-tools,.mf425-dashboard-cover-actions,.mf425-instant-modal .mf424-actions').forEach(mf427CleanAdvancedIcons);
+  mf425PolishSupport();
+}
+// Only observe relevant surfaces, batch cleanup into one microtask.
+let mf427PolishQueued=false;
+const mf427Observer=new MutationObserver(mutations=>{
+  if(mf427PolishQueued)return;
+  if(!mutations.some(m=>{const n=m.target;return n instanceof Element&&
+     (n.closest('.mf425-editor-tools,.mf425-instant-modal,.mf423-support-benefits,.mf425-dashboard-cover-actions')||n.matches('.mf425-editor-tools,.mf425-instant-modal,.mf423-support-benefits,.mf425-dashboard-cover-actions'));}))return;
+  mf427PolishQueued=true;queueMicrotask(()=>{mf427PolishQueued=false;mf427PolishControls();});
+});
+if(document.body)mf427Observer.observe(document.body,{childList:true,subtree:true});
+queueMicrotask(mf427PolishControls);
+MediaFlowRuntime.version=MF427_VERSION;
+/* MediaFlow v431 — Dashboard Missing Covers validated auto-save.
+   Accepts manually pasted and explicitly selected URLs AFTER the existing v235
+   real-image validation. Does not loosen background provider auto-match rules,
+   create Library records, or bypass the existing XP-safe queue saver. */
+const MF431_AUTO={busy:false,waiters:[],account:''};
+function mf431Account(){return String(typeof AUTH_USER!=='undefined'&&AUTH_USER?.id||'local');}
+function mf431Current(){
+  const input=document.getElementById('v192-cover-url-input');
+  if(!input)return {item:null,input:null,id:'',url:''};
+  const item=v192CurrentMissingCoverItem?.();
+  return {item,input,id:String(item?.id||''),url:String(input.value||'').trim()};
+}
+function mf431Validated(id,url){
+  const state=V235_MISSING_STATE,live=mf431Current();
+  return !!id&&!!url&&live.id===String(id)&&live.url===String(url)&&
+    state.valid===true&&!state.checking&&state.itemId===String(id)&&state.value===String(url)&&
+    !!v235CoverCandidate(url).ok;
+}
+function mf431ResolveWaiters(kind){
+  const now=mf431Current();
+  for(const entry of [...MF431_AUTO.waiters]){
+    if(entry.id!==now.id||entry.url!==now.url)continue;
+    if(kind!=='valid'&&kind!=='invalid')continue;
+    entry.finish(kind==='valid'&&mf431Validated(entry.id,entry.url));
+  }
+}
+function mf431SaveValidated(id,url,explicit=false){
+  id=String(id||'');url=String(url||'').trim();
+  if(!explicit&&!S.settings?.v430MissingCoversAutoSave)return false;
+  if(MF431_AUTO.busy)return false;
+  if(!mf431Validated(id,url))return false;
+  if(mf431Account()!==MF431_AUTO.account)return false;
+  const live=mf431Current();
+  if(!live.item||String(live.item.coverUrl||'').trim())return false;
+  MF431_AUTO.busy=true;
+  try{
+    // Existing saver checks the same v235 state, updates XP and queues,
+    // writes Library state, and redraws the next title exactly once.
+    App.v192SaveMissingCover();
+    if(String(live.item.coverUrl||'').trim()!==url)throw Error('Cover save was not accepted');
+    return true;
+  }catch(error){
+    console.error('v431 Dashboard auto-save failed',error);
+    showToast('Automatic cover save failed. Use Save cover & Next to retry.');
+    return false;
+  }finally{MF431_AUTO.busy=false;}
+}
+function mf431MaybeSave(){
+  if(!S.settings?.v430MissingCoversAutoSave||MF431_AUTO.busy)return false;
+  const {id,url}=mf431Current();
+  return mf431SaveValidated(id,url);
+}
+function mf431ValidateCurrent(){
+  const {id,url}=mf431Current();
+  if(!id||!url||!S.settings?.v430MissingCoversAutoSave)return;
+  if(mf431Validated(id,url))queueMicrotask(mf431MaybeSave);
+  else App.v235ValidateMissingCover?.(url);
+}
+const mf431OriginalSetValidationUi=v235SetCoverValidationUi;
+v235SetCoverValidationUi=function(kind,message){
+  const result=mf431OriginalSetValidationUi(kind,
+    kind==='valid'&&S.settings?.v430MissingCoversAutoSave?
+      'Valid image URL · saving cover and advancing automatically…':message);
+  mf431ResolveWaiters(kind);
+  if(kind==='valid'&&S.settings?.v430MissingCoversAutoSave)queueMicrotask(mf431MaybeSave);
+  return result;
+};
+const mf431PreviousSetAutoSave=mf430SetMissingAutoSave;
+mf430SetMissingAutoSave=function(enabled){
+  const result=mf431PreviousSetAutoSave.apply(this,arguments);
+  if(enabled)mf431ValidateCurrent();
+  return result;
+};
+App.mf430SetMissingAutoSave=mf430SetMissingAutoSave;
+async function mf431UseDashboardCover(raw,id){
+  const live=mf431Current(),url=String(raw||'').trim();
+  if(!url||!id||live.id!==String(id)||!live.input)return false;
+  if(MF431_AUTO.busy)return false;
+  MF431_AUTO.account=mf431Account();
+  let finish;
+  const originalAccount=mf431Account();
+  const promise=new Promise(resolve=>{
+    const entry={id:String(id),url,finish:(ok)=>{
+      clearTimeout(timer);
+      MF431_AUTO.waiters=MF431_AUTO.waiters.filter(x=>x!==entry);
+      resolve(Boolean(ok));
+    }};
+    const timer=setTimeout(()=>entry.finish(false),V235_COVER_CHECK_TIMEOUT+V235_COVER_CHECK_DELAY+2000);
+    MF431_AUTO.waiters.push(entry);
+    finish=entry.finish;
+  });
+  live.input.value=url;
+  App.v235ValidateMissingCover?.(url);
+  const valid=await promise;
+  if(!valid||mf431Account()!==originalAccount)return false;
+  // Validation may have already triggered the opt-in automatic saver.
+  const saved=(S.library||[]).find(x=>String(x?.id)===String(id));
+  if(String(saved?.coverUrl||'').trim()===url)return true;
+  return mf431SaveValidated(id,url,true);
+}
+App.mf431UseDashboardCover=mf431UseDashboardCover;
+// Keep the checkbox and validation token tied to the active account.
+MF431_AUTO.account=mf431Account();
+const mf431OldApplyState=v46ApplyState;
+v46ApplyState=function(){
+  const result=mf431OldApplyState.apply(this,arguments);
+  MF431_AUTO.account=mf431Account();
+  MF431_AUTO.waiters.splice(0).forEach(w=>w.finish(false));
+  return result;
+};
+const mf431OldRender=render;
+render=function(){
+  const result=mf431OldRender.apply(this,arguments);
+  // Image validation normally runs on input; if an existing URL is restored
+  // into the Dashboard without firing input, still honor the saved checkbox.
+  const current=mf431Current();
+  if(S.settings?.v430MissingCoversAutoSave&&current.id&&current.url&&!MF431_AUTO.busy)
+    queueMicrotask(mf431ValidateCurrent);
+  return result;
+};
+window.MediaFlowV431={version:431,features:['Validated Dashboard auto-save','Search candidate validation wait','Navigation progress icon suppression']};
+/* MediaFlow v433 — credential-independent preparation for provider adapters.
+ * v433 does NOT call newly registered providers or deploy a gateway.
+ * Provider activation, live credentials and real cover retrieval are v434 gates.
+ * Existing public providers continue to work without behavior changes. */
+const MF433_VERSION=433;
+const MF433_PROVIDER_CATALOG=[
+  {id:'tmdb',name:'TMDB',capabilities:'cover,id,metadata',access:'key'},
+  {id:'omdb',name:'OMDb',capabilities:'cover,id,metadata',access:'key'},
+  {id:'fanart',name:'Fanart.tv',capabilities:'cover,id',access:'key'},
+  {id:'animeschedule',name:'AnimeSchedule',capabilities:'cover,id,releases',access:'key'},
+  {id:'trakt',name:'Trakt',capabilities:'id,metadata,releases',access:'key'},
+  {id:'comicvine',name:'Comic Vine',capabilities:'cover,id,metadata,releases',access:'restricted'},
+  {id:'metron',name:'Metron',capabilities:'cover,id,metadata,releases',access:'key'},
+  {id:'hardcover',name:'Hardcover',capabilities:'cover,id,metadata',access:'key'},
+  {id:'thetvdb',name:'TheTVDB',capabilities:'cover,id,metadata,releases',access:'restricted'},
+  {id:'simkl',name:'SIMKL',capabilities:'id,metadata,releases',access:'restricted'},
+  {id:'malofficial',name:'MyAnimeList Official',capabilities:'id,metadata',access:'restricted'},
+  {id:'anidb',name:'AniDB',capabilities:'id,metadata',access:'restricted'},
+  {id:'watchmode',name:'Watchmode',capabilities:'id,metadata,releases',access:'key'},
+  {id:'marvel',name:'Marvel',capabilities:'cover,id,metadata',access:'restricted'},
+  {id:'inventaire',name:'Inventaire.io',capabilities:'cover,id,metadata',access:'public'},
+  {id:'bnf',name:'BnF',capabilities:'cover,id,metadata',access:'public'},
+  {id:'gutendex',name:'Gutendex',capabilities:'cover,id,metadata',access:'public'},
+  {id:'episodate',name:'EpisoDate',capabilities:'cover,id,releases',access:'public'},
+  {id:'mangaupdates',name:'MangaUpdates',capabilities:'cover,id,releases',access:'review'},
+  {id:'gcd',name:'Grand Comics Database',capabilities:'cover,id,releases',access:'review'},
+  {id:'royalroad',name:'Royal Road RSS',capabilities:'id,releases',access:'public'},
+  {id:'youtube',name:'YouTube Data API',capabilities:'cover,id,releases',access:'key'},
+  {id:'livechart',name:'LiveChart',capabilities:'id,releases',access:'review'},
+  {id:'wikidata',name:'Wikidata',capabilities:'id,mapping',access:'public'},
+  {id:'fribb',name:'Fribb Anime Lists',capabilities:'id,mapping',access:'public'},
+  {id:'loc',name:'Library of Congress',capabilities:'id,metadata',access:'public'},
+  {id:'dnb',name:'German National Library',capabilities:'id,metadata',access:'public'},
+  {id:'crossref',name:'Crossref',capabilities:'id,metadata',access:'public'},
+  {id:'tenrai',name:'Tenrai',capabilities:'cover,id',access:'public'},
+  {id:'jikan',name:'Jikan',capabilities:'cover,id',access:'public'},
+  {id:'anilist',name:'AniList',capabilities:'cover,id',access:'public'},
+  {id:'kitsu',name:'Kitsu',capabilities:'cover,id',access:'public'},
+  {id:'tvmaze',name:'TVmaze',capabilities:'cover,id',access:'public'},
+  {id:'mangadex',name:'MangaDex',capabilities:'cover,id,releases',access:'review'},
+  {id:'openlibrary',name:'Open Library',capabilities:'cover,id',access:'public'},
+  {id:'manami',name:'manami-project',capabilities:'id,mapping',access:'review'},
+  {id:'googlebooks',name:'Google Books',capabilities:'cover,id',access:'skipped'}
+];
+const MF433_NATIVE_ID_KEYS={
+  tenrai:'mal',jikan:'mal',anilist:'anilist',kitsu:'kitsu',tvmaze:'tvmaze',
+  mangadex:'mangadex',tmdb:'tmdb',omdb:'imdb',thetvdb:'tvdb_series',
+  simkl:'simkl',malofficial:'mal',anidb:'anidb',
+  animeschedule:'animeschedule',watchmode:'watchmode',
+  episodate:'episodate',mangaupdates:'mangaupdates',
+  livechart:'livechart',trakt:'trakt',hardcover:'hardcover_book',
+  gutendex:'gutendex',royalroad:'royalroad',
+  wikidata:'wikidata',comicvine:'comicvine_volume',metron:'metron_series'
+};
+const MF433_ALLOWED_ID_KEYS=new Set(V377_ID_PROVIDERS.map(row=>row[0]).concat(['openlibrary','googlebooks','tvmaze','mal','imdb']));
+/* Do not make a provider appear usable merely because it is in this catalog.
+ * Only the preexisting tested browser providers have a nonzero request limit.
+ * A v434 adapter must be separately activated after access/rights/API tests. */
+for(const row of MF433_PROVIDER_CATALOG){
+  if(!MF424_PROVIDER_META.some(p=>p.id===row.id)){
+    MF424_PROVIDER_META.push({id:row.id,name:row.name,types:['other'],limit:0,gap:0,
+      credentials:row.access==='key'||row.access==='restricted',level:'v434 validation pending'});
+  }
+}
+function mf433ValidId(key,value){
+  if(!MF433_ALLOWED_ID_KEYS.has(key)||typeof value!=='string'||!value.trim())return false;
+  if(/[\u0000-\u001f\u007f]/.test(value))return false;
+  return typeof v377IdValid==='function'&&v377IdValid(key,value.trim());
+}
+function mf433NativeKey(candidate){
+  if(MF433_ALLOWED_ID_KEYS.has(String(candidate?.externalIdKey||'')))return candidate.externalIdKey;
+  if(candidate?.provider==='openlibrary'){
+    if(/^OL\d+W$/i.test(candidate.recordId||''))return 'openlibrary_work';
+    if(/^OL\d+M$/i.test(candidate.recordId||''))return 'openlibrary_edition';
+    return 'openlibrary';
+  }
+  return MF433_NATIVE_ID_KEYS[candidate?.provider]||'';
+}
+function mf433EnrichCoverCandidate(entry,candidate){
+  const c=candidate;
+  if(!c||typeof c!=='object')return c;
+  const ids=[],add=(key,value,evidence)=>{
+    const str=String(value??'').trim();
+    if(mf433ValidId(key,str)&&!ids.some(r=>r.key===key&&r.value===str))
+      ids.push({key,value:str,evidence,source:c.provider});
+  };
+  const native=mf433NativeKey(c);
+  if(native&&c.recordId)add(native,c.recordId,'Provider native record');
+  if(c.provider==='openlibrary'&&/\/isbn\/([\dXx-]{10,20})/.test(c.recordUrl||''))
+    add('isbn',RegExp.$1,'Existing exact ISBN lookup');
+  if(c.provider==='anilist'&&entry?.idMal)add('mal',entry.idMal,'Linked MAL ID reported by AniList');
+  if(c.provider==='tvmaze'&&entry?.externals?.imdb)add('imdb',entry.externals.imdb,'Linked IMDb ID reported by TVmaze');
+  // Future adapters must provide actual verified record IDs, not guess them from a title.
+  if(entry?.externalIds&&typeof entry.externalIds==='object'){
+    for(const [key,value] of Object.entries(entry.externalIds))
+      add(key,value,'Source record verified mapping');
+  }
+  if(Array.isArray(entry?.identifiers)){
+    for(const row of entry.identifiers){
+      if(row?.verified===true)add(String(row.key||''),row.value,'Verified provider mapping');
+    }
+  }
+  c.externalIdCandidates=ids;
+  return c;
+}
+function mf433CandidateLinks(item,candidate){
+  const links=[],seen=new Set();
+  if(!candidate||typeof candidate!=='object')return links;
+  const push=(key,value)=>{
+    key=String(key||'').trim().toLowerCase();value=String(value??'').trim();
+    if(!mf433ValidId(key,value)||seen.has(key))return;
+    seen.add(key);
+    const existing=String(item?.externalIds?.[key]??'').trim();
+    links.push({key,value,existing,conflict:Boolean(existing&&existing!==value)});
+  };
+  for(const row of (Array.isArray(candidate.externalIdCandidates)?candidate.externalIdCandidates:[]).slice(0,32)){
+    if(row?.key&&row?.value&&row?.evidence)push(row.key,row.value);
+  }
+  const native=mf433NativeKey(candidate);
+  if(native&&candidate.recordId&&!links.some(l=>l.key===native))push(native,candidate.recordId);
+  // v427 legacy candidate representation and existing single-ID adapters.
+  if(candidate.externalIdKey&&candidate.externalIdValue)push(candidate.externalIdKey,candidate.externalIdValue);
+  return links;
+}
+function mf433LinkCandidateIds(item,candidate,{manual=false}={}){
+  if(!item||!candidate)return 0;
+  const links=mf433CandidateLinks(item,candidate);
+  if(!links.length)return 0;
+  let changes=0;
+  for(const link of links){
+    if(link.conflict||link.existing===link.value)continue;
+    // Respect both intentionally cleared IDs and user-written overrides.
+    if(!manual&&Object.prototype.hasOwnProperty.call(item.v377ManualExternalIds||{},link.key))continue;
+    if(!item.externalIds||typeof item.externalIds!=='object')item.externalIds={};
+    item.externalIds[link.key]=link.value;
+    if(manual){
+      if(!item.v377ManualExternalIds||typeof item.v377ManualExternalIds!=='object')
+        item.v377ManualExternalIds={};
+      item.v377ManualExternalIds[link.key]=link.value;
+    }
+    changes++;
+  }
+  return changes;
+}
+function mf433CoverIdMarkup(item,candidate,index,scope='mf424'){
+  const links=mf433CandidateLinks(item,candidate);
+  if(!links.length)return '<small class="mf424-cover-id-note">This provider has not returned any usable verified External IDs.</small>';
+  const available=links.filter(x=>!x.conflict&&x.existing!==x.value);
+  const conflicts=links.filter(x=>x.conflict);
+  const saved=links.filter(x=>x.existing===x.value);
+  const label=available.map(x=>mf424Escape(x.key.toUpperCase())+': '+mf424Escape(x.value)).join(' · ');
+  const warning=conflicts.length?'<small class="mf424-cover-id-conflict">'+conflicts.map(x=>mf424Escape(x.key.toUpperCase())+' protected (conflicting provider value)').join(' · ')+'</small>':'';
+  const present=saved.length?'<small class="mf424-cover-id-note">'+saved.length+' existing ID'+(saved.length===1?'':'s')+' already linked.</small>':'';
+  const checkbox=available.length?'<label class="mf424-cover-id-control"><input type="checkbox" data-'+mf424Escape(scope)+'-cover-link-id="'+Number(index)+'" checked> Save '+available.length+' verified External ID'+(available.length===1?'':'s')+' with this cover <strong>'+label+'</strong></label>':'';
+  return checkbox+warning+present||'<small class="mf424-cover-id-note">No new External IDs available.</small>';
+}
+function mf433FillDraftExternalIds(candidate){
+  const root=document.querySelector('#modal-root [data-v377-ids-editor]');
+  const grid=root?.querySelector('.mf377-ids-grid');
+  if(!grid)return false;
+  const draft=MF425.draft||{},links=mf433CandidateLinks(draft,candidate);
+  let changes=0;
+  for(const link of links){
+    if(link.conflict||link.existing===link.value)continue;
+    let input=[...grid.querySelectorAll('[data-v377-id]')].find(el=>el.dataset.v377Id===link.key);
+    if(!input){
+      const row=document.createElement('label');
+      row.className='field';row.dataset.v377IdRow=link.key;
+      row.innerHTML='<span class="field-label">'+mf424Escape(link.key.toUpperCase())+
+        '</span><span class="mf377-id-control"><input type="text" data-v377-id="'+mf424Escape(link.key)+'" autocomplete="off"></span>';
+      grid.appendChild(row);input=row.querySelector('input');
+    }
+    if(input&&(!input.value||String(input.value).trim()===link.value)){
+      input.value=link.value;
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+      changes++;
+    }
+  }
+  return changes>0;
+}
+function mf433FilterExternalIds(needle){
+  needle=String(needle||'').trim().toLowerCase();
+  document.querySelectorAll('[data-v377-ids-editor] [data-v377-id-row]').forEach(row=>{
+    row.hidden=!!needle&&!String(row.textContent||'').toLowerCase().includes(needle)&&
+      !String(row.querySelector('[data-v377-id]')?.dataset.v377Id||'').includes(needle);
+  });
+}
+function mf433ReadinessMarkup(){
+  const counts={public:0,key:0,restricted:0,review:0,skipped:0};
+  for(const p of MF433_PROVIDER_CATALOG)counts[p.access]=(counts[p.access]||0)+1;
+  return '<details class="mf433-provider-readiness" data-mf-setting-id="cover-provider-readiness">'+
+    '<summary><strong>Additional API providers · v434 activation pending</strong><small>Registered ID formats and integration plans; not live cover sources</small></summary>'+
+    '<p>No additional API keys are read by v433. Existing cover sources remain active. New connections will be tested and explicitly enabled in v434.</p>'+
+    '<div class="mf433-readiness-grid">'+
+      Object.entries(counts).map(([kind,count])=>'<span><b>'+count+'</b> '+mf424Escape(kind)+' providers</span>').join('')+'</div>'+
+    '<p>Providers include TMDB, OMDb, Fanart.tv, AnimeSchedule, Trakt, Comic Vine, Metron, Hardcover, Podcast Index, Inventaire, BnF, Gutendex, EpisoDate, MangaUpdates, GCD and the mapping sources.</p>'+
+    '</details>';
+}
+const mf433SettingsMarkupBase=mf425SettingsMarkup;
+mf425SettingsMarkup=function(){
+  const html=mf433SettingsMarkupBase();
+  return html.replace('<p class="mf425-settings-note">A saved cover change',mf433ReadinessMarkup()+'<p class="mf425-settings-note">A saved cover change');
+};
+Object.assign(App,{mf433FilterExternalIds});
+window.MediaFlowV433=Object.freeze({
+  version:MF433_VERSION,
+  stage:'provider-registration-and-external-ids',
+  liveProviderActivation:'v434',
+  list:()=>MF433_PROVIDER_CATALOG.map(p=>({...p})),
+  verifyCandidateIds:(item,candidate)=>mf433CandidateLinks(item,candidate).map(link=>({...link}))
+});
+/* MediaFlow v434 gateway adapter; v443 makes testing optional for configured connections.
+ * A successful gateway response only validates access; it does not establish a
+ * match to a Library title. The user selects any unconfirmed results manually. */
+const MF434={status:null,loading:false,tests:{},lookup:[],lookupProvider:"",cache:new Map(),busy:false};
+const MF434_COVER=new Set(["tmdb","omdb","fanart","animeschedule","malofficial","episodate","gutendex"]);
+const MF434_MAPPING=new Set(["metron","trakt","watchmode"]);
+const MF434_LABELS={tmdb:"TMDB",omdb:"OMDb",fanart:"Fanart.tv",animeschedule:"AnimeSchedule",
+ malofficial:"MyAnimeList Official",metron:"Metron",trakt:"Trakt",watchmode:"Watchmode",
+ episodate:"EpisoDate",gutendex:"Gutendex",hardcover:"Hardcover"};
+const mf434Esc=v=>mf424Escape(String(v??""));
+function mf434SavedTests(){return Array.isArray(S.settings?.v434TestedProviders)?S.settings.v434TestedProviders:[];}
+function mf434ProviderStatus(id){return MF434.status?.providers?.find(row=>row.id===id)||null;}
+function mf434Session(){return supabase?.auth?.getSession?.();}
+async function mf434Call(action,payload={}){
+ if(!AUTH_USER||!supabase)throw Error("Sign in to use verified API providers.");
+ const {data,error}=await mf434Session();
+ if(error||!data?.session?.access_token||String(data.session.user?.id)!==String(AUTH_USER.id))
+   throw Error("MediaFlow session is unavailable. Sign in again.");
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),17500);
+ try{
+  const response=await fetch(SUPABASE_URL+"/functions/v1/mediaflow-api-gateway",{
+   method:"POST",headers:{"Authorization":"Bearer "+data.session.access_token,
+     "apikey":SUPABASE_PUBLISHABLE_KEY,"Content-Type":"application/json"},
+   body:JSON.stringify({action,...payload}),signal:ctrl.signal
+  });
+  const json=await response.json();
+  if(!response.ok)throw Error(String(json.error||"Provider request failed").slice(0,160));
+  return json;
+ }finally{clearTimeout(timer);}
+}
+function mf434EnableAdapters(){
+ for(const p of MF424_PROVIDER_META){
+  const status=mf434ProviderStatus(p.id);
+  if(!MF434_COVER.has(p.id))continue;
+  const enabled=Boolean(status?.configured&&status?.testable);
+  p.limit=enabled?(p.id==="tmdb"?8:6):0;
+  p.gap=enabled?Math.max(10000,Number(p.gap)||10000):0;
+  if(enabled)MF424_EXTRA_COVER_ADAPTERS.set(p.id,(item)=>mf434Find(item,p.id));
+  else MF424_EXTRA_COVER_ADAPTERS.delete(p.id);
+ }
+}
+async function mf434RefreshGateway(){
+ if(MF434.loading)return;
+ MF434.loading=true;
+ try{MF434.status=await mf434Call("status");mf434EnableAdapters();}
+ catch(e){MF434.status=null;mf434EnableAdapters();console.warn("Gateway status:",String(e.message||e));showToast("Provider gateway: "+String(e.message||e));}
+ finally{MF434.loading=false;mf434RefreshPanel();}
+}
+function mf434Payload(item,provider){
+ const title=String((typeof cleanTitle==="function"?cleanTitle(item?.title||""):item?.title)||"").slice(0,110).trim();
+ if(title.length<2)throw Error("Enter a title to search.");
+ const externalIds={};
+ for(const [key,v] of Object.entries(item.externalIds||{})){
+  if(!/^[a-z][a-z0-9_]{0,32}$/.test(key))continue;
+  const str=String(v||"").trim();
+  if(/^[\w.:-]{1,120}$/.test(str))externalIds[key]=str;
+ }
+ return {provider,title,year:item.year||item.releaseYear||item.publicationYear||"",
+  externalIds};
+}
+async function mf434Find(item,provider){
+ if(!MF434_COVER.has(provider))return [];
+ if(typeof mf443EnsureGateway==='function')await mf443EnsureGateway();
+ const status=mf434ProviderStatus(provider);
+ if(!status?.configured||!status?.testable)return [];
+ const key=String(AUTH_USER?.id||"")+":"+provider+":"+item.title+":"+JSON.stringify(item.externalIds||{});
+ const hit=MF434.cache.get(key);
+ if(hit&&hit.until>Date.now())return hit.rows;
+ const response=await mf434Call("search",mf434Payload(item,provider));
+ const rows=(response.results||[]).filter(r=>typeof r.url==="string"&&r.url.startsWith("https://")&&r.provider===provider)
+  .map(row=>({...row,externalIdCandidates:Array.isArray(row.externalIdCandidates)?row.externalIdCandidates:[]}));
+ if(MF434.cache.size>300)MF434.cache.delete(MF434.cache.keys().next().value);
+ MF434.cache.set(key,{until:Date.now()+1200000,rows});
+ return rows;
+}
+function mf434TestTitle(){return String(document.getElementById("mf434-test-title")?.value||"").trim();}
+async function mf434TestProvider(provider){
+ const status=mf434ProviderStatus(provider);
+ if(!status?.configured||!status?.testable){showToast("This provider is not configured or cannot be tested yet.");return;}
+ const title=mf434TestTitle();
+ if(title.length<2){showToast("Enter a real title to test. Example: Breaking Bad, Naruto, Frankenstein.");return;}
+ if(MF434.busy)return;
+ MF434.busy=true;
+ const area=document.getElementById("mf434-test-results");if(area)area.textContent="Checking "+provider+"…";
+ try{
+  const reply=await mf434Call("search",{provider,title,externalIds:{}});
+  // OMDb reports some failures inside HTTP 200 JSON. A healthy provider test
+  // must confirm at least one exact-title record, not merely a 200 response.
+  if(provider==="omdb"&&!(reply.results?.length>0))
+    throw Error("OMDb responded, but no matching title was found. Try The Matrix or Breaking Bad.");
+  MF434.tests[provider]={checked:Date.now(),found:reply.results?.length||0};
+  S.settings=S.settings||{};
+  S.settings.v434TestedProviders=[...new Set([...mf434SavedTests(),provider])];
+  await saveState();
+  mf434EnableAdapters();
+  if(area)area.textContent=MF434_LABELS[provider]+" responded successfully · "+MF434.tests[provider].found+" matching records. "+(MF434_COVER.has(provider)?"Cover Recovery can use this connection without testing.":"ID-only source; no unlicensed artwork.");
+  showToast(MF434_LABELS[provider]+" API connection tested successfully.");
+ }catch(e){
+  if(area)area.textContent=MF434_LABELS[provider]+": "+String(e.message||e);
+  showToast("Provider test failed: "+String(e.message||e));
+ }
+ finally{MF434.busy=false;mf434RefreshPanel(true);}
+}
+function mf434Panel(){
+ const statuses=MF434.status?.providers||[];
+ const label=p=>mf434Esc(MF434_LABELS[p.id]||p.id);
+ const statusText=p=>!p.testable?"API access or licensing review":!p.configured?"Credential missing":mf434SavedTests().includes(p.id)?"Ready · last diagnostic passed":"Ready · optional test";
+ return '<div class="mf434-connection" data-mf-setting-id="cover-api-gateway">'+
+ '<header><strong>Verified API connections</strong><span>Personal MediaFlow · v434</span></header>'+
+ '<p>Configured providers work without testing first. Test API is optional diagnostics. Credentials remain in Supabase.</p>'+
+ '<div class="mf434-test-toolbar"><label>Test title <input id="mf434-test-title" type="text" placeholder="Breaking Bad / Naruto / Frankenstein" maxlength="110" value="'+mf434Esc(MF434.lastTestTitle||"")+'"></label>'+
+ '<button class="btn btn-ghost" type="button" onclick="App.mf434RefreshGateway()">Check connections</button></div>'+
+ '<div class="mf434-status-grid">'+(statuses.length?statuses.map(p=>'<div class="mf434-provider" data-provider="'+mf434Esc(p.id)+'"><div><strong>'+label(p)+'</strong><small>'+mf434Esc(statusText(p))+'</small></div>'+
+ '<button type="button" class="btn btn-ghost" '+(!p.testable||!p.configured||MF434.busy?'disabled':'')+' onclick="App.mf434TestProvider(\''+mf434Esc(p.id)+'\')">Test API</button></div>').join(''):'<p>Click Check connections while signed in to discover safely configured providers.</p>')+'</div>'+
+ '<div id="mf434-test-results" role="status" aria-live="polite"></div>'+
+ '<p class="mf434-access-note">Comic Vine: non-commercial approval needed. Watchmode: restricted daily credits, ID-only. Hardcover: awaiting GraphQL contract review. AniDB, Marvel, SIMKL and TheTVDB: pending access. Podcast Index: excluded entirely.</p>'+
+ '</div>';
+}
+function mf434RefreshPanel(replaceAll=true){
+ const panel=document.querySelector('[data-mf-setting-id="cover-api-gateway"]');
+ if(!panel)return;
+ const testTitle=panel.querySelector("#mf434-test-title");
+ if(testTitle)MF434.lastTestTitle=testTitle.value;
+ const oldMessage=panel.querySelector("#mf434-test-results")?.textContent||"";
+ // The legacy Settings Center mounts sections once; refresh just its source
+ // rows when a provider becomes verified, without losing the current tab.
+ const oldSources=document.querySelector(".mf430-settings-provider-list");
+ if(oldSources){
+  const temp=document.createElement("div");
+  temp.innerHTML=mf425SettingsMarkup();
+  const next=temp.querySelector(".mf430-settings-provider-list");
+  if(next)oldSources.replaceWith(next);
+ }
+ if(!replaceAll)return;
+ const replacement=document.createElement("div");
+ replacement.innerHTML=mf434Panel();
+ const fresh=replacement.firstElementChild;
+ const status=fresh?.querySelector("#mf434-test-results");
+ if(status)status.textContent=oldMessage;
+ if(fresh)panel.replaceWith(fresh);
+}
+const mf434OldSettings=mf425SettingsMarkup;
+mf425SettingsMarkup=function(){
+ const html=mf434OldSettings.apply(this,arguments);
+ return html.replace(mf433ReadinessMarkup(),mf434Panel());
+};
+function mf434IdsEditorLookupHtml(item){
+ const title=mf434Esc(item?.title||"");
+ const options=[...MF434_COVER,...MF434_MAPPING].map(id=>'<option value="'+id+'">'+mf434Esc(MF434_LABELS[id]||id)+'</option>').join("");
+ return '<div class="mf434-id-lookup"><strong>Discover verified External IDs</strong>'+
+ '<p>Review a provider record and choose Link IDs. Existing values will never be replaced, and nothing is saved until you save this title.</p>'+
+ '<div class="mf434-lookup-tools"><input id="mf434-lookup-title" aria-label="Search title" value="'+title+'" placeholder="Title to identify" maxlength="110">'+
+ '<select id="mf434-lookup-provider" aria-label="ID provider">'+options+'</select>'+
+ '<button type="button" class="btn btn-ghost mf436-find-ids" data-v225-icon="search" data-v225-iconified="1" onclick="App.mf434SearchIds()">'+mf425Icon('search',16)+'<span>Find IDs</span></button></div>'+
+ '<div id="mf434-lookup-results" aria-live="polite"></div></div>';
+}
+const mf434EditorBase=v377IdsEditorHtml;
+v377IdsEditorHtml=function(item){
+ const html=mf434EditorBase(item);
+ return html.replace('<div class="mf377-mal-preview"',mf434IdsEditorLookupHtml(item)+'<div class="mf377-mal-preview"');
+};
+async function mf434SearchIds(){
+ if(MF434.busy)return;
+ const title=String(document.getElementById("mf434-lookup-title")?.value||"").trim();
+ const provider=String(document.getElementById("mf434-lookup-provider")?.value||"");
+ const root=document.getElementById("mf434-lookup-results");
+ if(title.length<2){showToast("Enter a title for ID discovery.");return;}
+ const config=mf434ProviderStatus(provider);
+ if(!config?.testable||!config.configured){showToast("This provider needs an available, configured API connection.");return;}
+ MF434.busy=true;if(root)root.textContent="Searching "+provider+"…";
+ try{
+  const reply=await mf434Call("search",{provider,title,externalIds:{}});
+  MF434.lookup=(reply.results||[]).filter(x=>x?.recordId&&x?.externalIdCandidates?.length).slice(0,12);
+  MF434.lookupProvider=provider;
+  if(root)root.innerHTML=MF434.lookup.length?MF434.lookup.map((r,i)=>
+    '<div class="mf434-id-result"><strong>'+mf434Esc(r.title)+'</strong><small>'+r.externalIdCandidates.map(x=>mf434Esc(x.key.toUpperCase())+': '+mf434Esc(x.value)).join(" · ")+'</small>'+
+    '<button type="button" class="btn btn-ghost" onclick="App.mf434LinkIds('+i+')">Link verified IDs</button></div>').join(''):'No confirmed title match returned. Try a different title or source.';
+ }catch(e){if(root)root.textContent=String(e.message||e);}
+ finally{MF434.busy=false;}
+}
+function mf434LinkIds(index){
+ const choice=MF434.lookup[Number(index)],editor=document.querySelector("[data-v377-ids-editor]");
+ if(!choice||!editor)return;
+ const list=editor.querySelector(".mf377-ids-grid");
+ if(!list)return;
+ let count=0,conflicts=0;
+ for(const id of choice.externalIdCandidates||[]){
+  if(!mf433ValidId(id.key,String(id.value)))continue;
+  let input=[...list.querySelectorAll("[data-v377-id]")].find(x=>x.dataset.v377Id===id.key);
+  if(!input){
+   const row=document.createElement("label");row.className="field";row.dataset.v377IdRow=id.key;
+   row.innerHTML='<span class="field-label">'+mf434Esc(id.key.toUpperCase())+'</span><span class="mf377-id-control"><input type="text" data-v377-id="'+mf434Esc(id.key)+'" autocomplete="off"></span>';
+   list.appendChild(row);input=row.querySelector("input");
+  }
+  if(!input)continue;
+  if(input.value&&String(input.value).trim()!==String(id.value)){conflicts++;continue;}
+  if(input.value===String(id.value))continue;
+  input.value=String(id.value);input.dispatchEvent(new Event("input",{bubbles:true}));count++;
+ }
+ showToast(count+" verified ID"+(count===1?"":"s")+" added to draft"+(conflicts?" · "+conflicts+" existing IDs protected":"")+". Save title to persist.");
+}
+Object.assign(App,{mf434RefreshGateway,mf434TestProvider,mf434SearchIds,mf434LinkIds});
+window.MediaFlowV434=Object.freeze({version:434,status:()=>MF434.status,
+ configured:()=>Boolean(MF434.status?.ready),verified:()=>mf434SavedTests().slice()});
+/* MediaFlow v436 — selected Library titles are first-class recovery scope.
+ * Reuses v424/v425's durable queue, safe-save, and provider policies.
+ * The floating quick-action menu opens the existing recovery dialog only;
+ * it never launches a job by itself. No new state/cloud schema. */
+const MF436_VERSION=436;
+function mf436SelectedLibraryIds(){
+ const available=new Set((S.library||[]).filter(t=>t?.id!=null).map(t=>String(t.id)));
+ const selected=new Set();
+ const push=id=>{const value=String(id??'').trim();if(available.has(value))selected.add(value);};
+ try{if(typeof mfSelectedIds==='function')for(const id of mfSelectedIds())push(id);}catch(e){console.warn('Selected titles unavailable',e);}
+ for(const [id,on] of Object.entries(S.librarySelection||{}))if(on)push(id);
+ // Collections' Add Titles modal has its own draft selection (including titles
+ // on pages that are not presently visible). Only include it while open.
+ if(document.getElementById('mf274-add-titles')&&typeof v274AddState==='function'){
+  const picks=v274AddState()?.picks;
+  if(picks instanceof Set)for(const id of picks)push(id);
+ }
+ // Other title-pickers can identify their checked Library row explicitly.
+ // Do not confuse filter/category or feature-option checkboxes with titles.
+ document.querySelectorAll('input[type="checkbox"]:checked').forEach(input=>{
+  const explicit=input.dataset.libraryId||input.dataset.titleId||input.dataset.libraryTitleId;
+  if(explicit){push(explicit);return;}
+  const row=input.closest('[data-library-id],[data-library-title-id],[data-title-id]');
+  if(!row)return;
+  const isTitleCheck=input.closest('.mf274-select-title,.mf274-add-row,.mf352-picker-check,[data-title-selector]')||
+    input.matches('[data-title-selector],[data-library-select]');
+  if(isTitleCheck)push(row.dataset.libraryId||row.dataset.libraryTitleId||row.dataset.titleId);
+ });
+ return [...selected];
+}
+const mf436OriginalInitialScope=mf425InitialScope;
+mf425InitialScope=function(entry,id){
+ const initial=mf436OriginalInitialScope(entry,id);
+ if(MF425.oneId)return initial; // A per-title action stays exclusive to that title.
+ MF425.selected=mf436SelectedLibraryIds();
+ MF425.locked=false; // Allow All Library and By Category after preselecting titles.
+ return MF425.selected.length?'selected':'all';
+};
+function mf436SelectedDetails(){
+ if(!MF425.selected.length)return '';
+ const selected=new Set(MF425.selected.map(String));
+ const names=[],max=36;
+ for(const item of S.library||[]){
+  if(!selected.has(String(item?.id||'')))continue;
+  if(names.length<max)names.push({id:String(item.id),title:String(item.title||'Untitled')});
+ }
+ const eligible=mf425Counts({mode:'selected',ids:MF425.selected}).eligible;
+ return '<div class="mf436-selection-summary" id="mf436-selection-summary" role="status">'+
+  '<div class="mf436-selection-summary-top">'+mf425Icon('check',18)+
+  '<strong>'+MF425.selected.length.toLocaleString()+' selected titles</strong>'+
+  '<span>'+eligible.toLocaleString()+' missing covers</span></div>'+
+  '<p>Checked Library titles were imported automatically. Review or remove titles before starting. Switch Scope to All Library or categories whenever you want.</p>'+
+  '<details><summary>Review selected titles</summary><div class="mf436-selection-review">'+
+  names.map((t,i)=>'<div class="mf436-selected-row"><span title="'+mf425Esc(t.title)+'">'+mf425Esc(t.title)+'</span><button type="button" class="btn btn-ghost" onclick="App.mf436RemoveSelected('+i+')" aria-label="Remove '+mf425Esc(t.title)+' from recovery">Remove</button></div>').join('')+
+  (MF425.selected.length>names.length?'<small>Showing first '+names.length+' of '+MF425.selected.length.toLocaleString()+' titles.</small>':'')+
+  '</div></details></div>';
+}
+const mf436OriginalScopeFields=mf425ScopeFields;
+mf425ScopeFields=function(){
+ const html=mf436OriginalScopeFields();
+ if(!MF425.selected.length||MF425.oneId)return html;
+ // Store the visible review order separately from the durable Library IDs.
+ const set=new Set(MF425.selected.map(String));
+ MF436.reviewIds=[];
+ for(const item of S.library||[]){if(set.has(String(item?.id||''))&&MF436.reviewIds.length<36)MF436.reviewIds.push(String(item.id));}
+ return html.replace('<div class="mf425-categories" id="mf425-categories">',mf436SelectedDetails()+'<div class="mf425-categories" id="mf425-categories">');
+};
+const MF436={reviewIds:[]};
+const mf436OriginalScopeChange=mf425ScopeChange;
+mf425ScopeChange=function(){
+ mf436OriginalScopeChange.apply(this,arguments);
+ const root=document.getElementById('mf425-scope');
+ const summary=root?.querySelector('#mf436-selection-summary');
+ if(summary)summary.hidden=root.querySelector('[name="mf425-scope-mode"]')?.value!=='selected';
+};
+function mf436RemoveSelected(index){
+ const id=MF436.reviewIds[Number(index)];
+ if(!id)return;
+ MF425.selected=MF425.selected.filter(x=>String(x)!==id);
+ if(!MF425.selected.length){
+  document.querySelector('#mf425-scope [name="mf425-scope-mode"]')?.querySelector('option[value="all"]')?.setAttribute('selected','');
+  const scope=document.querySelector('#mf425-scope [name="mf425-scope-mode"]');
+  if(scope)scope.value='all';
+ }
+ const summary=document.getElementById('mf436-selection-summary');
+ if(summary){
+  const temp=document.createElement('div');
+  temp.innerHTML=MF425.selected.length?mf436SelectedDetails():'<div id="mf436-selection-summary" class="mf436-selection-summary"><strong>0 selected titles</strong><p>Choose another Scope to recover covers.</p></div>';
+  const update=temp.firstElementChild;
+  if(update)summary.replaceWith(update);
+ }
+ const set=new Set(MF425.selected.map(String));MF436.reviewIds=[];
+ for(const item of S.library||[]){if(set.has(String(item?.id||''))&&MF436.reviewIds.length<36)MF436.reviewIds.push(String(item.id));}
+ mf425ScopeChange();
+}
+const mf436OriginalQuickMarkup=mf397Markup;
+mf397Markup=function(){
+ const html=mf436OriginalQuickMarkup.apply(this,arguments);
+ const anchor='      </div>\n      <button type="button" id="mf397-fab"';
+ if(!html.includes(anchor))return html;
+ const btn='        <button type="button" class="mf397-fan-action a4 mf436-cover-action" data-action="coverRecovery">'+
+  '<span class="mf397-action-symbol">'+mf425Icon('images',20)+'</span>'+
+  '<span><strong>New Cover Recovery</strong><small>Configure & start a recovery job</small></span><em>04</em></button>\n';
+ return html.replace(anchor,btn+anchor);
+};
+const mf436PreviousQuickAction=mf397Action;
+mf397Action=function(action){
+ if(action==='coverRecovery'){
+  mf397SetMenu(false);
+  if(!AUTH_USER||!MF424.ready){showToast('Sign in and wait for Cover Recovery to initialize.');return;}
+  App.mf425OpenConfig('floating');
+  return;
+ }
+ return mf436PreviousQuickAction.apply(this,arguments);
+};
+// Display the scoped title count in the active job, not an outdated checkbox count.
+// The immutable IDs of an already running job are never reselected.
+window.MediaFlowV436=Object.freeze({version:436,selectedIds:mf436SelectedLibraryIds,removeSelected:mf436RemoveSelected});
+Object.assign(App,{mf436RemoveSelected});
+/* MediaFlow v437 — additive, versioned universal title metadata.
+ * Existing personal ratings, progress, dates, categories and legacy rich fields
+ * are NEVER rewritten by this module. No category implies a mandatory media type.
+ * Provider recovery remains disabled until the later recovery phase. */
+const MF437_SCHEMA_VERSION=1;
+const MF437_MEDIA_TYPES=[
+ ['unspecified','Not specified / all providers'],['anime','Anime'],['manga','Manga / manhwa / manhua'],
+ ['movie','Movie'],['tv','TV / series'],['book','Book / audiobook'],
+ ['comic','Comic / graphic novel'],['game','Video game'],['visual_novel','Visual novel'],
+ ['music','Music / album'],['interactive_fiction','Interactive fiction'],['other','Other media']
+];
+const MF437_FIELDS=[
+ ['shared','Shared metadata',[
+  ['originalTitle','Original title'],['alternateTitles','Alternate titles','list'],
+  ['originalLanguage','Original language'],['countries','Countries of origin','list'],
+  ['creators','Creators','list'],['keywords','Keywords','list'],['releaseStatus','Release status'],
+  ['franchise','Franchise / universe'],['officialWebsite','Official website','url'],
+  ['awards','Awards / nominations','list']
+ ]],
+ ['anime','Anime',[
+  ['animeSeason','Broadcast season'],['animeLicensors','Licensors','list'],
+  ['animeVoiceCast','Voice cast','list'],['animeBroadcast','Broadcast schedule']
+ ]],
+ ['manga','Manga / comics from Asia',[
+  ['mangaAuthors','Authors','list'],['mangaArtists','Artists / illustrators','list'],
+  ['serialization','Serialization / magazine'],['mangaPublisher','Publisher'],
+  ['chapterCount','Chapters','number'],['volumeCount','Volumes','number']
+ ]],
+ ['movie','Movies',[
+  ['directors','Directors','list'],['screenwriters','Screenwriters','list'],
+  ['cast','Cast','list'],['distributors','Distributors','list'],
+  ['productionCountries','Production countries','list'],['boxOffice','Box office'],
+  ['budget','Production budget']
+ ]],
+ ['tv','TV / series',[
+  ['tvCreators','Series creators','list'],['tvCast','Cast','list'],['networks','Networks','list'],
+  ['showrunners','Showrunners','list'],['seasonCount','Seasons','number'],
+  ['episodeCount','Episodes','number'],['broadcastStatus','Broadcast status']
+ ]],
+ ['book','Books / audiobooks',[
+  ['authors','Authors','list'],['editors','Editors','list'],['translators','Translators','list'],
+  ['narrators','Narrators','list'],['bookPublishers','Publishers','list'],
+  ['pageCount','Pages','number'],['bookSeries','Book series'],['bookEdition','Edition']
+ ]],
+ ['comic','Comics / graphic novels',[
+  ['comicWriters','Writers','list'],['comicArtists','Artists','list'],
+  ['comicInkers','Inkers','list'],['comicColorists','Colorists','list'],
+  ['comicLetterers','Letterers','list'],['comicPublisher','Publisher'],
+  ['issueCount','Issues','number'],['comicImprint','Imprint']
+ ]],
+ ['game','Video games',[
+  ['gameDevelopers','Developers','list'],['gamePublishers','Publishers','list'],
+  ['platforms','Platforms','list'],['gameEngine','Game engine'],
+  ['gameModes','Game modes','list'],['gameSeries','Series'],
+  ['esrbRating','ESRB rating'],['pegiRating','PEGI rating'],
+  ['mainStoryHours','Main story hours','decimal']
+ ]],
+ ['visual_novel','Visual novels',[
+  ['vnDevelopers','Developers','list'],['vnPublishers','Publishers','list'],
+  ['vnEngine','Engine'],['vnRoutes','Routes','list'],['vnEndings','Endings','number'],
+  ['vnCharacters','Characters','list'],['vnVoices','Voice actors','list']
+ ]],
+ ['music','Music / albums',[
+  ['albumArtists','Album artists','list'],['featuredArtists','Featured artists','list'],
+  ['composers','Composers','list'],['recordLabels','Labels','list'],
+  ['releaseType','Release type'],['trackCount','Tracks','number'],
+  ['discCount','Discs','number'],['catalogNumber','Catalog number'],
+  ['tracklist','Tracklist (one track per line)','multiline']
+ ]],
+ ['interactive_fiction','Interactive fiction',[
+  ['ifAuthors','Authors','list'],['ifEngine','Engine / system'],['ifFormat','Format'],
+  ['ifParser','Parser / choice-based'],['ifPlatforms','Platforms','list'],
+  ['ifCharacters','Characters','list'],['ifPlaytimeMinutes','Playtime (minutes)','number']
+ ]]
+];
+/* Numeric scores are recorded in their ORIGINAL scales, never silently coerced
+ * into a personal rating or the old generic communityScore field. */
+const MF437_RATING_SOURCES=[
+ ['imdb','IMDb',10],['trakt','Trakt',10],
+ ['rottentomatoes_critics','Rotten Tomatoes · Critics',100],
+ ['rottentomatoes_audience','Rotten Tomatoes · Audience',100],
+ ['mal','MyAnimeList',10],['anilist','AniList',100],['kitsu','Kitsu',100],
+ ['tmdb','TMDB',10],['simkl','SIMKL',10],['anidb','AniDB',10],
+ ['tvmaze','TVmaze',10],['metacritic','Metacritic',100],
+ ['letterboxd','Letterboxd',5],['goodreads','Goodreads',5],
+ ['storygraph','The StoryGraph',5],['hardcover','Hardcover',5],
+ ['igdb','IGDB',100],['opencritic','OpenCritic',100],
+ ['steam','Steam · Positive reviews (%)',100],['backloggd','Backloggd',5],
+ ['vndb','VNDB',10],['mangaupdates','MangaUpdates',10],
+ ['rateyourmusic','Rate Your Music',5],['discogs','Discogs',5],
+ ['ifdb','IFDB',5]
+];
+const MF437_ADDITIONAL_IDS=[
+ ['igdb','IGDB'],['steam_app','Steam App'],['gog','GOG'],['rawg','RAWG'],
+ ['mobygames','MobyGames'],['giantbomb','Giant Bomb'],
+ ['opencritic','OpenCritic'],['howlongtobeat','HowLongToBeat'],['vndb','VNDB'],
+ ['itch','itch.io'],['vgmdb','VGMdb'],['musicbrainz_release','MusicBrainz Release'],
+ ['musicbrainz_release_group','MusicBrainz Release Group'],
+ ['musicbrainz_recording','MusicBrainz Recording'],['musicbrainz_artist','MusicBrainz Artist'],
+ ['discogs_release','Discogs Release'],['discogs_master','Discogs Master'],
+ ['spotify_album','Spotify Album'],['apple_music_album','Apple Music Album'],
+ ['ifdb','IFDB Interactive Fiction'],['ifwiki','IFWiki'],['opencritic_game','OpenCritic Game']
+];
+for(const [key,label] of MF437_ADDITIONAL_IDS){
+ if(!V377_ID_PROVIDERS.some(row=>row[0]===key))
+  V377_ID_PROVIDERS.push([key,label,'Optional verified provider ID']);
+}
+const MF437_FIELD_MAP=new Map(MF437_FIELDS.flatMap(([, ,fields])=>fields.map(f=>[f[0],f])));
+const MF437_RATING_MAP=new Map(MF437_RATING_SOURCES.map(x=>[x[0],x]));
+const mf437Object=x=>x&&typeof x==='object'&&!Array.isArray(x)?x:{};
+const mf437Copy=x=>JSON.parse(JSON.stringify(x));
+function mf437Normalized(input){
+ const d=mf437Object(input);
+ return {
+  ...d,schemaVersion:Math.max(MF437_SCHEMA_VERSION,Number(d.schemaVersion)||0),
+  mediaType:MF437_MEDIA_TYPES.some(t=>t[0]===d.mediaType)?d.mediaType:'unspecified',
+  fields:{...mf437Object(d.fields)},
+  externalRatings:{...mf437Object(d.externalRatings)},
+  provenance:{...mf437Object(d.provenance)},
+  locks:{...mf437Object(d.locks)},
+  updatedAt:Math.max(0,Number(d.updatedAt)||0)
+ };
+}
+function mf437Clean(value,type='text'){
+ if(type==='list'){
+  const raw=Array.isArray(value)?value:String(value||'').split(',');
+  return [...new Set(raw.map(v=>String(v??'').trim().slice(0,180)).filter(Boolean))].slice(0,100);
+ }
+ if(type==='number'||type==='decimal'){
+  if(value===null||String(value).trim()==='')return null;
+  const n=Number(value);
+  return Number.isFinite(n)&&n>=0&&n<=1e9
+   ?(type==='number'?Math.floor(n):Math.round(n*100)/100):null;
+ }
+ if(type==='url'){
+  const str=String(value||'').trim();
+  if(!str)return '';
+  try{const url=new URL(str);return ['https:','http:'].includes(url.protocol)?url.href.slice(0,1200):'';}
+  catch(_){return '';}
+ }
+ return String(value??'').trim().slice(0,type==='multiline'?12000:800);
+}
+function mf437FieldCompare(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+function mf437SetField(env,key,value,{source='manual',verified=false,force=false,updatedAt=Date.now()}={}){
+ const def=MF437_FIELD_MAP.get(key);
+ if(!def)return false;
+ const clean=mf437Clean(value,def[2]);
+ const token='field.'+key;
+ if(source!=='manual'){
+  if(!verified||env.locks[token]===true)return false;
+  const present=env.fields[key]!=null&&env.fields[key]!==''&&(!Array.isArray(env.fields[key])||env.fields[key].length>0);
+  if(present&&!force)return false;
+ }
+ if(mf437FieldCompare(clean,env.fields[key]))return false;
+ env.fields[key]=clean;
+ env.provenance[token]={source,verified:!!verified,updatedAt};
+ if(source==='manual')env.locks[token]=true;
+ env.updatedAt=Math.max(env.updatedAt,updatedAt);
+ return true;
+}
+function mf437SetRating(env,key,rating,{source='manual',verified=false,force=false,updatedAt=Date.now()}={}){
+ const def=MF437_RATING_MAP.get(key);
+ if(!def)return false;
+ const token='rating.'+key;
+ if(source!=='manual'&&(!verified||env.locks[token]===true))return false;
+ const incoming=mf437Object(rating);
+ const score=(incoming.score===null||incoming.score===undefined||String(incoming.score).trim()==='')?null:Number(incoming.score);
+ const scale=Number(incoming.scale??def[2]);
+ const votes=(incoming.votes===null||incoming.votes===undefined||String(incoming.votes).trim()==='')?null:Number(incoming.votes);
+ if((score!==null&&!Number.isFinite(score))||!Number.isFinite(scale)||scale<=0||scale>100000||
+   (score!==null&&(score<0||score>scale))||(votes!==null&&(!Number.isSafeInteger(votes)||votes<0)))return false;
+ const url=mf437Clean(incoming.url||'','url');
+ const existing=mf437Object(env.externalRatings[key]);
+ if(source!=='manual'&&existing.score!=null&&!force)return false;
+ const normalized={score,scale,votes,url,updatedAt,source};
+ if(mf437FieldCompare({score:existing.score??null,scale:existing.scale??def[2],votes:existing.votes??null,url:existing.url||''},
+                        {score,scale,votes,url}))return false;
+ env.externalRatings[key]=normalized;
+ env.provenance[token]={source,verified:!!verified,updatedAt};
+ if(source==='manual')env.locks[token]=true;
+ env.updatedAt=Math.max(env.updatedAt,updatedAt);
+ return true;
+}
+/* Adapter-safe, NOT a public API request. Requires actual verified provider
+ * evidence; cannot change personal score, progress, total, dates or IDs. */
+function mf437ApplyVerifiedProvider(item,provider,payload={},options={}){
+ if(!item||!provider||options.verified!==true)return {changed:false,fields:0,ratings:0};
+ const env=mf437Normalized(item.universalMetadata);
+ let fields=0,ratings=0;
+ for(const [key,value] of Object.entries(mf437Object(payload.fields)))
+  if(mf437SetField(env,key,value,{source:provider,verified:true,force:options.overwrite===true}))fields++;
+ for(const [key,value] of Object.entries(mf437Object(payload.ratings)))
+  if(mf437SetRating(env,key,value,{source:provider,verified:true,force:options.overwrite===true}))ratings++;
+ if(fields||ratings){
+  item.universalMetadata=env;
+  item.modifiedAt=Math.max(Number(item.modifiedAt)||0,env.updatedAt);
+ }
+ return {changed:fields+ratings>0,fields,ratings};
+}
+/* Merge per-field to avoid dropping metadata added on another device. Explicit
+ * manual clears (empty/zero) remain tombstones instead of resurrecting stale data. */
+function mf437MergeEnvelope(a,b){
+ if(!a&&!b)return null;
+ if(!a)return mf437Normalized(b);
+ if(!b)return mf437Normalized(a);
+ const left=mf437Normalized(a),right=mf437Normalized(b);
+ const out=mf437Normalized((right.updatedAt||0)>(left.updatedAt||0)?right:left);
+ out.fields={};out.externalRatings={};out.provenance={};out.locks={};
+ const tokens=new Set([
+  ...Object.keys(left.fields).map(k=>'field.'+k),
+  ...Object.keys(right.fields).map(k=>'field.'+k),
+  ...Object.keys(left.externalRatings).map(k=>'rating.'+k),
+  ...Object.keys(right.externalRatings).map(k=>'rating.'+k),
+  ...Object.keys(left.provenance),...Object.keys(right.provenance),
+  ...Object.keys(left.locks),...Object.keys(right.locks)
+ ]);
+ for(const token of tokens){
+  if(token!=='mediaType'&&!token.startsWith('field.')&&!token.startsWith('rating.'))continue;
+  const isRating=token.startsWith('rating.'),key=token.slice(token.indexOf('.')+1);
+  const lvalue=isRating?left.externalRatings[key]:left.fields[key];
+  const rvalue=isRating?right.externalRatings[key]:right.fields[key];
+  const lp=mf437Object(left.provenance[token]),rp=mf437Object(right.provenance[token]);
+  const lt=Number(lp.updatedAt)||0,rt=Number(rp.updatedAt)||0;
+  const rightWins=rt>lt||(rt===lt&&right.updatedAt>left.updatedAt);
+  const chosen=rightWins?right:left,other=rightWins?left:right;
+  const value=isRating?chosen.externalRatings[key]:chosen.fields[key];
+  const fallback=isRating?other.externalRatings[key]:other.fields[key];
+  const resolved=value!==undefined?value:fallback;
+  if(resolved!==undefined){
+   if(isRating)out.externalRatings[key]=mf437Copy(resolved);
+   else out.fields[key]=mf437Copy(resolved);
+  }
+  out.provenance[token]={...mf437Object(other.provenance[token]),...mf437Object(chosen.provenance[token])};
+  if(Object.prototype.hasOwnProperty.call(chosen.locks,token))out.locks[token]=chosen.locks[token]===true;
+  else if(Object.prototype.hasOwnProperty.call(other.locks,token))out.locks[token]=other.locks[token]===true;
+ }
+ // Media type is an optional user hint, not an inferred category restriction.
+ const lmt=Number(left.provenance.mediaType?.updatedAt)||0;
+ const rmt=Number(right.provenance.mediaType?.updatedAt)||0;
+ out.mediaType=rmt>lmt||(rmt===lmt&&right.updatedAt>left.updatedAt)?right.mediaType:left.mediaType;
+ if(out.mediaType==='unspecified'){
+  const alternate=out===right?left.mediaType:right.mediaType;
+  if(!lmt&&!rmt&&alternate!=='unspecified')out.mediaType=alternate;
+ }
+ out.updatedAt=Math.max(left.updatedAt,right.updatedAt);
+ out.schemaVersion=Math.max(left.schemaVersion,right.schemaVersion);
+ return out;
+}
+const mf437CloudMergeBase=v84MergeLibraryItem;
+v84MergeLibraryItem=function(left,right){
+ const merged=mf437CloudMergeBase.apply(this,arguments);
+ if(merged&&(left?.universalMetadata||right?.universalMetadata))
+  merged.universalMetadata=mf437MergeEnvelope(left?.universalMetadata,right?.universalMetadata);
+ return merged;
+};
+function mf437EditorField(item,f){
+ const env=mf437Normalized(item?.universalMetadata),key=f[0],type=f[2]||'text';
+ const value=env.fields[key],list=type==='list';
+ const shown=list?(Array.isArray(value)?value.join(', '):''):String(value??'');
+ const token='field.'+key,src=env.provenance[token]?.source||'';
+ const lock=env.locks[token]===true;
+ const editor=type==='multiline'
+  ?'<textarea data-mf437-field="'+escapeHtml(key)+'" rows="4" placeholder="One entry per line">'+escapeHtml(shown)+'</textarea>'
+  :'<input data-mf437-field="'+escapeHtml(key)+'" type="'+(type==='number'||type==='decimal'?'number':type==='url'?'url':'text')+'"'+
+    (type==='number'?' min="0" step="1"':type==='decimal'?' min="0" step="0.01"':'')+
+    ' value="'+escapeHtml(shown)+'"'+(list?' placeholder="Comma separated"':'')+'>';
+ return '<div class="mf437-field"><label><span>'+escapeHtml(f[1])+'</span>'+editor+'</label>'+
+  '<label class="mf437-lock"><input type="checkbox" data-mf437-lock="'+escapeHtml(token)+'" '+(lock?'checked':'')+'> Protect</label>'+
+  (src?'<small>Source: '+escapeHtml(src)+'</small>':'')+'</div>';
+}
+function mf437EditorRatings(item){
+ const env=mf437Normalized(item?.universalMetadata);
+ return MF437_RATING_SOURCES.map(([key,label,defaultScale])=>{
+  const r=mf437Object(env.externalRatings[key]),token='rating.'+key;
+  const prov=mf437Object(env.provenance[token]);
+  return '<div class="mf437-rating"><strong>'+escapeHtml(label)+'</strong>'+
+   '<label>Score<input type="number" min="0" step="any" data-mf437-rating="'+escapeHtml(key)+'" value="'+escapeHtml(String(r.score??''))+'" placeholder="—"></label>'+
+   '<label>Out of<input type="number" min="0.01" step="any" data-mf437-scale="'+escapeHtml(key)+'" value="'+escapeHtml(String(r.scale??defaultScale))+'"></label>'+
+   '<label>Votes<input type="number" min="0" step="1" data-mf437-votes="'+escapeHtml(key)+'" value="'+escapeHtml(String(r.votes??''))+'"></label>'+
+   '<label class="mf437-lock"><input type="checkbox" data-mf437-lock="'+escapeHtml(token)+'" '+(env.locks[token]===true?'checked':'')+'> Protect</label>'+
+   (prov.source?'<small>'+escapeHtml(prov.source)+'</small>':'')+
+   '</div>';
+ }).join('');
+}
+function mf437EditorHtml(item){
+ const env=mf437Normalized(item?.universalMetadata);
+ return '<section class="mf437-editor" data-mf437-editor>'+
+  '<details><summary><span class="mf437-section-icon" aria-hidden="true">'+mf425Icon('database',18)+'</span><strong>Universal Metadata & External Ratings</strong></summary>'+
+  '<p class="hint">Your personal rating and progress are separate. A media type improves organization but never restricts provider searches. Existing title data is untouched until you save changes.</p>'+
+  '<label class="field"><span class="field-label">Media type (optional)</span><select id="mf437-type" onchange="App.mf437MediaTypeChanged(this.value)">'+
+  MF437_MEDIA_TYPES.map(([id,label])=>'<option value="'+escapeHtml(id)+'" '+(env.mediaType===id?'selected':'')+'>'+escapeHtml(label)+'</option>').join('')+'</select></label>'+
+  MF437_FIELDS.map(([type,label,fields])=>'<div class="mf437-group" data-mf437-group="'+type+'"'+(type!=='shared'&&type!==env.mediaType?' hidden':'')+'><h4>'+escapeHtml(label)+'</h4><div class="mf437-grid">'+fields.map(f=>mf437EditorField(item,f)).join('')+'</div></div>').join('')+
+  '<details class="mf437-ratings"><summary>External ratings <small>Original scales · manual until provider integration</small></summary>'+
+  '<p class="hint">Enter verified scores manually; later providers can populate only unlocked fields. An empty score is unrated, not 0. No external score replaces your rating.</p>'+
+  '<div class="mf437-ratings-grid">'+mf437EditorRatings(item)+'</div></details>'+
+  '</details></section>';
+}
+function mf437MediaTypeChanged(type){
+ document.querySelectorAll('[data-mf437-group]').forEach(group=>{
+  group.hidden=group.dataset.mf437Group!=='shared'&&group.dataset.mf437Group!==type;
+ });
+}
+function mf437MountEditorSection(editor,item){
+ if(!editor)return null;
+ const fragment=document.createElement('div');
+ fragment.innerHTML=mf437EditorHtml(item||{});
+ const section=fragment.firstElementChild;
+ if(!section)return null;
+ // This same mount operation is exercised in browser smoke without logging in.
+ // v240 uses a 12-column CSS grid; position directly before Imported Metadata.
+ const imported=editor.querySelector(':scope > .v178-rich-editor');
+ if(imported)editor.insertBefore(section,imported);
+ else editor.appendChild(section);
+ return section;
+}
+const mf437LibraryEditorBase=libraryModalHtml;
+libraryModalHtml=function(item){
+ const html=mf437LibraryEditorBase.apply(this,arguments);
+ try{
+  const host=document.createElement('div');host.innerHTML=html;
+  const editor=host.querySelector('.v240-library-editor,.v238-library-editor');
+  if(!mf437MountEditorSection(editor,item))return html;
+  return host.innerHTML;
+ }catch(e){console.warn('v437 editor composition failed',e);return html;}
+};
+function mf437Capture(root){
+ if(!root)return null;
+ const type=root.querySelector('#mf437-type')?.value||'unspecified';
+ const fields={},ratings={},locks={};
+ root.querySelectorAll('[data-mf437-field]').forEach(el=>{
+  const key=el.dataset.mf437Field,def=MF437_FIELD_MAP.get(key);
+  if(def)fields[key]=mf437Clean(el.value,def[2]||'text');
+ });
+ for(const [key,,scale] of MF437_RATING_SOURCES){
+  const find=attr=>root.querySelector('['+attr+'="'+key+'"]');
+  const score=find('data-mf437-rating')?.value||'';
+  const max=find('data-mf437-scale')?.value||scale;
+  const votes=find('data-mf437-votes')?.value||'';
+  ratings[key]={score:score.trim()===''?null:Number(score),scale:Number(max),votes:votes.trim()===''?null:Number(votes)};
+ }
+ root.querySelectorAll('[data-mf437-lock]').forEach(el=>{locks[el.dataset.mf437Lock]=el.checked;});
+ return {type,fields,ratings,locks};
+}
+function mf437SaveCapture(item,previous,capture){
+ if(!item||!capture)return false;
+ const had=previous?.universalMetadata;
+ const env=mf437Normalized(had||item.universalMetadata);
+ let changed=false,now=Date.now();
+ if(capture.type!==env.mediaType){
+  env.mediaType=MF437_MEDIA_TYPES.some(t=>t[0]===capture.type)?capture.type:'unspecified';
+  env.provenance.mediaType={source:'manual',updatedAt:now};
+  changed=true;
+ }
+ for(const [key,value] of Object.entries(capture.fields)){
+  const old=env.fields[key],empty=Array.isArray(value)?!value.length:(value===null||value==='');
+  if(old===undefined&&empty)continue; // A new optional field is not an edit.
+  if(!mf437FieldCompare(old,value)){
+   if(mf437SetField(env,key,value,{updatedAt:now}))changed=true;
+  }
+ }
+ for(const [key,rating] of Object.entries(capture.ratings)){
+  const old=env.externalRatings[key];
+  if(old===undefined&&rating.score===null&&rating.votes===null)continue;
+  if(mf437SetRating(env,key,rating,{updatedAt:now}))changed=true;
+ }
+ for(const [token,locked] of Object.entries(capture.locks)){
+  if(env.locks[token]===locked)continue;
+  if(env.locks[token]===undefined&&!locked)continue;
+  env.locks[token]=locked;
+  env.provenance[token]={...mf437Object(env.provenance[token]),updatedAt:now,
+    source:mf437Object(env.provenance[token]).source||'manual'};
+  changed=true;
+ }
+ if(changed){
+  env.updatedAt=Math.max(env.updatedAt,now);
+  item.universalMetadata=env;
+  item.modifiedAt=Math.max(Number(item.modifiedAt)||0,now);
+ }
+ return changed;
+}
+const mf437SaveBase=App.saveLibraryModal;
+App.saveLibraryModal=function(id){
+ const root=document.querySelector('#modal-root [data-mf437-editor]');
+ const capture=mf437Capture(root);
+ const before=id?(S.library||[]).find(i=>String(i?.id||'')===String(id)):null;
+ const old=before?{universalMetadata:before.universalMetadata?mf437Copy(before.universalMetadata):null}:null;
+ // Block malformed score/scale before the existing title modal can close.
+ if(capture){
+  for(const [key,rating] of Object.entries(capture.ratings)){
+   if(rating.score!==null&&(!Number.isFinite(rating.score)||rating.score<0||rating.score>rating.scale||
+       !Number.isFinite(rating.scale)||rating.scale<=0||rating.scale>100000)){
+    showToast('Invalid external rating for '+(MF437_RATING_MAP.get(key)?.[1]||key)+'.');
+    root.querySelector('[data-mf437-rating="'+key+'"]')?.focus();
+    return false;
+   }
+   if(rating.votes!==null&&(!Number.isSafeInteger(rating.votes)||rating.votes<0)){
+    showToast('Invalid vote count for '+(MF437_RATING_MAP.get(key)?.[1]||key)+'.');
+    return false;
+   }
+  }
+ }
+ const result=mf437SaveBase.apply(this,arguments);
+ if(S.modal?.type==='library'||!capture)return result;
+ const item=id?(S.library||[]).find(i=>String(i?.id||'')===String(id)):(S.library||[])[(S.library||[]).length-1];
+ if(item&&mf437SaveCapture(item,old,capture)){
+  const undo=(S.undoStack||[])[(S.undoStack||[]).length-1];
+  if(undo&&/^(Edit title|Add title)$/i.test(String(undo.action||'')))undo.after=mfCoreSnapshot();
+  try{v53InvalidateLibraryCache();}catch(_){}
+  persistLibrary();render();
+ }
+ return result;
+};
+function mf437DetailsHtml(item){
+ const meta=mf437Normalized(item?.universalMetadata);
+ const type=MF437_MEDIA_TYPES.find(x=>x[0]===meta.mediaType)?.[1]||'Not specified';
+ const rows=[];
+ for(const [groupId,groupName,fields] of MF437_FIELDS){
+  const detail=fields.filter(([key])=>{
+   const value=meta.fields[key];return value!==undefined&&value!==null&&value!==''&&(!Array.isArray(value)||value.length);
+  }).map(([key,label])=>{
+   const value=meta.fields[key];const text=Array.isArray(value)?value.join(', '):String(value);
+   const source=meta.provenance['field.'+key]?.source||'';
+   return '<div class="mf437-detail"><small>'+escapeHtml(label)+'</small><b>'+escapeHtml(text)+'</b>'+
+    (source?'<small>Source: '+escapeHtml(source)+'</small>':'')+'</div>';
+  });
+  if(detail.length)rows.push('<h4>'+escapeHtml(groupName)+'</h4><div class="mf437-detail-grid">'+detail.join('')+'</div>');
+ }
+ const ratings=MF437_RATING_SOURCES.map(([key,label])=>{
+  const r=mf437Object(meta.externalRatings[key]);
+  if(r.score===undefined||r.score===null)return '';
+  return '<div class="mf437-rating-display"><small>'+escapeHtml(label)+'</small><strong>'+
+   escapeHtml(String(r.score))+' / '+escapeHtml(String(r.scale))+'</strong>'+
+   (r.votes!=null?'<small>'+Number(r.votes).toLocaleString()+' votes</small>':'')+
+   (r.source?'<small>'+escapeHtml(r.source)+'</small>':'')+'</div>';
+ }).filter(Boolean);
+ if(!rows.length&&!ratings.length&&meta.mediaType==='unspecified')return '';
+ return '<section class="mf437-details"><div class="v181-detail-section-label">Universal metadata · '+escapeHtml(type)+'</div>'+
+  rows.join('')+
+  (ratings.length?'<div class="v181-detail-section-label">External ratings · separate from your rating</div><div class="mf437-detail-grid">'+ratings.join('')+'</div>':'')+
+  '</section>';
+}
+const mf437TitleDetailsBase=v181TitleDetailsHtml;
+v181TitleDetailsHtml=function(item){
+ const html=mf437TitleDetailsBase.apply(this,arguments);
+ const content=mf437DetailsHtml(item);
+ if(!content)return html;
+ try{
+  const root=document.createElement('div');root.innerHTML=html;
+  const actions=root.querySelector('.v181-title-details-body > .v181-detail-actions');
+  if(actions){actions.insertAdjacentHTML('beforebegin',content);return root.innerHTML;}
+ }catch(e){console.warn('v437 details',e);}
+ return html;
+};
+/* Full backup already serializes the entire Library, including this nested
+ * envelope. Only append a compatibility marker; don't renumber old schemas. */
+const mf437BackupBase=v148BuildFullBackup;
+v148BuildFullBackup=function(){
+ const result=mf437BackupBase.apply(this,arguments);
+ if(result){
+  result.mediaFlowVersion=437;result.backupVersion=437;
+  const manifest=result.backupManifest||(result.backupManifest={});
+  manifest.includes={...mf437Object(manifest.includes),
+   universalTitleMetadata:true,externalRatingsOriginalScale:true,manualMetadataProtection:true};
+  manifest.v437={schemaVersion:MF437_SCHEMA_VERSION,libraryStorage:'additive per-title universalMetadata',
+   existingRecordsRequireMigration:false};
+ }
+ return result;
+};
+window.MediaFlowV437=Object.freeze({
+ version:437,schemaVersion:MF437_SCHEMA_VERSION,mediaTypes:MF437_MEDIA_TYPES,
+ fieldGroups:MF437_FIELDS,ratingSources:MF437_RATING_SOURCES,
+ normalize:mf437Normalized,merge:mf437MergeEnvelope,
+ applyVerifiedProvider:mf437ApplyVerifiedProvider,mountEditor:mf437MountEditorSection
+});
+Object.assign(App,{mf437MediaTypeChanged});
+/* MediaFlow v438 — Unified Provider Registry & API Testing.
+ * A registry is NOT an API adapter: descriptions are catalog capabilities, while
+ * availability and testing only reflect real implemented request paths.
+ * No new credentials or title writes. Existing v434 gateway remains authoritative.
+ */
+const MF438_VERSION=438;
+const MF438_EXTRA_CATALOG=[
+ ['igdb','IGDB','game','cover,id,metadata,rating','key'],
+ ['steam','Steam Store','game','cover,id,metadata,rating,releases','public'],
+ ['gog','GOG','game','cover,id,metadata','review'],
+ ['itch','itch.io','game,interactive_fiction,visual_novel','cover,id,metadata','review'],
+ ['rawg','RAWG','game','cover,id,metadata,rating','key'],
+ ['mobygames','MobyGames','game','cover,id,metadata','key'],
+ ['giantbomb','Giant Bomb','game','cover,id,metadata','key'],
+ ['wikimedia','Wikimedia Commons','other','cover,id,metadata','public'],
+ ['vndb','VNDB','visual_novel','cover,id,metadata,rating','public'],
+ ['vndb-api','VNDB Kana API','visual_novel','id,metadata','public'],
+ ['musicbrainz','MusicBrainz','music','id,metadata,releases','public'],
+ ['coverartarchive','Cover Art Archive','music','cover,id','public'],
+ ['itunes','Apple iTunes Search','music','cover,id,metadata,releases','public'],
+ ['discogs','Discogs','music','cover,id,metadata,rating','key'],
+ ['deezer','Deezer','music','cover,id,metadata','review'],
+ ['lastfm','Last.fm','music','cover,id,metadata','key'],
+ ['spotify','Spotify','music','cover,id,metadata','key'],
+ ['vgmdb','VGMdb','music','cover,id,metadata','review'],
+ ['ifdb','Interactive Fiction Database','interactive_fiction','cover,id,metadata,rating','review'],
+ ['ifwiki','IFWiki','interactive_fiction','id,metadata','public'],
+ ['ifarchive','IF Archive','interactive_fiction','id,metadata','public'],
+ ['opencritic','OpenCritic','game','id,rating,metadata','review'],
+ ['boardgamegeek','BoardGameGeek','other','cover,id,metadata','review'],
+ ['googlebooks','Google Books','book','cover,id,metadata','review']
+];
+/* Allowlisted, small public read-only probes. These do not enable an adapter,
+ * nor assert that the API is licensed for automated bulk recovery.
+ * Browser CORS and quotas remain provider-controlled. */
+const MF438_PUBLIC_PROBES={
+ jikan:{url:'https://api.jikan.moe/v4/anime/1',valid:d=>!!d?.data?.mal_id},
+ anilist:{url:'https://graphql.anilist.co',method:'POST',body:JSON.stringify({query:'query{Media(id:1,type:ANIME){id}}'}),valid:d=>Number(d?.data?.Media?.id)===1},
+ kitsu:{url:'https://kitsu.io/api/edge/anime?page%5Blimit%5D=1',valid:d=>Array.isArray(d?.data)},
+ tvmaze:{url:'https://api.tvmaze.com/shows/1',valid:d=>Number(d?.id)===1},
+ openlibrary:{url:'https://openlibrary.org/works/OL45883W.json',valid:d=>typeof d?.key==='string'&&d.key.startsWith('/works/')},
+ episodate:{url:'https://www.episodate.com/api/search?q=breaking%20bad&page=1',valid:d=>Array.isArray(d?.tv_shows)},
+ gutendex:{url:'https://gutendex.com/books?search=frankenstein',valid:d=>Array.isArray(d?.results)},
+ wikidata:{url:'https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q42&format=json&origin=*',valid:d=>!!d?.entities?.Q42},
+ crossref:{url:'https://api.crossref.org/works?query=frankenstein&rows=1',valid:d=>Array.isArray(d?.message?.items)},
+ itunes:{url:'https://itunes.apple.com/search?term=queen&entity=album&limit=1',valid:d=>Array.isArray(d?.results)},
+ musicbrainz:{url:'https://musicbrainz.org/ws/2/release-group/?query=artist%3AQueen&fmt=json&limit=1',valid:d=>Array.isArray(d?.['release-groups'])},
+ mangadex:{url:'https://api.mangadex.org/manga?limit=1',valid:d=>Array.isArray(d?.data)}
+};
+const MF438_UI={query:'',cap:'all',media:'all',access:'all',tests:new Map(),busy:'',lastRequest:new Map(),nextRequest:0,failures:0};
+const mf438Escape=v=>mf424Escape(String(v??''));
+const mf438Caps=s=>[...new Set(String(s||'').toLowerCase().split(',').map(x=>x.trim()).filter(Boolean))];
+const mf438Types=s=>[...new Set(String(s||'').toLowerCase().split(',').map(x=>x.trim()).filter(Boolean))];
+function mf438Catalog(){
+ const entries=new Map();
+ for(const p of MF424_PROVIDER_META){
+  entries.set(p.id,{id:p.id,name:p.name,mediaTypes:(p.types||[]).slice(),capabilities:['cover','id'],
+   access:p.credentials?'key':'public',coverAdapter:!!p.limit,source:'cover'});
+ }
+ for(const p of MF433_PROVIDER_CATALOG){
+  const before=entries.get(p.id)||{};
+  entries.set(p.id,{...before,id:p.id,name:p.name,access:p.access,
+    capabilities:[...new Set([...(before.capabilities||[]),...mf438Caps(p.capabilities)])],
+    mediaTypes:before.mediaTypes||[],source:'registered'});
+ }
+ for(const [id,name,types,caps,access] of MF438_EXTRA_CATALOG){
+  const before=entries.get(id)||{};
+  entries.set(id,{...before,id,name,access:before.access||access,
+   mediaTypes:[...new Set([...(before.mediaTypes||[]),...mf438Types(types)])],
+   capabilities:[...new Set([...(before.capabilities||[]),...mf438Caps(caps)])],
+   source:before.source||'catalog'});
+ }
+ const live=MF434.status?.providers||[];
+ for(const entry of entries.values()){
+  const status=live.find(p=>p.id===entry.id);
+  const cover=mf424Provider(entry.id);
+  entry.coverAdapter=Boolean(cover?.limit&&(
+   ['tenrai','jikan','anilist','kitsu','tvmaze','openlibrary'].includes(entry.id)||
+   MF424_EXTRA_COVER_ADAPTERS.has(entry.id)));
+  entry.gateway=Boolean(status);
+  entry.configured=Boolean(status?.configured);
+  entry.testable=Boolean(status?.testable&&status?.configured);
+  entry.verified=Boolean(entry.testable&&mf434SavedTests().includes(entry.id)); // diagnostic history only
+  entry.publicProbe=Boolean(MF438_PUBLIC_PROBES[entry.id]);
+  entry.probeResult=MF438_UI.tests.get(entry.id)||null;
+  entry.coverEnabled=entry.coverAdapter&&mf424Defaults().enabled.includes(entry.id);
+  // A catalog entry is NOT evidence of a live adapter.
+  entry.metadataActive=(typeof MF439_PUBLIC!=='undefined'&&Boolean(MF439_PUBLIC[entry.id]))||
+    (typeof MF439_GATEWAY!=='undefined'&&MF439_GATEWAY.includes(entry.id)&&Boolean(status?.configured&&status?.testable));
+  entry.releaseActive=false;
+  entry.ratingActive=false;
+  entry.testKind=entry.gateway?(entry.testable?'gateway':'none'):(entry.publicProbe?'public':'none');
+  entry.state=entry.coverEnabled?'cover':entry.metadataActive?'configured':
+   entry.gateway&&entry.configured&&entry.testable?'configured':
+   entry.probeResult?.ok===true?'tested':entry.probeResult?.ok===false?'failed':'pending';
+ }
+ return [...entries.values()].sort((a,b)=>a.name.localeCompare(b.name));
+}
+function mf438Filtered(list){
+ const query=String(MF438_UI.query||'').trim().toLowerCase();
+ return list.filter(p=>{
+  if(MF438_UI.cap!=='all'&&!p.capabilities.includes(MF438_UI.cap))return false;
+  if(MF438_UI.media!=='all'&&p.mediaTypes.length&&!p.mediaTypes.includes(MF438_UI.media))return false;
+  if(MF438_UI.media!=='all'&&!p.mediaTypes.length)return false;
+  if(MF438_UI.access==='testable'&&p.testKind==='none')return false;
+  if(MF438_UI.access==='active'&&!(p.coverEnabled||p.metadataActive||p.gateway&&p.configured&&p.testable))return false;
+  if(MF438_UI.access==='pending'&&(p.coverEnabled||p.metadataActive||p.gateway&&p.configured&&p.testable))return false;
+  if(!query)return true;
+  const hay=[p.id,p.name,p.access,p.source,...p.capabilities,...p.mediaTypes].join(' ').toLowerCase();
+  return hay.includes(query);
+ });
+}
+function mf438StateLabel(p){
+ if(p.coverEnabled)return 'Cover Recovery ready · no test required';
+ if(p.metadataActive)return 'Metadata Recovery ready · no test required';
+ if(p.gateway&&p.configured&&p.testable)return 'Configured gateway · no test required';
+ if(p.probeResult?.ok===false)return 'Optional API diagnostic failed';
+ if(p.verified)return 'Last diagnostic passed';
+ if(p.probeResult?.ok===true)return 'Public API responded';
+ if(p.gateway&&!p.configured)return 'Gateway credential not configured';
+ if(p.gateway&&!p.testable)return 'Gateway integration not approved';
+ if(p.publicProbe)return 'Public · optional diagnostic available';
+ return 'Catalog only · no tested request adapter';
+}
+function mf438EntryHtml(p){
+ const badges=p.capabilities.map(c=>'<span>'+mf438Escape(c==='id'?'External IDs':c==='releases'?'Fresh releases':c==='rating'?'Ratings':c.charAt(0).toUpperCase()+c.slice(1))+'</span>').join('');
+ const options=p.testKind!=='none'?
+  '<button type="button" class="btn btn-ghost" onclick="App.mf438Test(\''+mf438Escape(p.id)+'\')" '+(MF438_UI.busy?'disabled':'')+'>'+mf425Icon('search')+' Test API</button>':
+  '<small class="mf438-unavailable">Testing unavailable until an approved adapter exists</small>';
+ const test=p.probeResult?
+  '<small class="mf438-last-test">'+mf438Escape(p.probeResult.ok?'Passed':'Failed')+
+   ' · '+mf438Escape(new Date(p.probeResult.at).toLocaleTimeString())+
+   (p.probeResult.error?' · '+mf438Escape(p.probeResult.error):'')+'</small>':'';
+ return '<article class="mf438-provider" data-mf438-id="'+mf438Escape(p.id)+'" data-mf438-state="'+mf438Escape(p.state)+'">'+
+  '<div class="mf438-provider-head"><div><h4>'+mf438Escape(p.name)+'</h4><small>'+mf438Escape(p.access==='key'?'Key-based API':p.access==='restricted'?'Restricted API':p.access==='public'?'Public API':p.access==='skipped'?'Not in use':'Requires review')+'</small></div>'+
+  '<span class="mf438-state mf438-state-'+mf438Escape(p.state)+'">'+mf438Escape(mf438StateLabel(p))+'</span></div>'+
+  '<div class="mf438-capabilities">'+badges+'</div>'+
+  '<p class="mf438-availability">Capabilities are provider catalog descriptions. Automatic metadata, ratings and Fresh Episodes retrieval is not yet enabled by this registry.</p>'+
+  '<div class="mf438-provider-actions">'+options+test+'</div></article>';
+}
+function mf438ControlsHtml(){
+ const selected=(value,current,label)=>'<option value="'+value+'" '+(current===value?'selected':'')+'>'+label+'</option>';
+ const list=mf438Catalog();
+ const total=list.length,active=list.filter(p=>p.coverEnabled).length,ready=list.filter(p=>p.testKind!=='none').length;
+ return '<section class="mf438-workspace" data-mf-setting-id="api-provider-registry">'+
+  '<div class="mf438-lead"><span class="mf438-symbol">'+mf425Icon('database',23)+'</span><div><h3>API Providers & Testing</h3><p>One shared directory for artwork, metadata, ratings, external IDs and fresh releases.</p></div></div>'+
+  '<div class="mf438-metrics"><span><strong>'+total+'</strong> Registered</span><span><strong>'+ready+'</strong> Test paths</span><span><strong>'+active+'</strong> Enabled cover sources</span></div>'+
+  '<p class="mf438-context">Configured connections are verified through MediaFlow’s existing authenticated Supabase gateway. Public tests run only when requested, using fixed read-only endpoints. A listed capability is not evidence that MediaFlow can retrieve it yet.</p>'+
+  '<div class="mf438-toolbar">'+
+  '<label>Find a provider<input type="search" id="mf438-search" placeholder="Search provider or media…" value="'+mf438Escape(MF438_UI.query)+'" oninput="App.mf438Filter(\'query\',this.value)" autocomplete="off"></label>'+
+  '<label>Capability<select onchange="App.mf438Filter(\'cap\',this.value)">'+
+  [['all','All capabilities'],['cover','Cover art'],['metadata','Metadata'],['rating','Ratings'],['id','External IDs'],['releases','Fresh releases'],['mapping','ID mapping']].map(([id,name])=>selected(id,MF438_UI.cap,name)).join('')+'</select></label>'+
+  '<label>Media type<select onchange="App.mf438Filter(\'media\',this.value)">'+
+  [['all','All media'],['anime','Anime'],['manga','Manga'],['movie','Movies'],['tv','TV'],['book','Books'],['comic','Comics'],['game','Video games'],['visual_novel','Visual novels'],['music','Music / Albums'],['interactive_fiction','Interactive fiction']].map(([id,name])=>selected(id,MF438_UI.media,name)).join('')+'</select></label>'+
+  '<label>Status<select onchange="App.mf438Filter(\'access\',this.value)">'+
+  [['all','All providers'],['testable','Has testing path'],['active','Enabled / tested'],['pending','Not enabled yet']].map(([id,name])=>selected(id,MF438_UI.access,name)).join('')+'</select></label>'+
+  '</div>'+
+  '<div class="mf438-results-line" aria-live="polite" id="mf438-results-count"></div>'+
+  '<div class="mf438-grid" id="mf438-provider-grid"></div>'+
+  '<div id="mf438-test-message" role="status" aria-live="polite"></div>'+
+  '<p class="mf438-note">No API keys appear here. Existing Cover Recovery provider order and enable choices remain in Cover Recovery. Testing is optional and does not unlock providers. Only real adapters with proper access can recover data. Provider coverage is never restricted by your custom categories.</p>'+
+  '<div class="mf438-gateway" data-mf-setting-id="api-gateway-panel">'+mf434Panel()+'</div>'+
+  '</section>';
+}
+function mf438Paint(){
+ const root=document.querySelector('.mf438-workspace');
+ if(!root)return;
+ const rows=mf438Filtered(mf438Catalog());
+ const grid=root.querySelector('#mf438-provider-grid');
+ if(grid)grid.innerHTML=rows.length?rows.map(mf438EntryHtml).join(''):'<p class="mf438-no-results">No providers match. Try different filters.</p>';
+ const count=root.querySelector('#mf438-results-count');
+ if(count)count.textContent=rows.length+' provider'+(rows.length===1?'':'s')+' shown';
+}
+function mf438Filter(key,value){
+ if(!['query','cap','media','access'].includes(key))return;
+ MF438_UI[key]=String(value||'');
+ mf438Paint();
+}
+async function mf438Test(id){
+ const p=mf438Catalog().find(row=>row.id===id);
+ if(!p||p.testKind==='none')return;
+ if(MF438_UI.busy)return;
+ const now=Date.now(),last=MF438_UI.lastRequest.get(id)||0;
+ if(now<MF438_UI.nextRequest||now-last<30000){
+  const seconds=Math.ceil(Math.max(MF438_UI.nextRequest-now,last+30000-now)/1000);
+  showToast('Please wait '+seconds+'s before testing another connection.');return;
+ }
+ MF438_UI.busy=id;
+ MF438_UI.lastRequest.set(id,now);MF438_UI.nextRequest=now+12000;
+ const result=document.querySelector('#mf438-test-message');
+ if(result)result.textContent='Testing '+p.name+' connection…';
+ mf438Paint();
+ try{
+  if(p.testKind==='gateway'){
+   const input=document.getElementById('mf434-test-title');
+   if(String(input?.value||'').trim().length<2){
+    throw Error('Enter a title in Configured API Connections below before testing '+p.name+'.');
+   }
+   const checkedBefore=Number(MF434.tests[id]?.checked)||0;
+   await mf434TestProvider(id);
+   // A saved verification from an earlier day must NOT count as success of
+   // this new test. Only a fresh v434 response is authoritative.
+   const checkedAfter=Number(MF434.tests[id]?.checked)||0;
+   const ok=checkedAfter>checkedBefore&&checkedAfter>=now&&mf434SavedTests().includes(id);
+   MF438_UI.tests.set(id,{at:Date.now(),ok,error:ok?'':'Connection was not verified; see gateway results.'});
+   if(!ok)throw Error('Gateway test did not verify this source. Review the result below.');
+  }else{
+   const probe=MF438_PUBLIC_PROBES[id];
+   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
+   try{
+    const response=await fetch(probe.url,{method:probe.method||'GET',
+     body:probe.body||undefined,headers:{Accept:'application/json',...(probe.body?{'Content-Type':'application/json'}:{})},
+     signal:controller.signal,cache:'no-store',credentials:'omit'});
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const text=await response.text();
+    if(text.length>750000)throw Error('Unexpected response size');
+    let data;try{data=JSON.parse(text);}catch(_){throw Error('Non-JSON response');}
+    if(!probe.valid(data))throw Error('Response did not match the expected API shape');
+    MF438_UI.tests.set(id,{at:Date.now(),ok:true});
+   }finally{clearTimeout(timeout);}
+  }
+  if(result)result.textContent=p.name+': API responded successfully. This is a connection test, not metadata or cover recovery activation.';
+ }catch(e){
+  const message=String(e?.name==='AbortError'?'Request timed out':e?.message||e).slice(0,170);
+  MF438_UI.tests.set(id,{at:Date.now(),ok:false,error:message});
+  if(result)result.textContent=p.name+': '+message+'. Browser CORS, quotas, or permissions may block this source.';
+ }finally{MF438_UI.busy='';mf438Paint();}
+}
+/* Relocate the ONE existing test interface; do not clone its DOM or API state.
+ * The cover provider priority controls remain in Cover Recovery by design. */
+const mf438CoverSettingsBase=mf425SettingsMarkup;
+mf425SettingsMarkup=function(){
+ const html=mf438CoverSettingsBase.apply(this,arguments);
+ try{
+  const holder=document.createElement('div');holder.innerHTML=html;
+  holder.querySelectorAll('.mf434-connection,.mf433-provider-readiness').forEach(n=>n.remove());
+  return holder.innerHTML;
+ }catch(e){console.warn('Provider settings relocation:',e);return html;}
+};
+const mf438GatewayBase=mf434Panel;
+mf434Panel=function(){
+ return mf438GatewayBase.apply(this,arguments)
+  .replace('Verified API connections','Configured API Connections')
+  .replace('Personal MediaFlow · v434','Authenticated gateway')
+  .replace('New APIs are opt-in. Use a real title to test each provider, then enable approved cover sources. No credential is displayed or stored in the browser.',
+    'Existing Supabase-configured providers. Use a real title to test access; recovered titles and personal data are not changed. Secrets stay in Supabase.');
+};
+function mf438SettingsEnhance(){
+ if(String(S.view||'')!=='settings')return;
+ const center=window.MediaFlowSettingsCenter;
+ if(!center?.mountSection)return;
+ if(document.querySelector('.mf365-section[data-mf365-section="v221-settings-api-providers"]'))return;
+ const reg=window.MediaFlowSettingsRegistry;
+ reg?.registerSetting?.({id:'api-provider-registry',section:'v221-settings-api-providers',
+  selector:'[data-mf-setting-id="api-provider-registry"]',label:'API provider directory, testing and connection diagnostics',
+  keywords:['cover metadata ratings games music visual novels interactive fiction public api supabase']});
+ reg?.registerSetting?.({id:'api-gateway-panel',section:'v221-settings-api-providers',
+  selector:'[data-mf-setting-id="api-gateway-panel"]',label:'Existing configured API connections',
+  keywords:['TMDB OMDb MAL Trakt gateway connection test']});
+ const body=document.createElement('div');body.className='mf438-settings-content';
+ body.innerHTML=mf438ControlsHtml();
+ const section=center.mountSection({id:'v221-settings-api-providers',
+  title:'API PROVIDERS & TESTING',category:'api-providers',subgroup:'Connections & diagnostics',
+  keywords:['public API','providers','connections','diagnostics','metadata','covers','ratings','gateway','games','music'],
+  nodes:[body]});
+ if(section)mf438Paint();
+}
+// Register a real Settings Center category, not a custom side modal. Keep
+// classification independent from user Library categories.
+V365_ICONS.plug='<path d="M9 7V3M15 7V3M7 7h10v5a5 5 0 0 1-10 0V7ZM12 17v4"/><path d="M6 12H4m16 0h-2"/>';
+window.MediaFlowSettingsRegistry?.registerCategory?.({
+ id:'api-providers',name:'API Providers & Testing',icon:'plug',
+ hint:'Connections, provider capabilities and testing',
+ description:'Manage verified API connections and inspect public and planned provider coverage'
+});
+// A gateway status refresh changes actual activation and connection readiness.
+const mf438GatewayRefreshBase=mf434RefreshGateway;
+mf434RefreshGateway=async function(){
+ const value=await mf438GatewayRefreshBase.apply(this,arguments);
+ mf438Paint();
+ return value;
+};
+Object.assign(App,{mf434RefreshGateway,mf438Filter,mf438Test});
+MediaFlowRuntime.registerPageEnhancer('settings',mf438SettingsEnhance);
+const mf438BackupBase=v148BuildFullBackup;
+v148BuildFullBackup=function(){
+ const out=mf438BackupBase.apply(this,arguments);
+ if(out){
+  out.mediaFlowVersion=MF438_VERSION;
+  out.backupVersion=MF438_VERSION;
+  const manifest=out.backupManifest||(out.backupManifest={});
+  manifest.includes={...(manifest.includes||{}),v438UnifiedProviderRegistry:true};
+  manifest.v438={release:MF438_VERSION,providerTestingCredentialsExcluded:true,
+   existingGatewayVerificationRetained:true,metadataRecoveryEnabled:false};
+ }
+ return out;
+};
+window.MediaFlowV438=Object.freeze({version:MF438_VERSION,
+ render:mf438ControlsHtml,
+ list:()=>mf438Catalog().map(p=>({...p,probeResult:p.probeResult?{...p.probeResult}:null})),
+ inspect:()=>({total:mf438Catalog().length,publicTestPaths:Object.keys(MF438_PUBLIC_PROBES).length,
+  gatewayTestPaths:mf438Catalog().filter(p=>p.gateway).length,
+  testedProviders:mf434SavedTests().slice()}),
+ refresh:mf438Paint});
+/* MediaFlow v439 — actual read-only metadata adapters.
+ * Only explicit, fixed public endpoints and the existing verified Supabase
+ * gateway are permitted. Catalog-only providers do not get fake adapters.
+ * The adapter never writes Library data; the recovery engine owns review.
+ */
+const MF439_PUBLIC={
+ jikan:{name:'Jikan / MyAnimeList',minGap:1700},
+ anilist:{name:'AniList',minGap:1500},
+ kitsu:{name:'Kitsu',minGap:1700},
+ tvmaze:{name:'TVmaze',minGap:1100},
+ openlibrary:{name:'Open Library',minGap:1600},
+ gutendex:{name:'Gutendex',minGap:1800},
+ itunes:{name:'Apple iTunes',minGap:1200},
+ steam:{name:'Steam Store',minGap:1400},
+ vndb:{name:'VNDB',minGap:1800},
+ musicbrainz:{name:'MusicBrainz',minGap:1500}
+};
+const MF439_GATEWAY=['tmdb','omdb','malofficial','trakt','simkl','watchmode','animeschedule','metron','episodate','gutendex'];
+const MF439_NET={last:new Map(),cache:new Map(),fail:new Map()};
+const mf439Plain=(v,max=6000)=>String(v??'').replace(/<[^>]*>/g,' ').replace(/&(?:amp|lt|gt|quot|#39);/g,m=>({'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&#39;':"'"}[m]||m)).replace(/\r/g,'').trim().slice(0,max);
+const mf439StringList=(xs,n=35)=>[...new Set((Array.isArray(xs)?xs:[]).map(x=>mf439Plain(x,160)).filter(Boolean))].slice(0,n);
+function mf439TitleVariants(item){
+ return [...new Set([item?.title,item?.originalTitle,item?.titleEnglish,item?.titleRomaji,...(item?.universalMetadata?.fields?.alternateTitles||[])].map(x=>mf439Plain(x,220)).filter(Boolean))];
+}
+function mf439Norm(t){return mf439Plain(t,260).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
+function mf439Year(value){const x=Number(String(value||'').slice(0,4));return Number.isInteger(x)&&x>=1850&&x<=2150?x:0;}
+function mf439Score(score,scale=10,votes=null){
+ const n=Number(score),s=Number(scale),v=votes==null?null:Number(votes);
+ return score!=null&&String(score).trim()!==''&&Number.isFinite(n)&&n>=0&&n<=s?
+ {score:n,scale:s,votes:Number.isSafeInteger(v)&&v>=0?v:null}:null;
+}
+function mf439Entry(provider,id,title,other={}){
+ return {provider,recordId:String(id??'').slice(0,110),title:mf439Plain(title,220),year:0,
+  externalIds:{},fields:{},ratings:{},legacy:{},...other};
+}
+function mf439Url(base,params={}){
+ const out=new URL(base);
+ for(const [key,value] of Object.entries(params))if(value!=null&&value!=='')out.searchParams.set(key,String(value));
+ return out.href;
+}
+async function mf439Fetch(provider,url,body,signal){
+ if(!MF439_PUBLIC[provider])throw Error('Public metadata adapter not registered');
+ // No arbitrary user-provided URL or host: only caller-owned fixed paths.
+ const allowed={
+  jikan:['api.jikan.moe'],anilist:['graphql.anilist.co'],
+  kitsu:['kitsu.io'],tvmaze:['api.tvmaze.com'],
+  openlibrary:['openlibrary.org'],gutendex:['gutendex.com'],
+  itunes:['itunes.apple.com'],steam:['store.steampowered.com'],
+  vndb:['api.vndb.org'],musicbrainz:['musicbrainz.org']
+ };
+ const parsed=new URL(url);
+ if(parsed.protocol!=='https:'||!allowed[provider].includes(parsed.hostname))throw Error('Unapproved metadata endpoint');
+ const existing=MF439_NET.fail.get(provider)||0;
+ if(existing>Date.now())throw Error('Provider cooling down temporarily');
+ const cacheKey=provider+':'+url+':'+JSON.stringify(body||{});
+ const hit=MF439_NET.cache.get(cacheKey);
+ if(hit&&hit.until>Date.now())return hit.data;
+ const gap=MF439_PUBLIC[provider].minGap;
+ const last=MF439_NET.last.get(provider)||0;
+ if(Date.now()-last<gap)await new Promise(done=>setTimeout(done,gap-(Date.now()-last)));
+ if(signal?.aborted)throw Error('Metadata request cancelled');
+ MF439_NET.last.set(provider,Date.now());
+ const controller=new AbortController();
+ const abort=()=>controller.abort();
+ signal?.addEventListener?.('abort',abort,{once:true});
+ const timer=setTimeout(abort,14500);
+ try{
+  const result=await fetch(url,{method:body?'POST':'GET',body:body?JSON.stringify(body):undefined,
+   headers:{Accept:'application/json',...(body?{'Content-Type':'application/json'}:{})},
+   credentials:'omit',cache:'no-store',signal:controller.signal});
+  if(result.status===429||result.status===503){const raw=result.headers.get('Retry-After')||'';
+   const retry=Number(raw);
+   MF439_NET.fail.set(provider,Date.now()+Math.min(300000,Math.max(30000,Number.isFinite(retry)&&retry>0?retry*1000:60000)));
+   throw Error(provider+' is rate-limited; temporarily paused');
+  }
+  if(!result.ok)throw Error(provider+' HTTP '+result.status);
+  const raw=await result.text();if(raw.length>1_800_000)throw Error('Metadata response too large');
+  const data=JSON.parse(raw);
+  if(MF439_NET.cache.size>220)MF439_NET.cache.delete(MF439_NET.cache.keys().next().value);
+  MF439_NET.cache.set(cacheKey,{data,until:Date.now()+15*60000});
+  return data;
+ }finally{clearTimeout(timer);signal?.removeEventListener?.('abort',abort);}
+}
+async function mf439LookupPublic(provider,item,signal){
+ const title=mf439TitleVariants(item)[0],ids=item.externalIds||{},rows=[];
+ if(!title||title.length<2)return [];
+ const pull=(obj)=>{if(obj&&obj.title&&obj.recordId)rows.push(obj);};
+ if(provider==='jikan'){
+  const mal=String(ids.mal||'').match(/^\d{1,12}$/)?.[0];
+  for(const kind of ['anime','manga']){
+   if(signal?.aborted)break;
+   const url=mal?'https://api.jikan.moe/v4/'+kind+'/'+mal:mf439Url('https://api.jikan.moe/v4/'+kind,{q:title,limit:5,sfw:true});
+   let d;try{d=await mf439Fetch(provider,url,null,signal);}catch(e){if(mal)continue;throw e;}
+   const values=Array.isArray(d.data)?d.data:[d.data];
+   for(const v of values.slice(0,5))if(v?.mal_id){
+   const type=String(v.type||'').toLowerCase();
+   const synopsis=mf439Plain(v.synopsis);
+   pull(mf439Entry(provider,v.mal_id,v.title,{year:mf439Year(v.aired?.from||v.published?.from),
+    aliases:mf439StringList([v.title_english,v.title_japanese,...(v.title_synonyms||[])]),
+    externalIds:{mal:String(v.mal_id)},legacy:{synopsis,genres:mf439StringList(v.genres?.map(z=>z.name)),
+     studios:mf439StringList(v.studios?.map(z=>z.name)),year:mf439Year(v.aired?.from||v.published?.from),mediaFormat:v.type||''},
+    fields:{originalTitle:v.title_japanese||'',animeSeason:v.season?String(v.season):'',episodeCount:v.episodes||null,
+      chapterCount:v.chapters||null,volumeCount:v.volumes||null,
+      mangaAuthors:mf439StringList(v.authors?.map(z=>z.name))},
+    ratings:{mal:mf439Score(v.score,10,v.scored_by)}}));
+   }
+  }
+ }
+ if(provider==='anilist'){
+  const gql='query($s:String,$id:Int,$idMal:Int){Page(perPage:7){media(search:$s,id:$id,idMal:$idMal){id idMal title{romaji english native} synonyms description(asHtml:false) genres averageScore meanScore popularity episodes chapters volumes startDate{year month day} season seasonYear studios(isMain:true){nodes{name}} staff(perPage:12){nodes{name{full}}}}}}';
+  const variables={s:title,id:Number(ids.anilist)||undefined,idMal:ids.anilist?undefined:(Number(ids.mal)||undefined)};
+  const d=await mf439Fetch(provider,'https://graphql.anilist.co',{query:gql,variables},signal);
+  for(const v of (d?.data?.Page?.media||[]).slice(0,7)){
+   if(!v?.id)continue;
+   const y=Number(v.startDate?.year)||0;
+   pull(mf439Entry(provider,v.id,v.title?.romaji||v.title?.english||v.title?.native,{
+    year:y,aliases:mf439StringList([v.title?.english,v.title?.native,...(v.synonyms||[])]),
+    externalIds:{anilist:String(v.id),...(v.idMal?{mal:String(v.idMal)}:{})},
+    legacy:{synopsis:mf439Plain(v.description),genres:mf439StringList(v.genres),studios:mf439StringList(v.studios?.nodes?.map(z=>z.name)),year:y},
+    fields:{originalTitle:v.title?.native||'',alternateTitles:mf439StringList(v.synonyms),animeSeason:v.season?String(v.season)+' '+(v.seasonYear||''):'',
+     episodeCount:v.episodes||null,chapterCount:v.chapters||null,volumeCount:v.volumes||null,creators:mf439StringList(v.staff?.nodes?.map(z=>z.name?.full))},
+    ratings:{anilist:mf439Score(v.averageScore,100,null)}}));
+  }
+ }
+ if(provider==='kitsu'){
+  const url=mf439Url('https://kitsu.io/api/edge/anime',{ 'filter[text]':title,'page[limit]':6});
+  const d=await mf439Fetch(provider,url,null,signal);
+  for(const v of (d.data||[]).slice(0,6)){const a=v.attributes||{},y=mf439Year(a.startDate);
+   pull(mf439Entry(provider,v.id,a.canonicalTitle||a.titles?.en||a.titles?.en_jp,{
+    year:y,aliases:mf439StringList(Object.values(a.titles||{})),
+    externalIds:{kitsu:String(v.id)},legacy:{synopsis:mf439Plain(a.synopsis),year:y,mediaFormat:a.subtype||''},
+    fields:{originalTitle:a.titles?.ja_jp||'',episodeCount:a.episodeCount||null},
+    ratings:{kitsu:mf439Score(a.averageRating,100,a.userCount)}}));
+  }
+ }
+ if(provider==='tvmaze'){
+  const stored=String(ids.tvmaze||'').match(/^\d+$/)?.[0];
+  const url=stored?'https://api.tvmaze.com/shows/'+stored:mf439Url('https://api.tvmaze.com/search/shows',{q:title});
+  const d=await mf439Fetch(provider,url,null,signal);
+  for(const wrap of (Array.isArray(d)?d:[d]).slice(0,8)){
+   const v=wrap.show||wrap;if(!v?.id)continue;
+   pull(mf439Entry(provider,v.id,v.name,{year:mf439Year(v.premiered),
+    externalIds:{tvmaze:String(v.id),...(v.externals?.imdb?{imdb:v.externals.imdb}:{})},
+    legacy:{synopsis:mf439Plain(v.summary),genres:mf439StringList(v.genres),year:mf439Year(v.premiered),
+     releaseDate:v.premiered||'',mediaFormat:v.type||'',ageRating:v.rating?.average==null?'':''},
+    fields:{networks:mf439StringList([v.network?.name,v.webChannel?.name]),releaseStatus:v.status||'',originalLanguage:v.language||''},
+    ratings:{tvmaze:mf439Score(v.rating?.average,10,null)}}));
+  }
+ }
+ if(provider==='openlibrary'){
+  const known=String(ids.openlibrary_work||ids.openlibrary||'');
+  const match=known.match(/OL\d+W/i);
+  const url=match?'https://openlibrary.org/works/'+match[0].toUpperCase()+'.json':
+   mf439Url('https://openlibrary.org/search.json',{title,limit:6,fields:'key,title,first_publish_year,author_name,language,subject'});
+  const d=await mf439Fetch(provider,url,null,signal);
+  const list=Array.isArray(d.docs)?d.docs:[d];
+  for(const v of list.slice(0,6)){
+   const work=String(v.key||match?.[0]||'').match(/OL\d+W/i)?.[0];if(!work)continue;
+   const names=mf439StringList(v.author_name);
+   let desc=typeof v.description==='object'?v.description?.value:v.description;
+   // Open Library search normally excludes synopsis. Fetch only the first
+   // two exact-title works, never a whole search page of descriptions.
+   if(!desc&&work&&rows.length<2&&mf439Norm(v.title)===mf439Norm(title)){
+    try{
+     const detail=await mf439Fetch(provider,'https://openlibrary.org/works/'+work+'.json',null,signal);
+     desc=typeof detail?.description==='object'?detail.description.value:detail?.description;
+    }catch(_){}
+   }
+   pull(mf439Entry(provider,work,v.title,{year:Number(v.first_publish_year)||0,
+    externalIds:{openlibrary_work:work},
+    legacy:{synopsis:mf439Plain(desc),year:Number(v.first_publish_year)||0,
+     genres:mf439StringList(v.subject)},
+    fields:{authors:names,originalLanguage:v.language?.[0]||'',keywords:mf439StringList(v.subject)}}));
+  }
+ }
+ if(provider==='gutendex'){
+  const d=await mf439Fetch(provider,mf439Url('https://gutendex.com/books',{search:title}),null,signal);
+  for(const v of (d.results||[]).slice(0,6))if(v?.id){
+   pull(mf439Entry(provider,v.id,v.title,{externalIds:{gutendex:String(v.id)},
+    legacy:{genres:mf439StringList(v.subjects)},fields:{authors:mf439StringList(v.authors?.map(a=>a.name)),
+     originalLanguage:v.languages?.[0]||''}}));
+  }
+ }
+ if(provider==='itunes'){
+  const d=await mf439Fetch(provider,mf439Url('https://itunes.apple.com/search',{term:title,entity:'album',limit:9}),null,signal);
+  for(const v of (d.results||[]).slice(0,9))if(v?.collectionId){
+   pull(mf439Entry(provider,v.collectionId,v.collectionName,{year:mf439Year(v.releaseDate),
+    externalIds:{apple_music_album:String(v.collectionId)},
+    fields:{albumArtists:mf439StringList([v.artistName]),trackCount:v.trackCount||null,
+     recordLabels:mf439StringList([v.copyright]),releaseType:'Album'},
+    legacy:{year:mf439Year(v.releaseDate),releaseDate:String(v.releaseDate||'').slice(0,10),genres:mf439StringList([v.primaryGenreName])}}));
+  }
+ }
+ if(provider==='steam'){
+  // Steam catalog listing is deliberately bounded: do not fetch all app IDs.
+  const d=await mf439Fetch(provider,mf439Url('https://store.steampowered.com/api/storesearch/',{term:title,l:'english',cc:'us'}),null,signal);
+  for(const v of (d.items||[]).slice(0,8))if(v?.id){
+   pull(mf439Entry(provider,v.id,v.name,{externalIds:{steam_app:String(v.id)}}));
+  }
+ }
+ if(provider==='vndb'){
+  const valid=String(ids.vndb||'').match(/^v\d+$/i)?.[0];
+  const query={filters:valid?['id','=',valid]:['search','=',title],
+   fields:'title,alttitle,description,released,rating,votecount,platforms,length_minutes',results:7};
+  const d=await mf439Fetch(provider,'https://api.vndb.org/kana/vn',query,signal);
+  for(const v of (d.results||[]).slice(0,7))if(/^v\d+$/.test(v.id||'')){
+   pull(mf439Entry(provider,v.id,v.title,{year:mf439Year(v.released),aliases:mf439StringList([v.alttitle]),
+    externalIds:{vndb:v.id},legacy:{synopsis:mf439Plain(v.description),year:mf439Year(v.released),releaseDate:v.released||''},
+    fields:{originalTitle:v.alttitle||'',ifPlatforms:mf439StringList(v.platforms),platforms:mf439StringList(v.platforms),
+     mainStoryHours:Number.isFinite(Number(v.length_minutes))?Math.round(Number(v.length_minutes)/60*100)/100:null},
+    ratings:{vndb:mf439Score(v.rating,100,v.votecount)}}));
+  }
+ }
+ if(provider==='musicbrainz'){
+  const d=await mf439Fetch(provider,mf439Url('https://musicbrainz.org/ws/2/release-group/',{query:'releasegroup:"'+title.replace(/"/g,'')+'"',fmt:'json',limit:7}),null,signal);
+  for(const v of (d['release-groups']||[]).slice(0,7))if(v?.id){
+   pull(mf439Entry(provider,v.id,v.title,{year:mf439Year(v['first-release-date']),
+    externalIds:{musicbrainz_release_group:String(v.id)},
+    fields:{albumArtists:mf439StringList(v['artist-credit']?.map(a=>a.artist?.name||a.name)),releaseType:v['primary-type']||''},
+    legacy:{releaseDate:v['first-release-date']||'',year:mf439Year(v['first-release-date'])}}));
+  }
+ }
+ return rows.filter(x=>x.title&&x.recordId).slice(0,10);
+}
+/* Existing live v437 gateway already returns metadata in a restricted
+ * {verified,ids,fields,ratings:{value,scale}} shape. Normalize it to the v439
+ * metadata contract WITHOUT replacing or weakening the deployed gateway. */
+function mf439TranslateGateway(provider,record,item){
+ if(record?.provider!==provider||record?.verified!==true||!record?.title)return null;
+ const ids=record.ids&&typeof record.ids==='object'&&!Array.isArray(record.ids)?record.ids:{};
+ const keys={tmdb:['tmdb','tmdb_tv'],omdb:['imdb'],malofficial:['mal'],trakt:['trakt'],
+  simkl:['simkl'],watchmode:['watchmode'],animeschedule:['animeschedule'],
+  metron:['metron_series'],episodate:['episodate'],gutendex:['gutendex']};
+ const primary=(keys[provider]||[]).map(k=>ids[k]).find(Boolean);
+ if(primary==null)return null;
+ const raw=record.fields&&typeof record.fields==='object'?record.fields:{};
+ const legacy={},fields={},ratings={};
+ const legacyKeys=['synopsis','releaseDate','year','genres','themes','studios','producers',
+  'durationMinutes','mediaFormat','ageRating'];
+ for(const key of legacyKeys)if(raw[key]!==undefined)legacy[key]=raw[key];
+ const universalKeys=['originalTitle','episodeCount','chapterCount','volumeCount','authors',
+  'platforms','directors','cast','countries','budget'];
+ for(const key of universalKeys)if(raw[key]!==undefined)fields[key]=raw[key];
+ if(raw.language)fields.originalLanguage=raw.language;
+ if(raw.network)fields.networks=Array.isArray(raw.network)?raw.network:[raw.network];
+ if(raw.officialSite)fields.officialWebsite=raw.officialSite;
+ if(raw.status)fields.releaseStatus=raw.status;
+ if(raw.revenue)fields.boxOffice=String(raw.revenue);
+ if(raw.publishers) {
+  const type=item?.universalMetadata?.mediaType||'unspecified';
+  if(type==='book')fields.bookPublishers=raw.publishers;
+  if(type==='game')fields.gamePublishers=raw.publishers;
+  if(type==='music')fields.recordLabels=raw.publishers;
+ }
+ if(raw.artists) {
+  const type=item?.universalMetadata?.mediaType||'unspecified';
+  if(type==='music')fields.albumArtists=raw.artists;
+  if(type==='manga')fields.mangaArtists=raw.artists;
+ }
+ for(const [key,score] of Object.entries(record.ratings||{})){
+  const source=key==='rottenTomatoes'?'rottentomatoes_critics':key;
+  if(score?.value!=null&&Number.isFinite(Number(score.scale)))
+   ratings[source]={score:Number(score.value),scale:Number(score.scale),votes:score.votes??null};
+ }
+ const aliases=Array.isArray(raw.alternateTitles)?raw.alternateTitles:[];
+ return mf439Entry(provider,primary,record.title,{
+  year:mf439Year(raw.year||raw.releaseDate),aliases:mf439StringList(aliases),
+  externalIds:ids,fields,legacy,ratings});
+}
+async function mf439LookupGateway(provider,item){
+ if(!MF439_GATEWAY.includes(provider))return [];
+ if(typeof mf443EnsureGateway==='function')await mf443EnsureGateway();
+ const status=mf434ProviderStatus(provider);
+ if(!status?.configured||!status?.testable)return [];
+ const title=mf439TitleVariants(item)[0];
+ const reply=await mf434Call('metadata',{provider,title,externalIds:item.externalIds||{},year:item.year||''});
+ return (Array.isArray(reply?.results)?reply.results:[])
+  .slice(0,8).map(row=>mf439TranslateGateway(provider,row,item)).filter(Boolean);
+}
+window.MediaFlowMetadataAdapters=Object.freeze({
+ publicNames:Object.keys(MF439_PUBLIC),gatewayNames:MF439_GATEWAY.slice(),
+ fetchPublic:mf439LookupPublic,fetchGateway:mf439LookupGateway
+});
+/* MediaFlow v439 — evidence-based, per-field metadata recovery.
+ * Never infer a provider from custom Library categories. Recovery never changes
+ * personal rating, Library progress/total, tracking status, History, XP or cover.
+ * Single-title preview and bounded, resumable missing-field batches. */
+const MF439_VERSION=439;
+const MF439_DEFAULT={
+ enabled:['jikan','anilist','kitsu','tvmaze','openlibrary','gutendex','itunes','steam','vndb','musicbrainz',...MF439_GATEWAY],
+ batchSize:25,maxBatch:250,minimumConfidence:0.94,manualReview:true
+};
+const MF439={preview:null,job:null,working:false,cancel:false,pane:'',account:'',results:[],lastError:'',startedAt:0};
+const mf439Esc=value=>mf424Escape(String(value??''));
+const mf439Has=v=>v!=null&&v!==''&&!(Array.isArray(v)&&!v.length);
+function mf439Preferences(){
+ const data=S.settings?.v439Metadata||{};
+ return {...MF439_DEFAULT,...data,
+  enabled:Array.isArray(data.enabled)?data.enabled.filter(x=>typeof x==='string'):MF439_DEFAULT.enabled.slice(),
+  batchSize:Math.max(1,Math.min(100,Math.floor(Number(data.batchSize)||25))),
+  maxBatch:Math.max(1,Math.min(250,Math.floor(Number(data.maxBatch)||250)))};
+}
+function mf439Item(id){return (S.library||[]).find(x=>String(x?.id)===String(id))||null;}
+function mf439Account(){return String(AUTH_USER?.id||'local');}
+function mf439StateKey(){return 'mediaflow-v439-job:'+mf439Account();}
+function mf439LeaseKey(){return 'mediaflow-v439-lock:'+mf439Account();}
+function mf439SaveJob(){
+ if(!MF439.job)return;
+ try{localStorage.setItem(mf439StateKey(),JSON.stringify(MF439.job));}
+ catch(e){console.warn('Metadata checkpoint could not be stored',e);}
+}
+function mf439ReadJob(){
+ try{const x=JSON.parse(localStorage.getItem(mf439StateKey())||'null');
+  if(!x||x.schema!==1||x.account!==mf439Account()||!Array.isArray(x.ids)||x.ids.length>250)return null;
+  return x;
+ }catch(_){return null;}
+}
+function mf439AcquireLease(){
+ try{const current=JSON.parse(localStorage.getItem(mf439LeaseKey())||'null');
+  if(current&&current.expires>Date.now()&&current.token!==MF439.lease)return false;
+  const token=MF439.lease||('mf439-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+  MF439.lease=token;
+  localStorage.setItem(mf439LeaseKey(),JSON.stringify({token,expires:Date.now()+45000}));
+  const check=JSON.parse(localStorage.getItem(mf439LeaseKey())||'null');
+  return check?.token===token;
+ }catch(_){return false;}
+}
+function mf439ReleaseLease(){
+ try{const state=JSON.parse(localStorage.getItem(mf439LeaseKey())||'null');
+  if(state?.token===MF439.lease)localStorage.removeItem(mf439LeaseKey());
+ }catch(_){}
+ MF439.lease='';
+}
+function mf439Evidence(item,result){
+ if(!result?.recordId||!result.title)return {confidence:0,reason:'No verified provider record'};
+ const names=mf439TitleVariants(item).map(mf439Norm).filter(Boolean);
+ const recordNames=[result.title,...(result.aliases||[])].map(mf439Norm).filter(Boolean);
+ const exact=names.some(t=>recordNames.includes(t));
+ const ids=item.externalIds||{};
+ let idMatch=false,idConflict=false;
+ for(const [key,v] of Object.entries(result.externalIds||{})){
+  if(!v||!ids[key])continue;
+  if(String(ids[key]).toLowerCase()===String(v).toLowerCase())idMatch=true;
+  else idConflict=true;
+ }
+ if(idConflict)return {confidence:0,reason:'Saved External ID conflicts with provider result'};
+ const userYear=mf439Year(item.year||item.releaseDate),recordYear=mf439Year(result.year);
+ if(userYear&&recordYear&&userYear!==recordYear)
+  return {confidence:idMatch?0.78:0.48,reason:'Conflicting release years · manual review'};
+ if(!exact)return {confidence:idMatch?0.78:0,reason:idMatch?'Matching saved ID, but title differs · manual review':'Title did not match'};
+ if(idMatch)return {confidence:1,reason:'Exact title and confirmed external ID'};
+ if(userYear&&recordYear&&userYear===recordYear)return {confidence:0.97,reason:'Exact title and release year'};
+ return {confidence:0.89,reason:'Exact title only · manual review'};
+}
+const MF439_LEGACY_FIELDS={
+ synopsis:{label:'Synopsis / Description',kind:'text'},
+ genres:{label:'Genres',kind:'list'},studios:{label:'Studios',kind:'list'},
+ producers:{label:'Producers',kind:'list'},themes:{label:'Themes',kind:'list'},
+ year:{label:'Release year',kind:'number'},releaseDate:{label:'Release date',kind:'text'},
+ mediaFormat:{label:'Media format',kind:'text'},durationMinutes:{label:'Duration (minutes)',kind:'number'},
+ seasonLabel:{label:'Season',kind:'text'},ageRating:{label:'Age rating',kind:'text'},
+ demographic:{label:'Demographic',kind:'text'},mediaSource:{label:'Source material',kind:'text'}
+};
+function mf439FieldDefinition(token){
+ if(token.startsWith('legacy.'))return MF439_LEGACY_FIELDS[token.slice(7)]||null;
+ if(token.startsWith('field.')){
+  const row=MF437_FIELD_MAP.get(token.slice(6));return row?{label:row[1],kind:row[2]||'text'}:null;
+ }
+ if(token.startsWith('rating.')){
+  const row=MF437_RATING_MAP.get(token.slice(7));return row?{label:row[1]+' rating',kind:'rating'}:null;
+ }
+ return null;
+}
+function mf439FieldValue(item,token){
+ if(token.startsWith('legacy.'))return item[token.slice(7)];
+ const env=item.universalMetadata||{};
+ if(token.startsWith('field.'))return env.fields?.[token.slice(6)];
+ if(token.startsWith('rating.'))return env.externalRatings?.[token.slice(7)];
+}
+function mf439IsProtected(item,token){
+ if(token.startsWith('legacy.'))return item.richMetadataManual?.[token.slice(7)]===true;
+ return item.universalMetadata?.locks?.[token]===true||
+  item.universalMetadata?.provenance?.[token]?.source==='manual';
+}
+function mf439Value(token,input){
+ const def=mf439FieldDefinition(token);
+ if(!def)return null;
+ if(def.kind==='rating'){
+  const x=input&&typeof input==='object'?input:null;
+  if(!x||x.score==null)return null;
+  const scale=Number(x.scale),score=Number(x.score);
+  if(!Number.isFinite(score)||!Number.isFinite(scale)||scale<=0||scale>100||score<0||score>scale)return null;
+  const votes=x.votes==null?null:Number(x.votes);
+  return {score,scale,votes:Number.isSafeInteger(votes)&&votes>=0?votes:null};
+ }
+ if(def.kind==='number'){
+  const n=Number(input);return Number.isFinite(n)&&n>0&&n<1e9?n:null;
+ }
+ if(def.kind==='list'){
+  const arr=Array.isArray(input)?input:String(input||'').split(',');
+  const rows=mf439StringList(arr,40);
+  return rows.length?rows:null;
+ }
+ const s=mf439Plain(input,token==='legacy.synopsis'?6000:750);
+ return s||null;
+}
+function mf439ValueKey(value){
+ if(value&&typeof value==='object'&&!Array.isArray(value))
+  return JSON.stringify([value.score,value.scale,value.votes]);
+ if(Array.isArray(value))return JSON.stringify(value.map(mf439Norm).sort());
+ return String(value??'').trim().toLocaleLowerCase();
+}
+function mf439Proposals(item,results){
+ const bucket=new Map(),errors=[];
+ for(const row of results){
+  const evidence=mf439Evidence(item,row);
+  if(evidence.confidence<0.7){errors.push({provider:row.provider,reason:evidence.reason});continue;}
+  const source={provider:row.provider,recordId:row.recordId,recordTitle:row.title,
+   evidence:evidence.reason,confidence:evidence.confidence,year:row.year};
+  for(const [scope,values] of [['legacy',row.legacy],['field',row.fields],['rating',row.ratings]]){
+   for(const [key,original] of Object.entries(values||{})){
+    const token=scope+'.'+key,value=mf439Value(token,original);
+    if(!mf439Has(value))continue;
+    if(!bucket.has(token))bucket.set(token,new Map());
+    const choices=bucket.get(token),fingerprint=mf439ValueKey(value);
+    const prev=choices.get(fingerprint);
+    if(prev){prev.sources.push(source);prev.confidence=Math.max(prev.confidence,source.confidence);}
+    else choices.set(fingerprint,{value,sources:[source],confidence:source.confidence});
+   }
+  }
+ }
+ const proposals=[];
+ for(const [token,map] of bucket){
+  const options=[...map.values()].sort((a,b)=>b.confidence-a.confidence||b.sources.length-a.sources.length);
+  const old=mf439FieldValue(item,token),present=mf439Has(old?.score??old);
+  const protectedField=mf439IsProtected(item,token);
+  const same=options.every(opt=>mf439ValueKey(opt.value)===mf439ValueKey(old));
+  const disagree=options.length>1;
+  const best=options[0];
+  // NEVER automatically modify any populated value, protected field,
+  // ambiguous source disagreement, or exact-title-only match.
+  const auto=!present&&!protectedField&&!disagree&&best.confidence>=mf439Preferences().minimumConfidence;
+  proposals.push({token,label:mf439FieldDefinition(token)?.label||token,options,
+   original:old,hasOriginal:present,protected:protectedField,disagree,same,
+   selected:!same&&auto,choice:0,status:protectedField?'protected':same?'unchanged':
+    present?'existing':disagree?'conflict':auto?'ready':'review'});
+ }
+ proposals.sort((a,b)=>a.token==='legacy.synopsis'?-1:b.token==='legacy.synopsis'?1:a.token.localeCompare(b.token));
+ return {titleId:String(item.id),title:item.title,createdAt:Date.now(),proposals,errors,
+  providers:[...new Set(results.map(r=>r.provider))],results:results.length};
+}
+async function mf439Discover(item,providers,onProgress=()=>{},signal){
+ const results=[],failures=[];
+ for(const provider of providers){
+  if(signal?.aborted)break;
+  onProgress(provider,results.length);
+  try{
+   const found=MF439_GATEWAY.includes(provider)?
+     await mf439LookupGateway(provider,item):await mf439LookupPublic(provider,item,signal);
+   for(const row of found||[])results.push(row);
+  }catch(e){failures.push({provider,reason:String(e?.message||e).slice(0,180)});}
+ }
+ return {results,failures,preview:mf439Proposals(item,results)};
+}
+function mf439Apply(item,preview,mode='review'){
+ if(!item||!preview||String(preview.titleId)!==String(item.id))return {changed:0,reason:'Title changed'};
+ if(mf439Account()!==MF439.account&&MF439.account)return {changed:0,reason:'Account changed'};
+ let count=0,legacy=0,fields=0,ratings=0;
+ const env=mf437Normalized(item.universalMetadata);
+ const timestamp=Date.now();
+ for(const prop of preview.proposals||[]){
+  if(!prop.selected||prop.same||prop.protected||mf439IsProtected(item,prop.token))continue;
+  const choice=prop.options?.[prop.choice]||prop.options?.[0],src=choice?.sources?.[0];
+  if(!choice||!src||src.confidence<0.7)continue;
+  if(mode==='automatic'&&(prop.hasOriginal||prop.disagree||src.confidence<mf439Preferences().minimumConfidence))continue;
+  // Even an explicit review must never silently replace a preexisting value.
+  if(prop.hasOriginal)continue;
+  const current=mf439FieldValue(item,prop.token);
+  if(mf439Has(current?.score??current))continue;
+  let applied=false;
+  if(prop.token.startsWith('legacy.')){
+   const key=prop.token.slice(7);
+   if(!MF439_LEGACY_FIELDS[key])continue;
+   item[key]=JSON.parse(JSON.stringify(choice.value));
+   legacy++;
+   count++;applied=true;
+  }else if(prop.token.startsWith('field.')){
+   if(mf437SetField(env,prop.token.slice(6),choice.value,{source:src.provider,verified:true,updatedAt:timestamp})){
+    fields++;count++;applied=true;
+   }
+  }else if(prop.token.startsWith('rating.')){
+   if(mf437SetRating(env,prop.token.slice(7),choice.value,{source:src.provider,verified:true,updatedAt:timestamp})){
+    ratings++;count++;applied=true;
+   }
+  }
+  if(applied) {
+   env.provenance[prop.token]={source:src.provider,verified:true,
+    recordId:src.recordId,evidence:src.evidence,updatedAt:timestamp};
+  }
+ }
+ if(count){
+  item.universalMetadata=env;
+  item.modifiedAt=Math.max(Number(item.modifiedAt)||0,timestamp);
+  item.v439RecoveryHistory=(Array.isArray(item.v439RecoveryHistory)?item.v439RecoveryHistory:[]).slice(-24);
+  item.v439RecoveryHistory.push({at:timestamp,legacy,fields,ratings,
+   providers:[...new Set(preview.proposals.filter(p=>p.selected).flatMap(p=>p.options[p.choice]?.sources?.map(s=>s.provider)||[]))].slice(0,20)});
+ }
+ return {changed:count,legacy,fields,ratings};
+}
+function mf439DescribeValue(token,val){
+ if(val==null||val==='')return '—';
+ if(token.startsWith('rating.'))return String(val.score)+' / '+String(val.scale)+(val.votes!=null?' · '+Number(val.votes).toLocaleString()+' votes':'');
+ if(Array.isArray(val))return val.join(', ');
+ return String(val).slice(0,3200);
+}
+function mf439PreviewHtml(){
+ const state=MF439.preview;
+ if(!state)return '';
+ const panel=state.preview;
+ return '<div class="mf439-recovery-preview"><div class="mf439-summary"><strong>'+mf439Esc(panel.title)+'</strong><small>'+
+  panel.results+' source records · '+panel.proposals.length+' fields · '+panel.providers.length+' responding providers</small></div>'+
+  '<p class="mf439-copy">Only previously empty, unprotected fields can be saved. Conflicting values require your choice; metadata already in your Library is never overwritten. Scores remain separate from your personal rating.</p>'+
+  (state.failures?.length?'<details class="mf439-errors"><summary>'+state.failures.length+' provider issue(s)</summary>'+state.failures.map(x=>'<p>'+mf439Esc(x.provider)+': '+mf439Esc(x.reason)+'</p>').join('')+'</details>':'')+
+  (panel.errors.length?'<details class="mf439-errors"><summary>'+panel.errors.length+' unconfirmed title match(es)</summary>'+panel.errors.map(x=>'<p>'+mf439Esc(x.provider)+' · '+mf439Esc(x.reason)+'</p>').join('')+'</details>':'')+
+  (panel.proposals.length?'<div class="mf439-fields">'+panel.proposals.map((p,i)=>{
+   const opt=p.options[p.choice]||p.options[0],source=opt?.sources||[];
+   const chooser=p.options.length>1?'<select aria-label="Source for '+mf439Esc(p.label)+'" onchange="App.mf439Choose('+i+',this.value)">'+p.options.map((o,j)=>'<option value="'+j+'" '+(j===p.choice?'selected':'')+'>'+mf439Esc(o.sources.map(s=>s.provider).join(' + '))+' · '+mf439Esc(mf439DescribeValue(p.token,o.value)).slice(0,100)+'</option>').join('')+'</select>':'';
+   return '<div class="mf439-proposal" data-mf439-token="'+mf439Esc(p.token)+'">'+
+    '<div class="mf439-proposal-head"><label><input type="checkbox" '+(p.selected?'checked':'')+
+    (p.protected||p.same||p.hasOriginal?' disabled':'')+
+    ' onchange="App.mf439Toggle('+i+',this.checked)"><strong>'+mf439Esc(p.label)+'</strong></label>'+
+    '<span class="mf439-proposal-status mf439-status-'+mf439Esc(p.status)+'">'+mf439Esc(p.status)+'</span></div>'+
+    '<small>Current: '+mf439Esc(mf439DescribeValue(p.token,p.original)).slice(0,270)+'</small>'+
+    '<div class="mf439-candidate">'+mf439Esc(mf439DescribeValue(p.token,opt?.value))+'</div>'+
+    '<div class="mf439-evidence">'+mf439Esc(source.map(s=>s.provider+' · '+s.evidence).join(' / '))+'</div>'+
+    chooser+'</div>';
+  }).join('')+'</div>':'<p class="mf439-empty">No usable confirmed metadata fields were returned.</p>')+
+  '<div class="mf439-preview-actions"><button type="button" class="btn btn-ghost" onclick="App.mf439Close()">Close</button>'+
+   '<button type="button" class="btn btn-primary" onclick="App.mf439Save()" '+(panel.proposals.some(p=>p.selected)?'':'disabled')+'>'+mf425Icon('check')+' Save selected missing fields</button></div></div>';
+}
+function mf439Dialog(title,body){
+ let root=document.getElementById('mf439-recovery-modal');
+ if(!root){root=document.createElement('div');root.id='mf439-recovery-modal';root.className='mf424-modal mf439-modal mf425-themed';
+  document.body.appendChild(root);}
+ root.innerHTML='<div class="mf424-shade" onclick="App.mf439Close()"></div>'+
+  '<section class="mf424-dialog mf439-dialog" role="dialog" aria-modal="true" aria-label="Metadata Recovery">'+
+  '<header class="mf439-head"><div><small>METADATA RECOVERY</small><h2>'+mf425Icon('database',23)+' '+mf439Esc(title)+'</h2></div>'+
+  '<button type="button" class="btn btn-ghost" onclick="App.mf439Close()">'+mf425Icon('x')+' Close</button></header>'+
+  '<div class="mf439-dialog-body" id="mf439-dialog-body">'+body+'</div></section>';
+}
+function mf439Close(){MF439.controller?.abort();document.getElementById('mf439-recovery-modal')?.remove();}
+async function mf439Open(id){
+ const item=mf439Item(id);
+ if(!item){showToast('Select an existing Library title for Metadata Recovery.');return;}
+ if(MF439.working){showToast('A recovery operation is already running.');return;}
+ MF439.account=mf439Account();MF439.preview=null;
+ mf439Dialog('Recover metadata · '+item.title,'<div class="mf439-loading">'+mf425Icon('search')+' Finding verified metadata sources…</div><p id="mf439-probe-status" role="status">Preparing source matches.</p>');
+ const enabled=mf439Preferences().enabled;
+ const controller=new AbortController();MF439.controller=controller;MF439.working=true;
+ try{
+  const data=await mf439Discover(item,enabled,provider=>{
+   const label=document.getElementById('mf439-probe-status');
+   if(label)label.textContent='Checking '+(MF438_EXTRA_CATALOG.find(x=>x[0]===provider)?.[1]||provider)+'…';
+  },controller.signal);
+  if(controller.signal.aborted||MF439.account!==mf439Account())return;
+  MF439.preview={...data,itemId:String(item.id)};
+  const body=document.getElementById('mf439-dialog-body');
+  if(body)body.innerHTML=mf439PreviewHtml();
+ }catch(e){
+  const body=document.getElementById('mf439-dialog-body');
+  if(body)body.textContent='Metadata recovery failed: '+String(e?.message||e);
+ }finally{MF439.working=false;MF439.controller=null;}
+}
+function mf439Toggle(index,on){
+ const p=MF439.preview?.preview?.proposals?.[Number(index)];
+ if(!p||p.protected||p.same||p.hasOriginal)return;
+ p.selected=Boolean(on);
+ document.querySelector('.mf439-preview-actions button.btn-primary')?.toggleAttribute('disabled',!MF439.preview.preview.proposals.some(x=>x.selected));
+}
+function mf439Choose(index,value){
+ const p=MF439.preview?.preview?.proposals?.[Number(index)],i=Number(value);
+ if(!p||!Number.isInteger(i)||i<0||i>=p.options.length)return;
+ p.choice=i;p.selected=false;
+ const body=document.getElementById('mf439-dialog-body');if(body)body.innerHTML=mf439PreviewHtml();
+}
+function mf439Save(){
+ const item=mf439Item(MF439.preview?.itemId);
+ if(!item||!MF439.preview)return;
+ if(mf439Account()!==MF439.account){showToast('Account changed; reopen recovery.');return;}
+ const result=mf439Apply(item,MF439.preview.preview,'review');
+ if(result.changed){
+  try{v53InvalidateLibraryCache();}catch(_){}
+  persistLibrary();render();
+  showToast(result.changed+' metadata field'+(result.changed===1?'':'s')+' recovered safely.');
+ }else showToast('No eligible missing fields selected. Existing metadata was preserved.');
+ mf439Close();
+}
+function mf439Available(){
+ return [...new Set([...Object.keys(MF439_PUBLIC),...MF439_GATEWAY])];
+}
+function mf439SettingsHtml(){
+ const prefs=mf439Preferences();
+ return '<div class="mf439-settings" data-mf-setting-id="metadata-recovery">'+
+  '<div class="mf439-settings-head">'+mf425Icon('database',22)+'<div><strong>Metadata Recovery</strong><p>Fill missing fields from verified providers without overwriting existing metadata.</p></div></div>'+
+  '<p>Each provider contributes only the fields it actually returns. Conflicts and uncertain matches are reviewed rather than guessed. Custom Library categories never restrict available sources.</p>'+
+  '<fieldset><legend>Metadata providers</legend><div class="mf439-provider-list">'+mf439Available().map(id=>{
+   const gateway=MF439_GATEWAY.includes(id),status=gateway?mf434ProviderStatus(id):null;
+   const ready=!gateway||Boolean(status?.configured&&status?.testable);
+   return '<label><input type="checkbox" value="'+mf439Esc(id)+'" data-mf439-provider '+(prefs.enabled.includes(id)?'checked':'')+
+    ' onchange="App.mf439SaveSettings()"><span><strong>'+mf439Esc(id)+'</strong><small>'+
+    (gateway?(ready?'Configured gateway · ready without testing':status&&!status.testable?'Integration unavailable / under review':status&&!status.configured?'Credential missing · setup needed':'Gateway status pending · automatically checked at recovery'):'Public · ready without testing; browser CORS/quotas apply')+
+    '</small></span></label>';
+  }).join('')+'</div></fieldset>'+
+  '<label>Maximum titles per manual batch (up to 250)<input id="mf439-max-batch" type="number" min="1" max="250" step="1" value="'+prefs.maxBatch+'" onchange="App.mf439SaveSettings()"></label>'+
+  '<div class="mf439-settings-actions"><button type="button" class="btn btn-ghost" onclick="App.mf439OpenSelected()">Preview selected Library title</button>'+
+  '<button type="button" class="btn btn-primary" onclick="App.mf439ConfirmBatch()">Start safe missing-field batch</button></div>'+
+  '<p class="mf439-settings-tip">Batch fills only missing fields with high-confidence, nonconflicting evidence. Existing fields, manually protected descriptions and personal ratings are never replaced. Start with a small selection; API rate limits apply.</p>'+
+  '<div id="mf439-batch-status" role="status" aria-live="polite"></div>'+
+  '</div>';
+}
+function mf439SettingsEnhance(){
+ if(String(S.view||'')!=='settings'||!window.MediaFlowSettingsCenter?.mountSection)return;
+ if(document.querySelector('[data-mf365-section="v221-settings-metadata-recovery"]'))return;
+ const body=document.createElement('div');body.innerHTML=mf439SettingsHtml();
+ window.MediaFlowSettingsRegistry?.registerSetting?.({id:'metadata-recovery',section:'v221-settings-metadata-recovery',selector:'[data-mf-setting-id="metadata-recovery"]',
+  label:'Metadata Recovery options and safe batch',keywords:['synopsis description external ratings protection providers']});
+ window.MediaFlowSettingsCenter.mountSection({id:'v221-settings-metadata-recovery',title:'METADATA RECOVERY',category:'library',
+  subgroup:'Library maintenance',keywords:['metadata','synopsis','genres','ratings','recovery'],nodes:[body]});
+ mf439PaintJob();
+}
+function mf439SaveSettings(){
+ const allowed=new Set(mf439Available()),checked=[...document.querySelectorAll('[data-mf439-provider]:checked')]
+  .map(x=>x.value).filter(x=>allowed.has(x));
+ const max=Math.max(1,Math.min(250,Number(document.getElementById('mf439-max-batch')?.value)||250));
+ S.settings=S.settings||{};S.settings.v439Metadata={...mf439Preferences(),enabled:checked,maxBatch:Math.floor(max)};
+ Promise.resolve(saveState()).catch(e=>console.warn('Metadata settings save failed',e));
+}
+function mf439OpenSelected(){
+ const ids=typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds():[];
+ if(ids.length===1){mf439Open(ids[0]);return;}
+ showToast(ids.length?'Select exactly one Library title to preview.':'Select a Library title, then open Metadata Recovery.');
+}
+function mf439BatchCandidates(){
+ const selected=typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds():[];
+ if(!selected.length)return [];
+ const known=new Set(selected.map(String)),max=mf439Preferences().maxBatch;
+ return (S.library||[]).filter(x=>x?.id!=null&&known.has(String(x.id))).slice(0,max).map(x=>String(x.id));
+}
+async function mf439ConfirmBatch(){
+ if(MF439.working){showToast('Metadata Recovery already running.');return;}
+ const ids=mf439BatchCandidates();
+ if(!ids.length){showToast('Check Library titles first. Batches require an explicit selection.');return;}
+ if(!mf439Preferences().enabled.length){showToast('Enable at least one metadata provider.');return;}
+ if(!await mf444Confirm('Start Metadata Recovery?', 'MediaFlow will search enabled metadata providers and fill only eligible missing fields. Rate limits can extend processing time.', 'Start Recovery', false, ids.length, 'metadata'))return;
+ MF439.job={schema:1,account:mf439Account(),ids,cursor:0,changed:0,completed:0,errors:[],startedAt:Date.now(),status:'running'};
+ mf439SaveJob();mf439RunBatch();
+}
+async function mf439RunBatch(){
+ if(MF439.working||!MF439.job||!['running','paused'].includes(MF439.job.status))return;
+ if(!mf439AcquireLease()){showToast('Another MediaFlow tab is already recovering metadata.');return;}
+ MF439.account=mf439Account();MF439.working=true;MF439.cancel=false;
+ MF439.job.status='running';mf439SaveJob();mf439PaintJob();
+ try{
+  while(MF439.job.cursor<MF439.job.ids.length&&!MF439.cancel){
+   if(MF439.account!==mf439Account()){MF439.job.status='paused';break;}
+   if(!mf439AcquireLease()){MF439.job.status='paused';break;}
+   const id=MF439.job.ids[MF439.job.cursor],item=mf439Item(id);
+   if(item){
+    const {preview,failures}=await mf439Discover(item,mf439Preferences().enabled,()=>{},null);
+    const result=mf439Apply(item,preview,'automatic');
+    if(result.changed){MF439.job.changed+=result.changed;persistLibrary();}
+    if(failures.length)MF439.job.errors.push({titleId:id,failures:failures.slice(0,5)});
+    if(MF439.job.errors.length>50)MF439.job.errors=MF439.job.errors.slice(-50);
+   }
+   MF439.job.completed++;MF439.job.cursor++;
+   mf439SaveJob();mf439PaintJob();
+  }
+  if(MF439.job.cursor===MF439.job.ids.length)MF439.job.status='completed';
+  else MF439.job.status='paused';
+ }catch(e){MF439.job.status='paused';MF439.job.errors.push({reason:String(e?.message||e)});}
+ finally{
+  MF439.working=false;mf439ReleaseLease();mf439SaveJob();mf439PaintJob();
+  if(MF439.job?.changed)try{v53InvalidateLibraryCache();render();}catch(_){}
+ }
+}
+function mf439Pause(){MF439.cancel=true;MF439.controller?.abort();if(MF439.job)MF439.job.status='paused';mf439SaveJob();mf439PaintJob();}
+function mf439Resume(){
+ if(MF439.working)return;
+ MF439.job=mf439ReadJob();
+ if(!MF439.job||MF439.job.status==='completed')return;
+ MF439.job.status='running';mf439RunBatch();
+}
+async function mf439Discard(){
+ if(MF439.working){showToast('Pause recovery first.');return;}
+ if(!await mf444Confirm('Clear recovery checkpoint?', 'The unfinished recovery queue will be discarded. Metadata fields already saved to the Library will remain unchanged.', 'Clear Checkpoint', true, 0, 'metadata'))return;
+ MF439.job=null;
+ try{localStorage.removeItem(mf439StateKey());}catch(_){}
+ mf439PaintJob();
+}
+function mf439PaintJob(){
+ const root=document.getElementById('mf439-batch-status');
+ if(!root)return;
+ const job=MF439.job||mf439ReadJob();
+ if(!job){root.innerHTML='';return;}
+ const pct=job.ids.length?Math.floor(job.cursor/job.ids.length*100):100;
+ root.innerHTML='<div class="mf439-job"><strong>Metadata batch · '+mf439Esc(job.status)+'</strong>'+
+  '<p>'+job.cursor+' / '+job.ids.length+' titles · '+job.changed+' missing fields recovered</p>'+
+  '<progress max="100" value="'+pct+'">'+pct+'%</progress>'+
+  (job.errors.length?'<small>'+job.errors.length+' title(s) with provider warnings. Completed metadata remains saved.</small>':'')+
+  '<div class="mf439-job-actions">'+(MF439.working?'<button class="btn btn-ghost" onclick="App.mf439Pause()">Pause after current title</button>':
+   job.status==='completed'?'':'<button class="btn btn-primary" onclick="App.mf439Resume()">Resume</button>')+
+  (MF439.working?'':'<button class="btn btn-ghost" onclick="App.mf439Discard()">Clear checkpoint</button>')+'</div></div>';
+}
+/* Per-title UI shortcuts are additive; no changes to standard title saving. */
+const mf439EditorBase=libraryModalHtml;
+libraryModalHtml=function(item){
+ const html=mf439EditorBase.apply(this,arguments);
+ if(!item?.id)return html;
+ return html.replace('<section class="mf437-editor"', '<div class="mf439-editor-action"><button type="button" class="btn btn-ghost" onclick="App.mf439Open(\''+
+  mf439Esc(String(item.id)).replace(/'/g,'&#39;')+'\')">'+mf425Icon('search')+' Fix Metadata</button></div><section class="mf437-editor"');
+};
+const mf439DetailsBase=v181TitleDetailsHtml;
+v181TitleDetailsHtml=function(item){
+ const html=mf439DetailsBase.apply(this,arguments);
+ if(!item?.id)return html;
+ const marker='class="v181-detail-actions"';
+ const action='<button type="button" class="btn btn-ghost" onclick="App.mf439Open(\''+
+   mf439Esc(String(item.id)).replace(/'/g,'&#39;')+'\')">'+mf425Icon('search')+' Fix Metadata</button>';
+ return html.includes(marker)?html.replace(marker,marker+' data-mf439-details-action="1"') .replace(/(<div class="v181-detail-actions"[^>]*>)/,'$1'+action):html;
+};
+Object.assign(App,{mf439Open,mf439Close,mf439Save,mf439Toggle,mf439Choose,
+ mf439SaveSettings,mf439OpenSelected,mf439ConfirmBatch,mf439Pause,mf439Resume,mf439Discard});
+MediaFlowRuntime.registerPageEnhancer('settings',mf439SettingsEnhance);
+const mf439BackupBase=v148BuildFullBackup;
+v148BuildFullBackup=function(){
+ const backup=mf439BackupBase.apply(this,arguments);
+ if(backup){
+  backup.mediaFlowVersion=439;backup.backupVersion=439;
+  const manifest=backup.backupManifest||(backup.backupManifest={});
+  manifest.includes={...(manifest.includes||{}),metadataRecoveryProvenance:true,metadataRecoveryHistory:true};
+  manifest.v439={schemaVersion:1,metadataRecoveredFieldsProtected:true,
+    explicitBatchCheckpointsStoredLocally:true,synopsisUsesExistingField:true};
+ }
+ return backup;
+};
+window.MediaFlowV439=Object.freeze({
+ version:439,renderSettings:mf439SettingsHtml,renderPreview:mf439PreviewHtml,match:mf439Evidence,plan:mf439Proposals,apply:mf439Apply,
+ getProviders:mf439Available,discover:mf439Discover,
+ preview:()=>MF439.preview,job:()=>MF439.job||mf439ReadJob()
+});
+/* MediaFlow v440 — Universal Cover Recovery expansion.
+ * Reuses v424's queue, image validation, duplicate handling, account locks,
+ * external-ID conflict safety and rate policy. New adapters do not write data.
+ * The user's custom Category is NEVER used to prevent a provider search. */
+const MF440_VERSION=440;
+const MF440_SOURCES=[
+ {id:'steam',name:'Steam Store Artwork',types:['game','visual_novel'],key:'steam_app',limit:8,gap:1900,level:'Public · storefront best effort'},
+ {id:'itunes',name:'Apple iTunes Album Art',types:['music','album'],key:'apple_music_album',limit:14,gap:1600,level:'Public · albums'},
+ {id:'musicbrainz',name:'MusicBrainz / Cover Art Archive',types:['music','album'],key:'musicbrainz_release_group',limit:10,gap:1900,level:'Public · curated front artwork'},
+ {id:'vndb',name:'VNDB Visual Novel Covers',types:['visual_novel'],key:'vndb',limit:10,gap:2600,level:'Public · explicit imagery excluded'},
+ {id:'ifdb',name:'IFDB Interactive Fiction Covers',types:['interactive_fiction'],key:'ifdb',limit:9,gap:2300,level:'Public · IFDB game covers'},
+ {id:'gutendex-public',name:'Gutendex / Gutenberg Covers',types:['book','comic','reading'],key:'gutendex',limit:10,gap:1900,level:'Public · Gutenberg book art'},
+ {id:'googlebooks',name:'Google Books Cover Art',types:['book','comic','reading'],key:'googlebooks',limit:8,gap:2500,level:'Public · unauthenticated quota'}
+];
+const MF440_ACTIVE=new Set(),MF440_REASONS=new Map();
+const mf440Title=item=>String((typeof cleanTitle==='function'?cleanTitle(item?.title||''):item?.title)||'').trim().slice(0,180);
+const mf440Text=(value,max=220)=>String(value??'').trim().slice(0,max);
+const mf440Year=value=>Number(String(value||'').slice(0,4))||0;
+const mf440StringId=(value,expression)=>{const v=mf440Text(value,110);return expression.test(v)?v:'';};
+const mf440UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
+function mf440Id(item,provider){
+ const external=item?.externalIds||{},key=MF440_SOURCES.find(p=>p.id===provider)?.key;
+ const raw=external[key]||'';
+ switch(provider){
+ case 'steam':case 'itunes':case 'gutendex-public':return mf440StringId(raw,/^[1-9]\d{0,15}$/);
+ case 'musicbrainz':return mf440StringId(raw,mf440UUID);
+ case 'vndb':return mf440StringId(raw,/^v[1-9]\d{0,10}$/i);
+ case 'ifdb':return mf440StringId(raw,/^[a-z0-9]{6,32}$/i);
+ case 'googlebooks':return mf440StringId(raw,/^[A-Za-z0-9_-]{6,50}$/);
+ }
+ return '';
+}
+function mf440Record(item,provider,key,id,title,year,cover,link,aliases=[],exactId=false){
+ id=mf440Text(id,100);title=mf440Text(title);
+ if(!id||!title)return null;
+ const record={id,title,titles:(Array.isArray(aliases)?aliases:[]).map(x=>mf440Text(x)).filter(Boolean),year:mf440Year(year)};
+ const direct=Boolean(exactId&&mf440Id(item,provider)===id);
+ const match=mf424Match(item,record,direct);
+ if(match.confidence<0.35)return null;
+ // The standard v424 helper also passes the candidate through the v433
+ // external-ID provenance mapper; only the provider's actual record ID may
+ // be linked to the selected cover, never an invented title-based ID.
+ const candidate=mf424AsCandidate(record,cover,provider,direct,link,match.reason,match.confidence);
+ if(!candidate)return null;
+ if(key&&mf433ValidId(key,id)){
+  candidate.externalIdKey=key;candidate.externalIdValue=id;candidate.recordId=id;
+  candidate.externalIdCandidates=[{key,value:id,evidence:'Actual provider record',source:provider}];
+ }
+ return candidate;
+}
+function mf440Candidates(rows){
+ const seen=new Set();
+ return (rows||[]).filter(row=>{if(!row||seen.has(row.url))return false;seen.add(row.url);return true;}).slice(0,16);
+}
+async function mf440Steam(item,ops){
+ const title=mf440Title(item),id=mf440Id(item,'steam');
+ const q='https://store.steampowered.com/api/storesearch/?term='+encodeURIComponent(title)+'&l=english&cc=us';
+ const data=await ops.request('steam',q);
+ const rows=(data?.items||[]).slice(0,12),out=[];
+ // Public Store Search returns actual app IDs, but only a standard artwork
+ // path is derivable. v424 image validation rejects unavailable URLs.
+ if(id&&!rows.some(r=>String(r.id)===id))
+  rows.unshift({id:Number(id),name:title,idOnly:true});
+ for(const row of rows){
+  const app=mf440StringId(row.id,/^[1-9]\d{0,15}$/);
+  if(!app)continue;
+  const name=row.name||title;
+  const stem='https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/'+app+'/';
+  const link='https://store.steampowered.com/app/'+app+'/';
+  const vertical=mf440Record(item,'steam','steam_app',app,name,0,stem+'library_600x900_2x.jpg',link,[],Boolean(id&&id===app));
+  if(vertical)out.push(vertical);
+  // Landscape storefront image remains manual-only when uncertain; v424
+  // validates minimum dimensions. Prefer portrait when the provider has it.
+  if(row.tiny_image&&!id){
+   const cover=mf424Cover(String(row.tiny_image).replace(/^http:/,'https:'));
+   const fallback=mf440Record(item,'steam','steam_app',app,name,0,cover,link,[],false);
+   if(fallback){fallback.confidence=Math.min(fallback.confidence,0.75);fallback.reason+=' · storefront thumbnail';out.push(fallback);}
+  }
+ }
+ return mf440Candidates(out);
+}
+async function mf440Itunes(item,ops){
+ const title=mf440Title(item),id=mf440Id(item,'itunes');
+ const base='https://itunes.apple.com/'+(id?'lookup?id='+id+'&entity=album':'search?term='+encodeURIComponent(title)+'&entity=album&limit=12');
+ const data=await ops.request('itunes',base),results=(data?.results||[]).filter(r=>r.collectionId&&r.collectionName);
+ const out=[];
+ for(const row of results.slice(0,12)){
+  const album=String(row.collectionId);
+  const art=String(row.artworkUrl100||row.artworkUrl60||'').replace(/^http:/,'https:');
+  if(!art)continue;
+  const hiRes=art.replace(/\/\d+x\d+bb\.(jpg|png)(?:\?.*)?$/i,'/600x600bb.$1');
+  const c=mf440Record(item,'itunes','apple_music_album',album,row.collectionName,row.releaseDate,
+   hiRes,row.collectionViewUrl||'https://music.apple.com/',[],Boolean(id&&id===album));
+  if(c)out.push(c);
+ }
+ return mf440Candidates(out);
+}
+async function mf440MusicBrainz(item,ops){
+ const title=mf440Title(item),id=mf440Id(item,'musicbrainz'),list=[];
+ if(id)list.push({id,title,'first-release-date':String(item.year||'')});
+ const url='https://musicbrainz.org/ws/2/release-group/?'+new URLSearchParams({query:'releasegroup:"'+title.replace(/"/g,'')+'"',fmt:'json',limit:'6'}).toString();
+ if(!id||!list.length){
+  const data=await ops.request('musicbrainz',url);
+  list.push(...(data?.['release-groups']||[]).slice(0,7));
+ }
+ const rows=[];
+ for(const r of list){
+  const mbid=mf440StringId(r.id,mf440UUID);
+  if(!mbid)continue;
+  // Cover Art Archive fronts are 307 image redirects; the current v424
+  // image checker verifies the actual picture without consuming an extra
+  // MusicBrainz REST request for a listing.
+  const art='https://coverartarchive.org/release-group/'+mbid+'/front-500';
+  const c=mf440Record(item,'musicbrainz','musicbrainz_release_group',mbid,r.title,r['first-release-date'],art,
+    'https://musicbrainz.org/release-group/'+mbid,[],Boolean(id&&id===mbid));
+  if(c)rows.push(c);
+ }
+ return mf440Candidates(rows);
+}
+async function mf440VNDB(item,ops){
+ const title=mf440Title(item),id=mf440Id(item,'vndb');
+ const request={filters:id?['id','=',id]:['search','=',title],
+  fields:'title,alttitle,released,image.url,image.thumbnail,image.sexual,image.violence',results:10};
+ const data=await ops.request('vndb','https://api.vndb.org/kana/vn',{body:JSON.stringify(request)});
+ const out=[];
+ for(const r of (data?.results||[]).slice(0,10)){
+  const vid=mf440StringId(r.id,/^v[1-9]\d{0,10}$/i);
+  if(!vid||!r.image?.url)continue;
+  // Do not automatically surface content flagged as sexually explicit or
+  // strongly violent from a visual-novel image API.
+  if(Number(r.image.sexual)>0||Number(r.image.violence)>1)continue;
+  const link='https://vndb.org/'+vid;
+  const c=mf440Record(item,'vndb','vndb',vid,r.title,r.released,r.image.url,link,[r.alttitle],
+   Boolean(id&&id.toLowerCase()===vid.toLowerCase()));
+  if(c)out.push(c);
+ }
+ return mf440Candidates(out);
+}
+async function mf440IFDB(item,ops){
+ const title=mf440Title(item),id=mf440Id(item,'ifdb');
+ const url='https://ifdb.org/search?json&game&searchfor='+encodeURIComponent(title);
+ const data=await ops.request('ifdb',url),out=[];
+ for(const r of (data?.games||[]).slice(0,14)){
+  const tuid=mf440StringId(r.tuid,/^[a-z0-9]{6,32}$/i);
+  if(!tuid||!r.coverArtLink)continue;
+  const c=mf440Record(item,'ifdb','ifdb',tuid,r.title,r.published?.machine,r.coverArtLink,
+    r.link||'https://ifdb.org/viewgame?id='+tuid,[],Boolean(id&&id===tuid));
+  if(c)out.push(c);
+ }
+ return mf440Candidates(out);
+}
+async function mf440Gutendex(item,ops){
+ const title=mf440Title(item),id=mf440Id(item,'gutendex-public');
+ const url='https://gutendex.com/books?'+(id?'ids='+encodeURIComponent(id):'search='+encodeURIComponent(title));
+ const d=await ops.request('gutendex-public',url),out=[];
+ for(const r of (d?.results||[]).slice(0,14)){
+  const gid=mf440StringId(r.id,/^[1-9]\d{0,15}$/);
+  const cover=String(r.formats?.['image/jpeg']||r.formats?.['image/png']||'').replace(/^http:/,'https:');
+  if(!gid||!cover)continue;
+  const c=mf440Record(item,'gutendex-public','gutendex',gid,r.title,0,cover,
+   'https://www.gutenberg.org/ebooks/'+gid,[],Boolean(id&&id===gid));
+  if(c)out.push(c);
+ }
+ return mf440Candidates(out);
+}
+async function mf440GoogleBooks(item,ops){
+ const title=mf440Title(item),id=mf440Id(item,'googlebooks');
+ const isbn=String(item?.externalIds?.isbn13||item?.externalIds?.isbn||'').replace(/[^0-9X]/gi,'');
+ const q=id?'':isbn?'isbn:'+isbn:'intitle:'+title;
+ const url=id?'https://www.googleapis.com/books/v1/volumes/'+encodeURIComponent(id):
+  'https://www.googleapis.com/books/v1/volumes?'+new URLSearchParams({q,maxResults:'10',printType:'all'}).toString();
+ const d=await ops.request('googlebooks',url),out=[];
+ for(const r of (id?[d]:(d?.items||[])).slice(0,10)){
+  if(!r?.id||!r.volumeInfo?.title)continue;
+  const titleMatch=r.volumeInfo;
+  const ids=titleMatch.industryIdentifiers||[];
+  const isbnMatched=Boolean(isbn&&ids.some(row=>String(row.identifier||'').replace(/[^0-9X]/gi,'')===isbn));
+  const img=String(titleMatch.imageLinks?.large||titleMatch.imageLinks?.medium||
+   titleMatch.imageLinks?.small||titleMatch.imageLinks?.thumbnail||'').replace(/^http:/,'https:');
+  if(!img)continue;
+  const c=mf440Record(item,'googlebooks','googlebooks',String(r.id),titleMatch.title,
+   titleMatch.publishedDate,img,titleMatch.infoLink||'https://books.google.com/',[],
+   Boolean((id&&id===String(r.id))||isbnMatched));
+  if(c)out.push(c);
+ }
+ return mf440Candidates(out);
+}
+const MF440_ADAPTERS={steam:mf440Steam,itunes:mf440Itunes,musicbrainz:mf440MusicBrainz,
+ vndb:mf440VNDB,ifdb:mf440IFDB,'gutendex-public':mf440Gutendex,googlebooks:mf440GoogleBooks};
+function mf440Activate(){
+ for(const def of MF440_SOURCES){
+  let record=mf424Provider(def.id);
+  if(!record){
+   mf424RegisterCoverProvider({...def,credentials:false},MF440_ADAPTERS[def.id]);
+   record=mf424Provider(def.id);
+  }else if(!MF424_EXTRA_COVER_ADAPTERS.has(def.id)){
+   // Google Books was a configured-key placeholder. The low-quota public
+   // Books lookup now has an actual keyless artwork adapter.
+   record.name=def.name;record.limit=def.limit;record.gap=def.gap;
+   record.types=def.types;record.credentials=false;record.level=def.level;
+   MF424_EXTRA_COVER_ADAPTERS.set(def.id,MF440_ADAPTERS[def.id]);
+  }
+  MF440_ACTIVE.add(def.id);
+ }
+ // Existing users keep their exact enabled list. Fresh installs include the
+ // extra free sources, but never silently enable added services in older
+ // workspaces with custom quotas or preferences.
+ MF424_DEFAULT.enabled=[...new Set([...MF424_DEFAULT.enabled,...MF440_SOURCES.map(x=>x.id)])];
+ MF424_DEFAULT.priorities=[...new Set([...MF424_DEFAULT.priorities,...MF440_SOURCES.map(x=>x.id)])];
+ for(const p of MF440_SOURCES){
+  // Cover adapters are real; update the shared v438 capability directory
+  // without changing registered-only metadata or ratings statuses.
+  const entry=MF438_EXTRA_CATALOG.find(x=>x[0]===p.id);
+  if(entry){entry[4]='public';if(!entry[3].includes('cover'))entry[3]+= ',cover';}
+ }
+ return MF440_ACTIVE.size;
+}
+mf440Activate();
+// Manual API testing stays in the independent v438 Settings directory;
+// all probes are fixed read-only endpoints and never activate anything else.
+Object.assign(MF438_PUBLIC_PROBES,{
+ steam:{url:'https://store.steampowered.com/api/storesearch/?term=portal&l=english&cc=us',
+  valid:d=>Array.isArray(d?.items)},
+ vndb:{url:'https://api.vndb.org/kana/vn',method:'POST',
+  body:JSON.stringify({filters:['id','=','v17'],fields:'title,image.url',results:1}),
+  valid:d=>Array.isArray(d?.results)},
+ ifdb:{url:'https://ifdb.org/search?json&game&searchfor=Zork',
+  valid:d=>Array.isArray(d?.games)},
+ 'gutendex-public':{url:'https://gutendex.com/books?search=frankenstein',
+  valid:d=>Array.isArray(d?.results)},
+ googlebooks:{url:'https://www.googleapis.com/books/v1/volumes?q=intitle%3AFrankenstein&maxResults=1',
+  valid:d=>Array.isArray(d?.items)||Number(d?.totalItems)===0}
+});
+const mf440PriorHasId=mf424HasID;
+mf424HasID=function(item,provider){
+ if(MF440_ACTIVE.has(provider))return Boolean(mf440Id(item,provider));
+ return mf440PriorHasId(item,provider);
+};
+const mf440RegistryBase=mf438Catalog;
+mf438Catalog=function(){
+ const rows=mf440RegistryBase.apply(this,arguments);
+ for(const row of rows){
+  if(!MF440_ACTIVE.has(row.id))continue;
+  const p=mf424Provider(row.id);
+  row.coverAdapter=Boolean(p?.limit&&MF424_EXTRA_COVER_ADAPTERS.has(row.id));
+  row.coverEnabled=row.coverAdapter&&mf424Defaults().enabled.includes(row.id);
+  row.state=row.coverEnabled?'cover':row.state;
+  row.source='active-cover';
+ }
+ return rows;
+};
+const mf440BackupBase=v148BuildFullBackup;
+v148BuildFullBackup=function(){
+ const out=mf440BackupBase.apply(this,arguments);
+ if(out){
+  out.mediaFlowVersion=MF440_VERSION;out.backupVersion=MF440_VERSION;
+  const manifest=out.backupManifest||(out.backupManifest={});
+  manifest.includes={...(manifest.includes||{}),v440UniversalCoverAdapters:true};
+  manifest.v440={release:440,additionalActiveCoverProviders:[...MF440_ACTIVE],
+   preservesPreviousCoverSettings:true,externalIdConflictsProtected:true};
+ }
+ return out;
+};
+window.MediaFlowV440=Object.freeze({
+ version:440,registered:()=>[...MF440_ACTIVE],providers:()=>MF440_SOURCES.map(x=>({...x})),
+ find:(item,provider)=>MF440_ADAPTERS[provider]?MF440_ADAPTERS[provider](item,{request:mf424Request}):Promise.resolve([]),
+ match:mf440Record,probeId:mf440Id
+});
+/* MediaFlow v441 — Recovery Workspace & Background Processes.
+ * This is presentation/orchestration only. v424 and v439 remain the owners
+ * of job checkpoints, verified candidates, cloud saves and provider access.
+ */
+const MF441_VERSION=441;
+const MF441_DEFAULT={visibility:'auto',position:'right',expanded:false,showFinished:false};
+const MF441={opening:false,previewFilter:'all',lastFocused:null};
+const mf441Esc=v=>mf424Escape(String(v??''));
+function mf441Prefs(){
+ const current=S.settings?.v441RecoveryUI||{};
+ return {...MF441_DEFAULT,...current,
+  visibility:['auto','always','hidden'].includes(current.visibility)?current.visibility:'auto',
+  position:['left','right'].includes(current.position)?current.position:'right',
+  expanded:Boolean(current.expanded),showFinished:Boolean(current.showFinished)};
+}
+function mf441State(){
+ const cover=MF424?.job||null,metadata=MF439?.job||mf439ReadJob()||null;
+ const coverActive=!!cover&&!['complete','stopped'].includes(cover.status);
+ const metadataActive=!!metadata&&!['completed'].includes(metadata.status);
+ const coverPct=cover?.ids?.length?Math.min(100,Math.max(0,Math.floor((cover.cursor||0)/cover.ids.length*100))):0;
+ const metaPct=metadata?.ids?.length?Math.min(100,Math.max(0,Math.floor((metadata.cursor||0)/metadata.ids.length*100))):0;
+ return {cover,metadata,coverActive,metadataActive,coverPct,metaPct,
+  activeCount:Number(coverActive)+Number(metadataActive)};
+}
+function mf441Show(prefs,state){
+ if(prefs.visibility==='hidden')return false;
+ if(prefs.visibility==='always')return true;
+ return Boolean(state.coverActive||state.metadataActive||
+  prefs.showFinished&&(state.cover||state.metadata));
+}
+function mf441CoverRow(s){
+ const j=s.cover,status=j?.status||'idle',pct=s.coverPct;
+ const running=Boolean(j&&['running','cooldown','ready'].includes(status));
+ const suspended=Boolean(j&&['paused','waiting-part','other-tab','stopped'].includes(status));
+ return '<article class="mf441-process" data-mf441-process="cover">'+
+  '<div class="mf441-process-heading"><span class="mf441-process-icon">'+mf425Icon('images',18)+'</span>'+
+  '<div><strong>Cover Recovery</strong><small>'+mf441Esc(j?mf424StatusText(status):'No active job')+'</small></div>'+
+  '<b class="mf441-process-number">'+pct+'%</b></div>'+
+  '<div class="mf441-track" role="progressbar" aria-label="Cover Recovery progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><span style="width:'+pct+'%"></span></div>'+
+  '<div class="mf441-process-stats">'+(j?(j.cursor||0).toLocaleString()+' / '+j.ids.length.toLocaleString()+' titles · '+(j.fixed||0)+' recovered'+
+   (j.pending?' · '+j.pending+' awaiting review':''):'Ready to find missing covers')+'</div>'+
+  '<div class="mf441-process-actions"><button type="button" onclick="App.mf441OpenCover()">'+mf425Icon('settings',15)+' Setup</button>'+
+  (running?'<button type="button" onclick="App.mf424Pause()">'+mf425Icon('pause',15)+' Pause</button>':'')+
+  (suspended?'<button type="button" onclick="App.mf424Resume()">'+mf425Icon('play',15)+' Resume</button>':'')+
+  (j?.pending?'<button type="button" onclick="App.mf424Review()">'+mf425Icon('search',15)+' Review ('+j.pending+')</button>':'')+
+  '</div></article>';
+}
+function mf441MetadataRow(s){
+ const j=s.metadata,pct=s.metaPct,status=j?.status||'idle';
+ const active=Boolean(j&&status==='running'&&MF439.working),paused=Boolean(j&&['paused','running'].includes(status)&&!MF439.working);
+ return '<article class="mf441-process" data-mf441-process="metadata">'+
+  '<div class="mf441-process-heading"><span class="mf441-process-icon">'+mf425Icon('database',18)+'</span>'+
+  '<div><strong>Metadata Recovery</strong><small>'+mf441Esc(j?active?'Recovering missing fields':status==='paused'?'Paused · checkpoint preserved':status==='completed'?'Recovery complete':status:'No active job')+'</small></div>'+
+  '<b class="mf441-process-number">'+pct+'%</b></div>'+
+  '<div class="mf441-track" role="progressbar" aria-label="Metadata Recovery progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><span style="width:'+pct+'%"></span></div>'+
+  '<div class="mf441-process-stats">'+(j?(j.cursor||0).toLocaleString()+' / '+j.ids.length.toLocaleString()+
+   ' titles · '+(j.changed||0)+' missing fields recovered'+(j.errors?.length?' · '+j.errors.length+' warnings':''):
+   'Select Library titles to preview or recover')+'</div>'+
+  '<div class="mf441-process-actions"><button type="button" onclick="App.mf441OpenMetadata()">'+mf425Icon('search',15)+' New Recovery</button>'+
+  (active?'<button type="button" onclick="App.mf439Pause()">'+mf425Icon('pause',15)+' Pause after title</button>':'')+
+  (paused?'<button type="button" onclick="App.mf439Resume()">'+mf425Icon('play',15)+' Resume</button>':'')+
+  '</div></article>';
+}
+function mf441WidgetHtml(prefs,state){
+ const expanded=prefs.expanded;
+ return '<aside class="mf441-widget mf441-position-'+prefs.position+(expanded?' mf441-expanded':'')+
+  '" id="mf441-process-widget" aria-label="MediaFlow background recovery processes">'+
+  '<button type="button" class="mf441-widget-toggle" onclick="App.mf441Toggle()" aria-expanded="'+expanded+'" aria-controls="mf441-process-content">'+
+  '<span class="mf441-widget-symbol">'+mf425Icon('layers',18)+'</span>'+
+  '<span class="mf441-widget-name"><strong>Background Processes</strong><small>'+
+  (state.activeCount?state.activeCount+' active recovery process'+(state.activeCount===1?'':'es'):'Cover & metadata recovery')+'</small></span>'+
+  '<span class="mf441-widget-percent">'+Math.max(state.coverPct,state.metaPct)+'%</span>'+
+  mf425Icon(expanded?'chevronDown':'chevronUp',15)+'</button>'+
+  '<div class="mf441-widget-content" id="mf441-process-content" '+(expanded?'':'hidden')+'>'+
+  mf441CoverRow(state)+mf441MetadataRow(state)+
+  '<div class="mf441-widget-foot"><button type="button" onclick="App.mf441Settings()">'+mf425Icon('settings',15)+' Recovery Settings</button>'+
+  '<button type="button" onclick="App.mf441Hide()">'+mf425Icon('x',15)+' Hide widget</button></div></div></aside>';
+}
+function mf441Paint(){
+ if(!document.body)return;
+ const prefs=mf441Prefs(),state=mf441State(),visible=mf441Show(prefs,state);
+ // A single combined widget replaces the previous cover-only floating
+ // indicator when shown; the original v424 indicator remains intact.
+ document.body.classList.toggle('mf441-recovery-widget-active',visible);
+ const old=document.getElementById('mf441-process-widget');
+ if(!visible){old?.remove();mf441RefreshSettingsStatus(state);return;}
+ const markup=mf441WidgetHtml(prefs,state);
+ if(old){
+  // Avoid shifting keyboard focus when progress advances.
+  const active=document.activeElement;
+  const focusKey=active?.closest?.('#mf441-process-widget')&&active?.getAttribute('onclick');
+  const slot=document.createElement('div');slot.innerHTML=markup;
+  old.replaceWith(slot.firstElementChild);
+  if(focusKey){const target=[...document.querySelectorAll('#mf441-process-widget button')].find(b=>b.getAttribute('onclick')===focusKey);
+   target?.focus?.({preventScroll:true});}
+ }else document.body.insertAdjacentHTML('beforeend',markup);
+ mf441RefreshSettingsStatus(state);
+}
+function mf441Toggle(){
+ S.settings=S.settings||{};
+ S.settings.v441RecoveryUI={...mf441Prefs(),expanded:!mf441Prefs().expanded};
+ mf441Paint();mf441Persist();
+}
+function mf441Hide(){
+ S.settings=S.settings||{};
+ S.settings.v441RecoveryUI={...mf441Prefs(),visibility:'hidden',expanded:false};
+ mf441Paint();mf441Persist();
+ showToast('Background Processes widget hidden. You can restore it in Recovery Workspace settings.');
+}
+function mf441SaveSetting(key,value){
+ if(!['visibility','position','expanded','showFinished'].includes(key))return;
+ const p={...mf441Prefs(),[key]:value};
+ S.settings=S.settings||{};S.settings.v441RecoveryUI=p;
+ mf441Paint();mf441Persist();
+}
+function mf441Persist(){
+ Promise.resolve(saveState()).catch(e=>console.warn('Recovery workspace setting save failed:',e));
+}
+function mf441OpenCover(){
+ if(!AUTH_USER||!MF424.ready){showToast('Sign in and wait for Cover Recovery storage to initialize.');return;}
+ if(typeof App.mf425OpenConfig==='function')App.mf425OpenConfig('floating');
+ else App.mf424OpenConfig?.();
+}
+function mf441OpenMetadata(){
+ // No metadata provider call is issued by opening this setup surface.
+ const selected=typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds().length:0;
+ const existing=document.getElementById('mf441-start-dialog');existing?.remove();
+ const root=document.createElement('div');root.id='mf441-start-dialog';root.className='mf424-modal mf441-start-overlay mf425-themed';
+ root.innerHTML='<div class="mf424-shade" data-mf441-close="1"></div>'+
+ '<section class="mf424-dialog mf441-start-dialog" role="dialog" aria-modal="true" aria-labelledby="mf441-start-title">'+
+ '<header class="mf441-start-head"><span>'+mf425Icon('database',21)+'</span><div><small>NEW METADATA RECOVERY</small><h2 id="mf441-start-title">Choose a recovery action</h2></div>'+
+ '<button class="btn btn-ghost" type="button" onclick="App.mf441CloseStart()" aria-label="Close Metadata Recovery">'+mf425Icon('x',18)+'</button></header>'+
+ '<div class="mf441-start-body">'+
+ '<p>MediaFlow combines matching metadata from multiple APIs, fills missing fields only, and protects existing values. Review changes before saving.</p>'+
+ '<div class="mf441-scope"><strong>'+selected.toLocaleString()+' Library titles selected</strong><small>'+
+  (selected?'Selected checkboxes will define the recovery scope.':'Select titles in Library for a targeted recovery.')+'</small></div>'+
+ '<div class="mf441-start-options">'+
+ '<button type="button" '+(selected===1?'':'disabled')+' onclick="App.mf441StartPreview()">'+mf425Icon('search',21)+
+  '<span><strong>Preview one title</strong><small>Compare fields and provider evidence before saving</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
+ '<button type="button" '+(selected?'':'disabled')+' onclick="App.mf441StartBatch()">'+mf425Icon('layers',21)+
+  '<span><strong>Recover selected titles</strong><small>Confirm safe, missing-field-only batch · '+selected+' selected</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
+ '<button type="button" onclick="App.mf441Settings()">'+mf425Icon('settings',21)+
+  '<span><strong>Metadata Recovery settings</strong><small>Provider selection, batch limits, progress and shortcuts</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
+ '</div><small class="mf441-start-note">Opening this window never starts a background process or makes an API request.</small></div></section>';
+ document.body.appendChild(root);
+ MF441.lastFocused=document.activeElement;
+ root.querySelector('.mf441-start-head button')?.focus();
+ root.querySelector('[data-mf441-close]')?.addEventListener('click',mf441CloseStart);
+}
+function mf441CloseStart(){
+ document.getElementById('mf441-start-dialog')?.remove();
+ try{MF441.lastFocused?.focus?.({preventScroll:true});}catch(_){}
+ MF441.lastFocused=null;
+}
+function mf441StartPreview(){
+ const ids=mf436SelectedLibraryIds();
+ if(ids.length!==1){showToast('Select exactly one Library title for a preview.');return;}
+ mf441CloseStart();App.mf439Open(ids[0]);
+}
+function mf441StartBatch(){
+ if(!mf436SelectedLibraryIds().length){showToast('Select Library titles before starting.');return;}
+ mf441CloseStart();App.mf439ConfirmBatch();
+}
+function mf441Settings(section='v221-settings-recovery-workspace'){
+ mf441CloseStart();
+ if(S.view!=='settings'){
+  if(typeof App.setView!=='function'){showToast('Open Settings → Recovery Workspace.');return;}
+  App.setView('settings');
+  // Settings Center's page enhancer registers sections after page render.
+  // Wait until it exists instead of opening a stale section on the prior page.
+  const tryOpen=(attempt=0)=>{
+   if(S.view==='settings'&&document.querySelector('.mf365-section[data-mf365-section="'+section+'"]')){
+    App.v365OpenSection?.(section);return;
+   }
+   if(attempt<8)setTimeout(()=>tryOpen(attempt+1),80);
+   else showToast('In Settings, open Recovery Workspace.');
+  };
+  tryOpen();return;
+ }
+ App.v365OpenSection?.(section);
+}
+function mf441RefreshSettingsStatus(state=mf441State()){
+ const root=document.getElementById('mf441-settings-status');
+ if(!root)return;
+ const summarize=(job,kind)=>{
+  if(!job)return kind+': No saved job';
+  return kind+': '+String(job.status||'ready')+' · '+(job.cursor||0)+' / '+(job.ids?.length||0)+' titles';
+ };
+ root.textContent=summarize(state.cover,'Cover')+'   •   '+summarize(state.metadata,'Metadata');
+}
+function mf441WorkspaceHtml(){
+ const prefs=mf441Prefs(),state=mf441State();
+ const opt=(id,label,val)=>'<option value="'+id+'" '+(val===id?'selected':'')+'>'+label+'</option>';
+ return '<section class="mf441-settings" data-mf-setting-id="recovery-workspace">'+
+ '<div class="mf441-settings-hero"><span>'+mf425Icon('layers',23)+'</span><div><h3>Recovery Workspace</h3><p>Cover artwork, metadata and their background processes in one place.</p></div></div>'+
+ '<div class="mf441-settings-status" id="mf441-settings-status" role="status">'+
+ 'Cover: '+mf441Esc(state.cover?.status||'No saved job')+' · Metadata: '+mf441Esc(state.metadata?.status||'No saved job')+'</div>'+
+ '<div class="mf441-settings-links">'+
+ '<button type="button" onclick="App.mf445Open(&#39;cover&#39;)">'+mf425Icon('images',19)+
+ '<span><strong>New Cover Recovery</strong><small>Scope, cover providers, rate protection and previews</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
+ '<button type="button" onclick="App.mf445Open(&#39;metadata&#39;)">'+mf425Icon('database',19)+
+ '<span><strong>New Metadata Recovery</strong><small>Selected titles, field evidence and safe merging</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
+ '<button type="button" onclick="App.v365OpenSection(\'v221-settings-cover-recovery\')">'+mf425Icon('settings',19)+
+ '<span><strong>Cover Recovery preferences</strong><small>Enabled sources, priority and automation</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
+ '<button type="button" onclick="App.v365OpenSection(\'v221-settings-metadata-recovery\')">'+mf425Icon('settings',19)+
+ '<span><strong>Metadata Recovery preferences</strong><small>Provider selection, batch limits and protection</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
+ '<button type="button" onclick="App.v365OpenSection(\'v221-settings-api-providers\')">'+mf425Icon('plug',19)+
+ '<span><strong>API Providers & Testing</strong><small>Verify public and configured services in the shared registry</small></span>'+mf425Icon('chevronRight',16)+'</button></div>'+
+ '<fieldset class="mf441-widget-preferences"><legend>'+mf425Icon('layers',16)+' Background Processes widget</legend>'+
+ '<p>The unified floating widget displays the two recovery processes without creating duplicate jobs. Visibility and placement follow the current MediaFlow theme.</p>'+
+ '<div class="mf441-control-grid">'+
+ '<label data-mf-setting-id="recovery-widget-visibility">Visibility<select onchange="App.mf441SaveSetting(\'visibility\',this.value)">'+
+ opt('auto','Automatic · only with active processes',prefs.visibility)+opt('always','Always show',prefs.visibility)+opt('hidden','Hidden',prefs.visibility)+'</select></label>'+
+ '<label data-mf-setting-id="recovery-widget-position">Position<select onchange="App.mf441SaveSetting(\'position\',this.value)">'+
+ opt('right','Bottom right',prefs.position)+opt('left','Bottom left',prefs.position)+'</select></label></div>'+
+ '<label class="mf441-settings-check"><input type="checkbox" '+(prefs.showFinished?'checked':'')+
+ ' onchange="App.mf441SaveSetting(\'showFinished\',this.checked)"> Show finished processes in Automatic mode</label>'+
+ '</fieldset>'+
+ '<p class="mf441-settings-foot">Recovery work continues under its original checkpoint and safety rules. Hiding the widget never stops recovery; closing MediaFlow pauses browser-only work until the app is reopened.</p>'+
+ '</section>';
+}
+function mf441SettingsEnhance(){
+ if(String(S.view||'')!=='settings'||!window.MediaFlowSettingsCenter?.mountSection)return;
+ if(document.querySelector('.mf365-section[data-mf365-section="v221-settings-recovery-workspace"]'))return;
+ const body=document.createElement('div');body.innerHTML=mf441WorkspaceHtml();
+ const reg=window.MediaFlowSettingsRegistry;
+ for(const [id,label] of [['recovery-workspace','Cover and Metadata Recovery workspace'],
+  ['recovery-widget-visibility','Background Processes visibility'],
+  ['recovery-widget-position','Background Processes position']]){
+  reg?.registerSetting?.({id,section:'v221-settings-recovery-workspace',
+   selector:'[data-mf-setting-id="'+id+'"]',label,keywords:['cover','metadata','recovery','background','widget','visibility']});
+ }
+ window.MediaFlowSettingsCenter.mountSection({id:'v221-settings-recovery-workspace',
+  title:'RECOVERY WORKSPACE',category:'library',subgroup:'Library maintenance',
+  keywords:['cover','metadata','smart recovery','background processes','shortcut','API'],
+  nodes:[body]});
+ mf441RefreshSettingsStatus();
+}
+const mf441PrevMarkup=mf397Markup;
+mf397Markup=function(){
+ const html=mf441PrevMarkup.apply(this,arguments);
+ const anchor='      </div>\n      <button type="button" id="mf397-fab"';
+ if(!html.includes(anchor))return html;
+ const btn='        <button type="button" class="mf397-fan-action a5 mf441-metadata-action" data-action="metadataRecovery">'+
+  '<span class="mf397-action-symbol">'+mf425Icon('database',20)+'</span>'+
+  '<span><strong>New Metadata Recovery</strong><small>Preview or recover selected titles</small></span><em>05</em></button>\n';
+ return html.replace(anchor,btn+anchor);
+};
+const mf441PrevQuickAction=mf397Action;
+mf397Action=function(action){
+ if(action==='metadataRecovery'){mf397SetMenu(false);mf441OpenMetadata();return;}
+ return mf441PrevQuickAction.apply(this,arguments);
+};
+// Existing cover and metadata recovery engines still own processing. The
+// shared widget updates when either engine publishes progress, even off Settings.
+const mf441PrevCoverPaint=mf424Paint;
+mf424Paint=function(){const result=mf441PrevCoverPaint.apply(this,arguments);mf441Paint();return result;};
+const mf441PrevMetadataPaint=mf439PaintJob;
+mf439PaintJob=function(){const result=mf441PrevMetadataPaint.apply(this,arguments);mf441Paint();return result;};
+const mf441PrevPreviewHtml=mf439PreviewHtml;
+mf439PreviewHtml=function(){
+ const base=mf441PrevPreviewHtml.apply(this,arguments);
+ if(!base.includes('class="mf439-fields"'))return base;
+ const fields=MF439.preview?.preview?.proposals||[];
+ const totals=['ready','review','conflict','existing','protected'].map(x=>[x,fields.filter(p=>p.status===x).length]);
+ const top='<div class="mf441-preview-summary" role="status">'+
+ totals.map(([k,n])=>'<span><strong>'+n+'</strong> '+mf441Esc(k)+'</span>').join('')+'</div>'+
+ '<label class="mf441-preview-filter">Show fields<select aria-label="Filter recovery preview fields" onchange="App.mf441FilterPreview(this.value)">'+
+ [['all','All fields'],['ready','Ready to fill'],['review','Needs review'],['conflict','Conflicts'],['existing','Existing'],['protected','Protected']].map(([k,label])=>
+ '<option value="'+k+'" '+(MF441.previewFilter===k?'selected':'')+'>'+label+'</option>').join('')+'</select></label>';
+ return base.replace('<div class="mf439-fields">',top+'<div class="mf439-fields" data-mf441-filter="'+mf441Esc(MF441.previewFilter)+'">');
+};
+function mf441FilterPreview(value){
+ const choices=['all','ready','review','conflict','existing','protected'];
+ MF441.previewFilter=choices.includes(value)?value:'all';
+ const grid=document.querySelector('#mf439-recovery-modal .mf439-fields');
+ if(grid)grid.dataset.mf441Filter=MF441.previewFilter;
+}
+// Keep the original Metadata Recovery Settings panel; make selected scope
+// visible before the user commits to a batch.
+const mf441PrevMetadataSettings=mf439SettingsHtml;
+mf439SettingsHtml=function(){
+ const html=mf441PrevMetadataSettings.apply(this,arguments);
+ const ids=typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds():[];
+ const banner='<div class="mf441-metadata-scope" role="note">'+mf425Icon('check',17)+
+  '<span><strong>'+ids.length.toLocaleString()+' selected Library titles</strong><small>'+
+  (ids.length?'Use Preview for one title, or start a confirmed safe batch.':'Check titles in Library to set the recovery scope.')+'</small></span></div>';
+ return html.replace('<div class="mf439-settings-head">',banner+'<div class="mf439-settings-head">');
+};
+for(const page of ['settings','library','dashboard','history','order','collections']){
+ MediaFlowRuntime.registerPageEnhancer(page,()=>{if(page==='settings')mf441SettingsEnhance();mf441Paint();});
+}
+const mf441PrevBackup=v148BuildFullBackup;
+v148BuildFullBackup=function(){
+ const out=mf441PrevBackup.apply(this,arguments);
+ if(out){out.mediaFlowVersion=441;out.backupVersion=441;
+  const m=out.backupManifest||(out.backupManifest={});
+  m.includes={...(m.includes||{}),recoveryWorkspacePreferences:true};
+  m.v441={release:441,preservedRecoveryCheckpoints:true,sharedBackgroundProcessUI:true};}
+ return out;
+};
+document.addEventListener('keydown',event=>{
+ if(event.key!=='Escape'||!document.getElementById('mf441-start-dialog'))return;
+ event.preventDefault();mf441CloseStart();
+});
+Object.assign(App,{mf441OpenMetadata,mf441OpenCover,mf441CloseStart,mf441StartPreview,
+ mf441StartBatch,mf441Settings,mf441Toggle,mf441Hide,mf441SaveSetting,mf441FilterPreview});
+window.MediaFlowV441=Object.freeze({version:441,settings:mf441WorkspaceHtml,
+ widget:mf441WidgetHtml,state:mf441State,paint:mf441Paint,quickMarkup:()=>mf397Markup(),openMetadata:mf441OpenMetadata,
+ providers:()=>({cover:MF424_PROVIDER_META.filter(p=>p.limit).length,
+  metadata:mf439Available().length})});
+/* MediaFlow v442 — Recovery Integration & Performance Hardening.
+ * Shared account-local, cross-tab process coordination. This does NOT claim
+ * cross-device locking; remote devices need a server-side arbiter.
+ * Never bypass v424 image checks or v439 field/ID provenance protections.
+ */
+const MF442_VERSION=442;
+const MF442={owner:'mf442-'+Date.now()+'-'+Math.random().toString(36).slice(2),
+ process:'',timer:null,leaseLost:false,index:null,indexLibrary:null,lastError:'',lastEvent:'',saves:0};
+function mf442ProcessKey(){return 'mediaflow-v442-recovery-owner:'+mf439Account();}
+function mf442LocalLease(key){
+ try{const x=JSON.parse(localStorage.getItem(key)||'null');
+  return x&&typeof x==='object'&&Number(x.expires)>Date.now()?x:null;
+ }catch(_){return null;}
+}
+function mf442ProcessLease(){return mf442LocalLease(mf442ProcessKey());}
+function mf442ProcessOwned(kind){
+ const row=mf442ProcessLease();
+ return Boolean(row?.token===MF442.owner&&row?.kind===kind&&MF442.process===kind);
+}
+function mf442AcquireProcess(kind){
+ if(!['cover','metadata'].includes(kind)||!mf439Account())return false;
+ const previous=mf442ProcessLease();
+ if(previous&&(previous.token!==MF442.owner||previous.kind!==kind))return false;
+ try{
+  localStorage.setItem(mf442ProcessKey(),JSON.stringify({token:MF442.owner,kind,
+   expires:Date.now()+60000}));
+  if(mf442LocalLease(mf442ProcessKey())?.token!==MF442.owner)return false;
+  MF442.process=kind;MF442.leaseLost=false;
+  clearInterval(MF442.timer);
+  MF442.timer=setInterval(()=>{
+   if(!mf442ProcessOwned(kind)){MF442.leaseLost=true;
+    if(kind==='cover'){if(MF424.job)MF424.job.pauseRequested=true;}
+    else MF439.cancel=true;
+    clearInterval(MF442.timer);return;
+   }
+   try{localStorage.setItem(mf442ProcessKey(),
+     JSON.stringify({token:MF442.owner,kind,expires:Date.now()+60000}));}
+   catch(_){MF442.leaseLost=true;}
+  },8000);
+  return mf442ProcessOwned(kind);
+ }catch(_){return false;}
+}
+function mf442ReleaseProcess(kind){
+ clearInterval(MF442.timer);MF442.timer=null;
+ try{if(mf442ProcessOwned(kind))localStorage.removeItem(mf442ProcessKey());}catch(_){}
+ if(MF442.process===kind)MF442.process='';
+}
+function mf442MetadataLeaseOwned(){
+ const row=mf442LocalLease(mf439LeaseKey());
+ return Boolean(MF439.lease&&row?.token===MF439.lease);
+}
+function mf442RenewMetadataLease(){
+ if(!mf442MetadataLeaseOwned()||!mf442ProcessOwned('metadata'))return false;
+ try{
+  localStorage.setItem(mf439LeaseKey(),JSON.stringify({token:MF439.lease,expires:Date.now()+45000}));
+  return mf442MetadataLeaseOwned();
+ }catch(_){return false;}
+}
+function mf442CoverLockIsActive(){
+ if(MF424.running&&mf424Account()===mf439Account())return true;
+ const lease=mf442LocalLease('mf-v424-owner-'+mf439Account());
+ // The v424 lease uses 'expiry', not 'expires'.
+ try{const row=JSON.parse(localStorage.getItem('mf-v424-owner-'+mf439Account())||'null');
+  return Boolean(lease||(row?.token&&Number(row.expiry)>Date.now()));
+ }catch(_){return false;}
+}
+function mf442MetadataLockIsActive(){
+ return Boolean(MF439.working||mf442LocalLease(mf439LeaseKey()));
+}
+function mf442NormalizeJob(job){
+ if(!job||job.schema!==1||job.account!==mf439Account()||!Array.isArray(job.ids)||
+    !job.ids.length||job.ids.length>250)return null;
+ const ids=[...new Set(job.ids.filter(id=>['string','number'].includes(typeof id))
+   .map(id=>String(id).trim()).filter(id=>id.length>0&&id.length<=120))];
+ if(!ids.length)return null;
+ const cursor=Math.max(0,Math.min(ids.length,Math.floor(Number(job.cursor)||0)));
+ const errors=Array.isArray(job.errors)?job.errors.slice(-50):[];
+ const status=['running','paused','completed','stopped'].includes(job.status)?job.status:'paused';
+ return {...job,ids,cursor,errors,status,
+  completed:cursor,changed:Math.max(0,Math.floor(Number(job.changed)||0))};
+}
+function mf442LibraryReady(account){
+ return Boolean(Array.isArray(S.library)&&S.loading!==true&&mf439Account()===account);
+}
+async function mf442WaitForLibrary(account){
+ for(let attempt=0;attempt<120;attempt++){
+  if(mf442LibraryReady(account))return true;
+  if(mf439Account()!==account)return false;
+  await new Promise(done=>setTimeout(done,250));
+ }
+ return false;
+}
+function mf442IndexSelected(ids){
+ const lib=S.library||[],lookup=new Map(),wanted=new Set(ids.map(String));
+ for(const item of lib)if(item?.id!=null&&wanted.has(String(item.id)))lookup.set(String(item.id),item);
+ MF442.index=lookup;MF442.indexLibrary=lib;
+ return lookup;
+}
+function mf442TitleSignature(item){
+ return item?JSON.stringify([String(item.id),item.title,item.originalTitle,item.year,item.releaseDate,
+  Number(item.modifiedAt)||0,item.externalIds||{}]):'';
+}
+function mf442Failure(job,reason,id){
+ job.errors=Array.isArray(job.errors)?job.errors:[];
+ job.errors.push({titleId:String(id||''),reason:String(reason||'').slice(0,200)});
+ if(job.errors.length>50)job.errors=job.errors.slice(-50);
+ MF442.lastError=String(reason||'').slice(0,200);
+}
+const mf442OriginalMetadataRead=mf439ReadJob;
+mf439ReadJob=function(){
+ const original=mf442OriginalMetadataRead.apply(this,arguments);
+ return mf442NormalizeJob(original);
+};
+const mf442OriginalMetadataConfirm=mf439ConfirmBatch;
+mf439ConfirmBatch=async function(){
+ if(MF439.working)return mf442OriginalMetadataConfirm.apply(this,arguments);
+ if(mf442CoverLockIsActive()||mf442ProcessLease()?.kind==='cover'){
+  showToast('Cover Recovery is active. Pause it before starting Metadata Recovery.');return;
+ }
+ const previous=mf442NormalizeJob(MF439.job||mf439ReadJob());
+ if(previous&&previous.cursor<previous.ids.length&&previous.status!=='completed'){
+  if(!await mf444Confirm('Replace unfinished recovery?', 'A saved metadata queue is unfinished. Replacing it discards pending work, but previously recovered fields remain saved.', 'Replace Queue', true, previous.ids.length-previous.cursor, 'metadata'))return;
+ }
+ return mf442OriginalMetadataConfirm.apply(this,arguments);
+};
+App.mf439ConfirmBatch=mf439ConfirmBatch;
+const mf442OriginalCoverRun=mf424Run;
+mf424Run=async function(){
+ if(!MF424.job||MF424.running)return;
+ if(!mf442AcquireProcess('cover')){
+  MF442.lastEvent='Cover Recovery waiting for another recovery process';
+  MF424.job.pauseRequested=true;
+  mf424State('paused');
+  try{await mf424SaveJob();}catch(e){console.warn('Cover pause checkpoint failed',e);}
+  showToast('Another recovery is using this account. Resume Cover Recovery after it finishes.');
+  return;
+ }
+ if(mf442MetadataLockIsActive()){
+  mf442ReleaseProcess('cover');
+  MF424.job.pauseRequested=true;mf424State('paused');await mf424SaveJob();
+  showToast('Metadata Recovery is active in another tab. Resume covers when it finishes.');return;
+ }
+ try{return await mf442OriginalCoverRun.apply(this,arguments);}
+ finally{mf442ReleaseProcess('cover');}
+};
+// Metadata recovery now resolves each Library title in O(1) after one bounded
+// index build, validates the title against mid-lookup changes, and persists
+// Library data before moving the resumable cursor.
+mf439RunBatch=async function mf442RunMetadataBatch(){
+ if(MF439.working||!MF439.job)return;
+ let job=mf442NormalizeJob(MF439.job);
+ if(!job||!['running','paused'].includes(job.status))return;
+ if(!mf442LibraryReady(job.account)){
+  if(!await mf442WaitForLibrary(job.account)){
+   showToast('Metadata Recovery paused until your Library finishes loading.');return;
+  }
+ }
+ if(mf442CoverLockIsActive()){
+  MF439.job.status='paused';mf439SaveJob();mf439PaintJob();
+  showToast('Cover Recovery is running. Resume metadata after it finishes.');return;
+ }
+ if(!mf442AcquireProcess('metadata')){
+  MF439.job.status='paused';mf439SaveJob();mf439PaintJob();
+  showToast('Another recovery tab is already processing this account.');return;
+ }
+ if(!mf439AcquireLease()){
+  mf442ReleaseProcess('metadata');
+  MF439.job.status='paused';mf439SaveJob();mf439PaintJob();
+  showToast('Metadata Recovery is active in another tab.');return;
+ }
+ // Keep the original, current job object, not a detached normalized clone.
+ job=MF439.job;
+ job.ids=mf442NormalizeJob(job).ids;
+ job.cursor=Math.max(0,Math.min(job.ids.length,Number(job.cursor)||0));
+ MF439.account=job.account;MF439.working=true;MF439.cancel=false;job.status='running';
+ mf439SaveJob();mf439PaintJob();
+ mf442IndexSelected(job.ids);
+ const keepAlive=setInterval(()=>{
+  if(!mf442RenewMetadataLease()){MF442.leaseLost=true;MF439.cancel=true;}
+ },8000);
+ try{
+  while(job.cursor<job.ids.length&&!MF439.cancel){
+   if(MF439.job!==job||MF439.account!==mf439Account()||
+      !mf442MetadataLeaseOwned()||!mf442ProcessOwned('metadata')||MF442.leaseLost||
+      mf442CoverLockIsActive()){
+    job.status='paused';mf442Failure(job,'Account, lock or ownership changed; recovery paused');
+    break;
+   }
+   const id=job.ids[job.cursor];
+   if(MF442.indexLibrary!==S.library)mf442IndexSelected(job.ids);
+   const item=MF442.index.get(id);
+   if(!item){mf442Failure(job,'Library title unavailable; no changes applied',id);
+    job.cursor++;job.completed=job.cursor;mf439SaveJob();mf439PaintJob();
+    if(typeof mf452StopBoundary==='function'&&mf452StopBoundary(job))break;continue;}
+   if(job.v455Selection==='manual'){
+    job.manualReviewId=id;job.status='paused';mf439SaveJob();mf439PaintJob();break;
+   }
+   const before=mf442TitleSignature(item);
+   const {preview,failures}=await mf439Discover(item,mf439Preferences().enabled,()=>{},null);
+   if(MF439.cancel||MF439.job!==job||MF439.account!==mf439Account()||
+      !mf442MetadataLeaseOwned()||!mf442ProcessOwned('metadata')||MF442.leaseLost||
+      mf442CoverLockIsActive()){
+    job.status='paused';mf442Failure(job,'Process ownership changed during lookup; nothing saved',id);
+    break;
+   }
+   if(MF442.indexLibrary!==S.library)mf442IndexSelected(job.ids);
+   const latest=MF442.index.get(id);
+   if(latest!==item||before!==mf442TitleSignature(item)){
+    mf442Failure(job,'Title changed during provider lookup; skipped safely',id);
+   }else{
+    const result=mf439Apply(item,preview,'automatic');
+    if(result.changed||job.pendingSaveId===id){
+     // Do not checkpoint until saveState has committed. On failure leave
+     // cursor at the same ID; the next resume is safe and idempotent.
+     job.pendingSaveId=id;mf439SaveJob();
+     await saveState();
+     MF442.saves++;job.pendingSaveId='';
+     job.changed=(Number(job.changed)||0)+result.changed;
+    }
+   }
+   if(failures.length)job.errors.push({titleId:id,failures:failures.slice(0,5)});
+   if(job.errors.length>50)job.errors=job.errors.slice(-50);
+   if(!mf442MetadataLeaseOwned()||!mf442ProcessOwned('metadata')||
+      MF439.account!==mf439Account()||MF442.leaseLost){
+    job.status='paused';mf442Failure(job,'Ownership changed before checkpoint',id);
+    break;
+   }
+   job.cursor++;job.completed=job.cursor;
+   mf439SaveJob();mf439PaintJob();
+   if(typeof mf452StopBoundary==='function'&&mf452StopBoundary(job))break;
+   if(job.mode==='parts'&&job.continuation==='manual'&&job.cursor<job.ids.length&&
+      job.cursor%Math.max(1,Number(job.partSize)||25)===0){job.status='paused';break;}
+  }
+  job.status=job.stopRequested?'stopped':job.cursor>=job.ids.length?'completed':'paused';
+ }catch(e){
+  job.status='paused';mf442Failure(job,'Saved checkpoint preserved: '+String(e?.message||e));
+ }finally{
+  clearInterval(keepAlive);
+  MF439.working=false;
+  mf439ReleaseLease();
+  mf442ReleaseProcess('metadata');
+  mf439SaveJob();mf439PaintJob();
+  MF442.index=null;MF442.indexLibrary=null;
+  if(job.changed)try{v53InvalidateLibraryCache();render();}catch(_){}
+ }
+};
+function mf442Health(){
+ const current=mf442ProcessLease();
+ const coverLease=mf442CoverLockIsActive(),metadataLease=mf442MetadataLockIsActive();
+ const cover=MF424.job,meta=mf442NormalizeJob(MF439.job||mf439ReadJob());
+ return {
+  version:442,scope:'Current account · this browser profile (not cross-device)',
+  lock:current?{kind:current.kind,owner:current.token===MF442.owner?'this tab':'another tab',expiresInSeconds:Math.max(0,Math.ceil((current.expires-Date.now())/1000))}:null,
+  cover:{state:cover?.status||'idle',done:Math.max(0,Number(cover?.cursor)||0),total:cover?.ids?.length||0,
+   recovered:Math.max(0,Number(cover?.fixed)||0),leaseActive:coverLease},
+  metadata:{state:meta?.status||'idle',done:meta?.cursor||0,total:meta?.ids.length||0,
+   fields:meta?.changed||0,leaseActive:metadataLease,checkpointValid:!!meta,
+   warnings:meta?.errors.length||0},
+  activity:{saveCountThisSession:MF442.saves,lastError:MF442.lastError||null}
+ };
+}
+function mf442HealthMarkup(){
+ const h=mf442Health();
+ return '<section class="mf442-health" data-mf-setting-id="recovery-health">'+
+  '<div class="mf442-health-heading">'+mf425Icon('shield',21)+'<div><strong>Recovery Integrity & Diagnostics</strong>'+
+  '<p>Current account · local browser coordination, checkpoints and save status</p></div></div>'+
+  '<div class="mf442-health-grid">'+
+   '<div><strong>'+mf424Escape(h.cover.state)+'</strong><small>Cover queue · '+h.cover.done+' / '+h.cover.total+'</small></div>'+
+   '<div><strong>'+mf424Escape(h.metadata.state)+'</strong><small>Metadata queue · '+h.metadata.done+' / '+h.metadata.total+'</small></div>'+
+   '<div><strong>'+mf424Escape(h.lock?h.lock.kind+' · '+h.lock.owner:'Available')+'</strong><small>Recovery process lock</small></div>'+
+   '<div><strong>'+h.metadata.warnings+'</strong><small>Metadata warning records</small></div>'+
+  '</div><p>Two browser tabs cannot safely apply covers and metadata for the same account at the same time. The second job waits for a manual resume. This is a local-browser guard, not a cross-device lock. Existing saved progress is never cleared by a diagnostic refresh.</p>'+
+  (h.activity.lastError?'<p class="mf442-warning">'+mf424Escape(h.activity.lastError)+'</p>':'')+
+  '<div class="mf442-health-actions"><button type="button" class="btn btn-ghost" onclick="App.mf442RefreshHealth()">'+mf425Icon('search',16)+' Refresh health</button>'+
+   '<button type="button" class="btn btn-ghost" onclick="App.mf442ExportHealth()">'+mf425Icon('download',16)+' Export diagnostics</button></div></section>';
+}
+function mf442RefreshHealth(){
+ const root=document.querySelector('.mf442-health');
+ if(!root)return;
+ const temp=document.createElement('div');temp.innerHTML=mf442HealthMarkup();
+ if(temp.firstElementChild)root.replaceWith(temp.firstElementChild);
+}
+function mf442ExportHealth(){
+ const report=JSON.stringify(mf442Health(),null,2);
+ const blob=new Blob([report],{type:'application/json'});
+ const url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;link.download='mediaflow-v442-recovery-health.json';
+ document.body.appendChild(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+const mf442WorkspaceBase=mf441WorkspaceHtml;
+mf441WorkspaceHtml=function(){
+ const html=mf442WorkspaceBase.apply(this,arguments);
+ return html.replace('</section>',mf442HealthMarkup()+'</section>');
+};
+Object.assign(App,{mf442RefreshHealth,mf442ExportHealth});
+const mf442BackupBase=v148BuildFullBackup;
+v148BuildFullBackup=function(){
+ const backup=mf442BackupBase.apply(this,arguments);
+ if(backup){
+  backup.mediaFlowVersion=442;backup.backupVersion=442;
+  const manifest=backup.backupManifest||(backup.backupManifest={});
+  manifest.includes={...(manifest.includes||{}),v442RecoveryHardening:true};
+  manifest.v442={version:442,accountScopedCrossTabCoordination:true,
+   metadataCheckpointAfterConfirmedSave:true,existingDataAndRatingsPreserved:true};
+ }
+ return backup;
+};
+window.MediaFlowV442=Object.freeze({
+ version:442,health:mf442Health,renderHealth:mf442HealthMarkup,
+ validateJob:mf442NormalizeJob,signature:mf442TitleSignature,
+ processOwned:mf442ProcessOwned
+});
+/* MediaFlow v443 — configured/public recovery APIs work without an API test.
+ * Gateway status is resolved on demand, with a bounded per-account cache.
+ * This module does not add fictitious adapters, cloud secrets or data writes. */
+const MF443_VERSION=443;
+const MF443_BASE_COVER_ENABLED=MF424_DEFAULT.enabled.slice();
+const MF443_BASE_COVER_PRIORITIES=MF424_DEFAULT.priorities.slice();
+const MF443={account:'',checkedAt:0,pending:null,lastError:'',migrated:false};
+function mf443Account(){return String(AUTH_USER?.id||'');}
+function mf443ReadyCoverProviders(){
+ return MF424_PROVIDER_META.filter(p=>MF434_COVER.has(p.id)&&
+  mf434ProviderStatus(p.id)?.configured===true&&mf434ProviderStatus(p.id)?.testable===true)
+  .map(p=>p.id);
+}
+function mf443MaybeEnableDefaultCovers(){
+ const configured=mf443ReadyCoverProviders();
+ if(!configured.length)return;
+ // Default recovery previously excluded gateway adapters even when configured.
+ // Migrate ONLY unchanged default selections; never overwrite custom provider choices.
+ const previous=S.settings?.v424Covers;
+ const baseline=MF443_BASE_COVER_ENABLED;
+ const unchanged=previous&&Array.isArray(previous.enabled)&&
+  previous.enabled.length===baseline.length&&
+  baseline.every(id=>previous.enabled.includes(id));
+ MF424_DEFAULT.enabled=[...new Set([...baseline,...configured])];
+ MF424_DEFAULT.priorities=[...new Set([...MF443_BASE_COVER_PRIORITIES,...configured])];
+ if(unchanged){
+  S.settings.v424Covers={...previous,
+   enabled:[...new Set([...previous.enabled,...configured])],
+   priorities:[...new Set([...(previous.priorities||[]),...configured])]};
+  Promise.resolve(saveState()).catch(e=>console.warn('v443 default cover migration',e));
+ }
+}
+function mf443RepaintProviderSettings(){
+ if(String(S.view||'')!=='settings')return;
+ try{
+  const cover=document.querySelector('.mf430-settings-provider-list');
+  if(cover){
+   const wrap=document.createElement('div');wrap.innerHTML=mf425SettingsMarkup();
+   const next=wrap.querySelector('.mf430-settings-provider-list');
+   if(next)cover.replaceWith(next);
+  }
+  const metadata=document.querySelector('.mf439-provider-list');
+  if(metadata){
+   const wrap=document.createElement('div');wrap.innerHTML=mf439SettingsHtml();
+   const next=wrap.querySelector('.mf439-provider-list');
+   if(next)metadata.replaceWith(next);
+  }
+  if(typeof mf438Paint==='function')mf438Paint();
+  if(typeof mf434RefreshPanel==='function')mf434RefreshPanel();
+ }catch(e){console.warn('v443 provider settings refresh:',String(e?.message||e));}
+}
+async function mf443EnsureGateway(force=false){
+ const account=mf443Account();
+ if(!account||!supabase)return null;
+ if(MF443.account!==account){
+  MF443.account=account;MF443.checkedAt=0;MF443.lastError='';
+  MF424_DEFAULT.enabled=MF443_BASE_COVER_ENABLED.slice();
+  MF424_DEFAULT.priorities=MF443_BASE_COVER_PRIORITIES.slice();
+  MF434.status=null;mf434EnableAdapters();
+ }
+ if(!force&&MF443.checkedAt&&Date.now()-MF443.checkedAt<5*60*1000)
+  return MF434.status;
+ if(MF443.pending)return MF443.pending;
+ MF443.pending=(async()=>{
+  try{
+   const state=await mf434Call('status');
+   if(account!==mf443Account())return null; // Never cross account boundaries.
+   if(!Array.isArray(state?.providers))throw Error('Gateway returned no provider list');
+   MF434.status=state;
+   MF443.checkedAt=Date.now();MF443.lastError='';
+   mf434EnableAdapters();
+   mf443MaybeEnableDefaultCovers();
+   mf443RepaintProviderSettings();
+   return state;
+  }catch(e){
+   MF443.lastError=String(e?.message||e).slice(0,160);
+   MF443.checkedAt=Date.now(); // Avoid repeated silent retry storms.
+   console.warn('v443 gateway status temporarily unavailable:',MF443.lastError);
+   return MF434.status;
+  }finally{MF443.pending=null;}
+ })();
+ return MF443.pending;
+}
+// The Check connections button is optional diagnostics, not a prerequisite.
+mf434RefreshGateway=async function(){
+ await mf443EnsureGateway(true);
+ mf443RepaintProviderSettings();
+};
+App.mf434RefreshGateway=mf434RefreshGateway;
+// Resumed background cover jobs must have the same gateway readiness as manual jobs.
+const mf443CoverRunBase=mf424Run;
+mf424Run=async function(...args){
+ if(!MF424.job||MF424.running)return;
+ await mf443EnsureGateway();
+ return mf443CoverRunBase.apply(this,args);
+};
+const mf443CoverConfigBase=App.mf425OpenConfig;
+App.mf425OpenConfig=async function(...args){
+ await mf443EnsureGateway();
+ return mf443CoverConfigBase?.apply(this,args);
+};
+App.mf424OpenConfig=()=>App.mf425OpenConfig('settings');
+const mf443InstantBase=App.mf425Instant;
+App.mf425Instant=async function(...args){
+ await mf443EnsureGateway();
+ return mf443InstantBase?.apply(this,args);
+};
+MediaFlowRuntime.registerPageEnhancer('settings',()=>{
+ if(String(S.view||'')==='settings')void mf443EnsureGateway();
+});
+const mf443BackupBase=v148BuildFullBackup;
+v148BuildFullBackup=function(){
+ const backup=mf443BackupBase.apply(this,arguments);
+ if(backup){
+  backup.mediaFlowVersion=443;backup.backupVersion=443;
+  const manifest=backup.backupManifest||(backup.backupManifest={});
+  manifest.includes={...(manifest.includes||{}),v443AutomaticProviderAvailability:true};
+ }
+ return backup;
+};
+window.MediaFlowV443=Object.freeze({version:443,
+ ensureGateway:mf443EnsureGateway,
+ readyCoverProviders:mf443ReadyCoverProviders,
+ state:()=>({gatewayAvailable:Boolean(MF434.status?.providers),lastError:MF443.lastError})});
+/* MediaFlow v444 — accessible themed confirmations shared by both recovery engines.
+ * The native browser confirm() blocks rendering and cannot inherit MediaFlow themes.
+ * Only user-initiated actions show this dialog; no recovery writes occur here. */
+const MF444_VERSION=444;
+const MF444={current:null};
+function mf444Confirm(title,detail,action='Continue',destructive=false,count=0,kind='metadata'){
+ if(MF444.current)return Promise.resolve(false);
+ if(typeof mf397SetMenu==='function')mf397SetMenu(false);
+ return new Promise(resolve=>{
+  const opener=document.activeElement;
+  const root=document.createElement('div');
+  root.id='mf444-confirm';
+  root.className='mf444-overlay mf425-themed';
+  const esc=value=>mf424Escape(String(value??''));
+  const number=Number.isSafeInteger(Number(count))&&Number(count)>0?Number(count):0;
+  const graphic=destructive?'shield':kind==='cover'?'images':'database';
+  const kindName=kind==='cover'?'COVER RECOVERY':'METADATA RECOVERY';
+  root.innerHTML='<div class="mf444-backdrop" aria-hidden="true"></div>'+
+   '<section class="mf444-dialog" role="alertdialog" aria-modal="true" aria-labelledby="mf444-title" aria-describedby="mf444-description" tabindex="-1">'+
+   '<header class="mf444-head"><span class="mf444-symbol">'+mf425Icon(graphic,24)+'</span>'+
+   '<div class="mf444-heading"><small>'+esc(kindName)+'</small><h2 id="mf444-title">'+esc(title)+'</h2></div>'+
+   '<button class="mf444-close" type="button" data-mf444-dismiss aria-label="Close confirmation">'+mf425Icon('x',20)+'</button></header>'+
+   '<div class="mf444-body"><p id="mf444-description">'+esc(detail)+'</p>'+
+   (number?'<div class="mf444-count"><strong>'+number.toLocaleString()+'</strong><span>Selected title'+(number===1?'':'s')+'</span></div>':'')+
+   '<div class="mf444-info"><span>'+mf425Icon('shield',19)+'</span><p><strong>Existing Library data stays protected.</strong><small>Recovery safeguards, confirmed changes and saved progress remain in place.</small></p></div>'+
+   '</div><footer class="mf444-actions"><button class="btn btn-ghost" type="button" data-mf444-dismiss>Cancel</button>'+
+   '<button class="btn '+(destructive?'btn-danger':'btn-primary')+'" type="button" data-mf444-approve>'+mf425Icon(destructive?'shield':'check',17)+esc(action)+'</button></footer>'+
+   '</section>';
+  const dialog=root.querySelector('.mf444-dialog');
+  const dismiss=approved=>{
+   if(MF444.current?.root!==root)return;
+   document.removeEventListener('keydown',key,true);
+   root.remove();MF444.current=null;
+   if(opener?.isConnected&&typeof opener.focus==='function')opener.focus();
+   resolve(Boolean(approved));
+  };
+  const key=event=>{
+   if(event.key==='Escape'){event.preventDefault();event.stopPropagation();dismiss(false);return;}
+   if(event.key!=='Tab')return;
+   const focusables=[...root.querySelectorAll('button:not([disabled])')];
+   if(!focusables.length)return;
+   if(event.shiftKey&&document.activeElement===focusables[0]){event.preventDefault();focusables.at(-1).focus();}
+   else if(!event.shiftKey&&document.activeElement===focusables.at(-1)){event.preventDefault();focusables[0].focus();}
+  };
+  root.querySelectorAll('[data-mf444-dismiss]').forEach(button=>button.addEventListener('click',()=>dismiss(false)));
+  root.querySelector('[data-mf444-approve]').addEventListener('click',()=>dismiss(true));
+  document.body.appendChild(root);
+  document.addEventListener('keydown',key,true);
+  MF444.current={root,dismiss};
+  root.querySelector('[data-mf444-dismiss]')?.focus();
+ });
+}
+// v427 cover confirmations retain their safety/approval semantics, now sharing
+// exactly the same UI as Metadata Recovery.
+mf427Confirm=function(title,detail,action='Continue',destructive=false){
+ return mf444Confirm(title,detail,action,destructive,0,'cover');
+};
+// Decide which side has room each time the FAB opens. When task progress is
+// visible on a narrow screen the + button moves left; otherwise it sits right.
+const mf444PreviousSetMenu=mf397SetMenu;
+mf397SetMenu=function(open){
+ const result=mf444PreviousSetMenu.apply(this,arguments);
+ const menu=document.getElementById('mf397-fan'),fab=document.getElementById('mf397-fab');
+ if(open&&menu&&fab){
+  const rect=fab.getBoundingClientRect(),viewport=window.innerWidth||document.documentElement.clientWidth;
+  const width=Math.min(310,Math.max(1,viewport-24));
+  menu.classList.toggle('mf444-align-right',rect.right-width<12&&rect.left+width<viewport-12);
+ }
+ return result;
+};
+window.MediaFlowV444=Object.freeze({version:444,confirm:mf444Confirm,open:()=>!!MF444.current});
+/* MediaFlow v445 — Unified Cover + Metadata Recovery Workspace.
+ * One accessible entry surface. Existing v424/v425 cover and v439 metadata
+ * engines own provider requests, user confirmations, checkpoints and writes.
+ * Opening this workspace never starts network traffic or recovery work.
+ */
+const MF445_VERSION=445;
+const MF445={mode:'cover',opener:null,coverEntry:'settings',oneId:'',metadataId:''};
+const mf445Esc=value=>mf424Escape(String(value??''));
+const mf445Icon=(name,size=17)=>mf425Icon(name,size);
+function mf445Providers(mode){
+ if(mode==='cover'){
+  const enabled=new Set(mf424Defaults().enabled);
+  return MF424_PROVIDER_META.map(p=>({
+   id:p.id,name:p.name||p.id,available:Number(p.limit)>0,enabled:enabled.has(p.id),
+   detail:Number(p.limit)>0?'Provider adapter ready':(p.credentials?'Configuration or authorization needed':'Adapter unavailable'),
+   setup:Number(p.limit)<=0
+  }));
+ }
+ const enabled=new Set(mf439Preferences().enabled);
+ return mf439Available().map(id=>{
+  const gateway=MF439_GATEWAY.includes(id);
+  const status=gateway&&typeof mf434ProviderStatus==='function'?mf434ProviderStatus(id):null;
+  const available=!gateway||Boolean(status?.configured&&status?.testable);
+  const label=(typeof MF434_LABELS==='object'&&MF434_LABELS?.[id])||
+   MF438_EXTRA_CATALOG?.find(x=>x[0]===id)?.[1]||id;
+  return {id,name:label,available,enabled:enabled.has(id),setup:!available,
+   detail:gateway?(available?'Gateway configured':status?.testable===false?'Integration unavailable':'Configuration required'):'Public API · subject to quotas'};
+ });
+}
+function mf445StatusText(mode){
+ const job=mode==='cover'?MF424.job:(MF439.job||mf439ReadJob());
+ if(!job)return 'No saved recovery job';
+ const total=Array.isArray(job.ids)?job.ids.length:0;
+ return String(job.status||'ready')+' · '+Number(job.cursor||0).toLocaleString()+' / '+total.toLocaleString()+' titles';
+}
+function mf445CategoryIcon(cat){
+ const url=typeof v144SafeIconUrl==='function'?v144SafeIconUrl(cat.iconUrl||''):'';
+ if(url)return '<img src="'+mf445Esc(url)+'" alt="" loading="lazy" decoding="async">';
+ if(String(cat.icon||'').trim())return '<span aria-hidden="true">'+mf445Esc(cat.icon)+'</span>';
+ return mf445Icon('layers',18);
+}
+function mf445Categories(){
+ const categories=(S.categories||[]).filter(c=>c&&c.id!=null);
+ const counts=new Map();
+ for(const item of S.library||[]){
+  if(item?.categoryId!=null){
+   const id=String(item.categoryId);counts.set(id,(counts.get(id)||0)+1);
+  }
+ }
+ return '<details class="mf445-section mf445-categories"><summary>'+
+  mf445Icon('layers',17)+' <strong>Library categories</strong><span>'+categories.length+' categories</span>'+
+  mf445Icon('chevronDown',16)+'</summary>'+
+  '<p>Categories are for organizing titles. They never restrict which API is queried. Cover Recovery lets you choose the target scope.</p>'+
+  '<div class="mf445-category-grid">'+categories.map(c=>{
+   const count=counts.get(String(c.id))||0;
+   return '<details class="mf445-category"><summary><span class="mf445-category-art">'+mf445CategoryIcon(c)+'</span>'+
+    '<span class="mf445-category-label"><strong>'+mf445Esc(c.name||c.id)+'</strong><small>'+count.toLocaleString()+' titles</small></span>'+
+    mf445Icon('chevronDown',15)+'</summary><p>'+count.toLocaleString()+
+    ' titles in this category. Provider availability is independent of the category name.</p></details>';
+  }).join('')+'</div></details>';
+}
+function mf445SourceHtml(mode){
+ const list=mf445Providers(mode),ready=list.filter(p=>p.available&&p.enabled).length;
+ return '<section class="mf445-section mf445-providers"><header><div><strong>'+mf445Icon(mode==='cover'?'images':'database',17)+
+  ' '+(mode==='cover'?'Cover':'Metadata')+' providers</strong><small>'+ready+' enabled & available · '+list.length+' registered</small></div>'+
+  '<button type="button" class="btn btn-ghost" onclick="App.mf445Settings(\'v221-settings-api-providers\')">'+mf445Icon('settings',15)+' API Setup</button></header>'+
+  '<div class="mf445-provider-grid">'+list.map(p=>{
+   const status=!p.available?'Unavailable':p.enabled?'Enabled':'Disabled';
+   return '<div class="mf445-provider" data-status="'+(p.available?p.enabled?'enabled':'disabled':'unavailable')+'">'+
+    '<span class="mf445-provider-symbol">'+mf445Icon(p.available?'check':'plug',17)+'</span>'+
+    '<span class="mf445-provider-info"><strong>'+mf445Esc(p.name)+'</strong><small>'+mf445Esc(p.detail)+'</small></span>'+
+    '<span class="mf445-provider-status">'+status+'</span>'+
+    (p.setup?'<button type="button" class="mf445-provider-setup" onclick="App.mf445Settings(\'v221-settings-api-providers\')" aria-label="Set up '+mf445Esc(p.name)+'">'+mf445Icon('settings',15)+'</button>':'')+
+    '</div>';
+  }).join('')+'</div><small class="mf445-provider-note">Providers are configured independently for each recovery engine. Registered does not mean connected.</small></section>';
+}
+function mf445CurrentIds(){
+ if(MF445.oneId&&MF445.mode==='cover')return [String(MF445.oneId)];
+ if(MF445.metadataId&&MF445.mode==='metadata')return [String(MF445.metadataId)];
+ return typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds().map(String):[];
+}
+function mf445Panel(mode){
+ const root=document.getElementById('mf445-workspace');
+ if(!root)return;
+ MF445.mode=mode==='metadata'?'metadata':'cover';
+ root.querySelectorAll('[data-mf445-tab]').forEach(button=>{
+  const active=button.dataset.mf445Tab===MF445.mode;
+  button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;
+ });
+ const metadata=MF445.mode==='metadata',ids=mf445CurrentIds();
+ const pane=root.querySelector('[data-mf445-panel]');
+ pane.setAttribute('aria-labelledby','mf445-tab-'+MF445.mode);
+ const status=mf445StatusText(MF445.mode);
+ pane.innerHTML='<p class="mf445-intro">'+(metadata?
+  'Recover missing descriptions, genres, external ratings and other verified fields without overwriting saved values.':
+  'Recover missing artwork or choose a verified alternative, while keeping existing artwork and external IDs protected.')+'</p>'+
+  '<div class="mf445-summary" role="status"><span>'+mf445Icon('check',17)+' <strong>'+ids.length.toLocaleString()+
+  '</strong> selected '+(ids.length===1?'title':'titles')+'</span><span>'+mf445Icon('layers',16)+' '+mf445Esc(status)+'</span></div>'+
+  mf445SourceHtml(MF445.mode)+mf445Categories()+
+  '<div class="mf445-actions">'+(metadata?
+   '<button type="button" class="btn btn-primary" '+(ids.length===1?'':'disabled')+' onclick="App.mf445Start(\'preview\')">'+
+    mf445Icon('search',17)+' Preview one title</button>'+
+   '<button type="button" class="btn btn-primary" '+(ids.length&&!MF445.metadataId?'':'disabled')+
+   ' onclick="App.mf445Start(\'batch\')">'+mf445Icon('database',17)+' Recover selected titles</button>':
+   '<button type="button" class="btn btn-primary" onclick="App.mf445Start(\'cover\')">'+mf445Icon('images',17)+
+   ' Configure Cover Recovery</button>')+
+   '<button type="button" class="btn btn-ghost" onclick="App.mf445Settings(\''+
+   (metadata?'v221-settings-metadata-recovery':'v221-settings-cover-recovery')+'\')">'+mf445Icon('settings',16)+
+   ' '+(metadata?'Metadata':'Cover')+' preferences</button></div>'+
+  '<p class="mf445-safe">'+mf445Icon('shield',16)+
+  ' Opening this workspace never starts a scan. The original confirmation, scope selection, API preferences, checkpoint and safe-write rules remain in effect.</p>';
+}
+function mf445Close(){
+ const root=document.getElementById('mf445-workspace');
+ if(!root)return;
+ root.remove();
+ const opener=MF445.opener;MF445.opener=null;
+ if(opener?.isConnected&&typeof opener.focus==='function')opener.focus({preventScroll:true});
+}
+function mf445Open(mode='cover',options={}){
+ const root=document.getElementById('mf445-workspace');
+ const same=!!root;
+ if(!same){
+  MF445.opener=document.activeElement;
+  MF445.coverEntry=String(options?.entry||'settings');
+  MF445.oneId=String(options?.id||'');
+  MF445.metadataId=String(options?.id||'');
+  const overlay=document.createElement('div');overlay.id='mf445-workspace';
+  overlay.className='mf424-modal mf425-themed mf445-overlay';
+  overlay.innerHTML='<div class="mf424-shade" data-mf445-dismiss aria-hidden="true"></div>'+
+   '<section class="mf424-dialog mf445-dialog" role="dialog" aria-modal="true" aria-labelledby="mf445-title" aria-describedby="mf445-intro" tabindex="-1">'+
+   '<header class="mf445-header"><span>'+mf445Icon('layers',22)+'</span><div><small>MEDIAFLOW RECOVERY</small>'+
+   '<h2 id="mf445-title">Unified Recovery Workspace</h2></div>'+
+   '<button class="btn btn-ghost" type="button" data-mf445-dismiss aria-label="Close Recovery Workspace">'+mf445Icon('x',18)+'</button></header>'+
+   '<p class="mf445-lead" id="mf445-intro">One workspace. Two independent recovery systems.</p>'+
+   '<nav class="mf445-tabs" role="tablist" aria-label="Recovery type">'+
+   '<button type="button" role="tab" id="mf445-tab-cover" aria-controls="mf445-panel" data-mf445-tab="cover">'+mf445Icon('images',17)+' Cover Recovery</button>'+
+   '<button type="button" role="tab" id="mf445-tab-metadata" aria-controls="mf445-panel" data-mf445-tab="metadata">'+mf445Icon('database',17)+' Metadata Recovery</button></nav>'+
+   '<div class="mf445-body" id="mf445-panel" role="tabpanel" data-mf445-panel tabindex="0"></div></section>';
+  overlay.querySelectorAll('[data-mf445-dismiss]').forEach(button=>button.addEventListener('click',mf445Close));
+  overlay.querySelectorAll('[data-mf445-tab]').forEach(button=>button.addEventListener('click',()=>mf445Panel(button.dataset.mf445Tab)));
+  overlay.addEventListener('keydown',event=>{
+   if(event.key==='Escape'){event.preventDefault();event.stopPropagation();mf445Close();return;}
+   if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)&&event.target.closest('[role="tablist"]')){
+    event.preventDefault();
+    const next=event.key==='Home'?'cover':event.key==='End'?'metadata':
+     event.target.dataset.mf445Tab==='cover'?'metadata':'cover';
+    mf445Panel(next);overlay.querySelector('[data-mf445-tab="'+next+'"]')?.focus();return;
+   }
+   if(event.key!=='Tab')return;
+   const focusable=[...overlay.querySelectorAll('button:not([disabled]),[tabindex="0"],summary')].filter(el=>el.getClientRects().length);
+   if(!focusable.length)return;
+   if(event.shiftKey&&document.activeElement===focusable[0]){event.preventDefault();focusable.at(-1).focus();}
+   else if(!event.shiftKey&&document.activeElement===focusable.at(-1)){event.preventDefault();focusable[0].focus();}
+  });
+  document.body.appendChild(overlay);
+ }
+ if(options?.id){
+  MF445.oneId=String(options.id);MF445.metadataId=String(options.id);
+ }
+ mf445Panel(mode);
+ if(!same)document.querySelector('#mf445-workspace [data-mf445-dismiss]')?.focus();
+}
+function mf445Start(action){
+ const ids=mf445CurrentIds(),oneId=MF445.metadataId||(ids.length===1?ids[0]:'');
+ const entry=MF445.coverEntry==='settings'&&ids.length&&!MF445.oneId?'library':MF445.coverEntry;
+ const id=MF445.oneId;
+ if(action==='preview'&&(!oneId||ids.length!==1)){showToast('Select exactly one Library title to preview.');return;}
+ if(action==='batch'&&(!ids.length||MF445.metadataId)){showToast('Select Library titles before recovering metadata.');return;}
+ mf445Close();
+ if(action==='cover')return mf445OriginalCoverConfig(entry,id);
+ if(action==='preview')return mf445OriginalMetadataOpen(oneId);
+ if(action==='batch')return App.mf439ConfirmBatch();
+}
+function mf445Settings(section){
+ mf445Close();
+ return mf441Settings(section||'v221-settings-recovery-workspace');
+}
+// Preserve original engine launchers. Redirection only changes entry points,
+// never recovery requests, confirmation rules or title-safe writes.
+const mf445OriginalCoverConfig=App.mf425OpenConfig;
+const mf445OriginalMetadataOpen=App.mf439Open;
+App.mf425OpenConfig=(entry='settings',id='')=>mf445Open('cover',{entry,id});
+App.mf424OpenConfig=()=>mf445Open('cover');
+App.mf439Open=id=>mf445Open('metadata',{id});
+App.mf441OpenCover=()=>mf445Open('cover');
+App.mf441OpenMetadata=()=>mf445Open('metadata');
+Object.assign(App,{mf445Open,mf445Close,mf445Panel,mf445Start,mf445Settings});
+// The original per-title quick Fix Cover/Fix Metadata actions remain accessible.
+// Add the combined route explicitly to saved-title details.
+const mf445TitleDetailsBase=v181TitleDetailsHtml;
+v181TitleDetailsHtml=function(item){
+ const html=mf445TitleDetailsBase.apply(this,arguments);
+ if(item?.id==null||!html.includes('class="v181-detail-actions"'))return html;
+ const id=mf445Esc(item.id).replace(/'/g,'&#39;');
+ const action='<button type="button" class="btn btn-ghost" onclick="App.mf445Open(\'cover\',{id:\''+id+'\'})">'+
+  mf445Icon('layers',16)+' Covers + Metadata Recovery</button>';
+ return html.replace(/(<div class="v181-detail-actions"[^>]*>)/,'$1'+action);
+};
+window.MediaFlowV445=Object.freeze({version:445,open:mf445Open,close:mf445Close,providers:mf445Providers,
+ categories:mf445Categories,launch:mf445Start});
+/* MediaFlow v446 — actionable unified recovery provider toggles and five safe scopes.
+ * v424/v425 and v439/v442 still own all provider calls, job queues, locks,
+ * confirmations and title writes; the workspace only selects immutable inputs.
+ */
+const MF446_VERSION=446;
+const MF446_STATUS=[['planned','Plan to Watch / Read'],['active','Watching / Reading'],['paused','On Hold'],['completed','Completed'],['dropped','Dropped']];
+const MF446_MODES=[['all','All'],['library','Library'],['category','By Category'],['categoryStatus','By Category → Status'],['selected','Selected Titles']];
+const MF446={draft:{cover:null,metadata:null},pendingBatchIds:null,coverPreparedMode:''};
+function mf446CleanScope(value){
+ const validModes=new Set(MF446_MODES.map(x=>x[0]));
+ const cats=new Set((S.categories||[]).filter(c=>c?.id!=null).map(c=>String(c.id)));
+ const statuses=new Set(MF446_STATUS.map(s=>s[0]));
+ const categories=[...new Set(Array.isArray(value?.categories)?value.categories.map(String).filter(x=>cats.has(x)):[])];
+ const pairs={};
+ for(const id of categories){
+  const allowed=Array.isArray(value?.pairs?.[id])?value.pairs[id]:[];
+  pairs[id]=[...new Set(allowed.map(String).filter(s=>statuses.has(s)))];
+ }
+ return {mode:validModes.has(value?.mode)?value.mode:'selected',categories,pairs};
+}
+function mf446State(mode){
+ if(!MF446.draft[mode]){
+  const stored=S.settings?.v446RecoveryScopes?.[mode];
+  MF446.draft[mode]=mf446CleanScope(stored);
+  if(!stored&&mode==='cover')MF446.draft[mode].mode=typeof mf436SelectedLibraryIds==='function'&&mf436SelectedLibraryIds().length?'selected':'all';
+ }
+ return MF446.draft[mode];
+}
+function mf446StoreScope(mode){
+ S.settings=S.settings||{};
+ const scopes={...(S.settings.v446RecoveryScopes||{})};
+ scopes[mode]=mf446CleanScope(MF446.draft[mode]);
+ S.settings.v446RecoveryScopes=scopes;
+ Promise.resolve(saveState()).catch(err=>console.warn('Recovery scope preferences not saved:',err));
+}
+function mf446CurrentLibraryRows(){
+ const filters=S.histFilters||{};
+ try{
+  const config=typeof v181EnsureLibrarySettings==='function'?v181EnsureLibrarySettings(S.settings||DEFAULT_SETTINGS):null;
+  if(config?.mode==='dynamic'&&typeof v181DynamicRows==='function')return v181DynamicRows();
+  if(typeof v53FilteredLibrary==='function')return v53FilteredLibrary(
+   filters.libCategory||'all',filters.libStatus||'all',filters.libPriority||'all',filters.libSearch||'');
+ }catch(err){console.warn('Current Library filter unavailable:',err);}
+ // Fail closed instead of silently including the entire Library.
+ return [];
+}
+function mf446ScopeIds(mode){
+ const saved=(S.library||[]).filter(item=>item?.id!=null);
+ const forced=mode==='cover'?MF445.oneId:MF445.metadataId;
+ if(forced)return saved.filter(item=>String(item.id)===String(forced)).map(item=>String(item.id));
+ const scope=mf446State(mode);
+ if(scope.mode==='selected'){
+  const selected=new Set(typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds().map(String):[]);
+  return saved.filter(item=>selected.has(String(item.id))).map(item=>String(item.id));
+ }
+ if(scope.mode==='library'){
+  const view=new Set(mf446CurrentLibraryRows().filter(x=>x?.id!=null).map(x=>String(x.id)));
+  return saved.filter(item=>view.has(String(item.id))).map(item=>String(item.id));
+ }
+ if(scope.mode==='all')return saved.map(item=>String(item.id));
+ const chosen=new Set(scope.categories);
+ return saved.filter(item=>{
+  const category=String(item.categoryId||'');
+  if(!chosen.has(category))return false;
+  return scope.mode==='category'||(scope.pairs[category]||[]).includes(String(item.status||'planned'));
+ }).map(item=>String(item.id));
+}
+function mf446SourceHtml(mode){
+ const providers=mf445Providers(mode);
+ const enabled=providers.filter(p=>p.enabled&&p.available).length;
+ return '<section class="mf445-section mf445-providers mf446-providers">'+
+  '<header><div><strong>'+mf425Icon(mode==='cover'?'images':'database',17)+' '+(mode==='cover'?'Cover':'Metadata')+
+  ' providers</strong><small data-mf446-provider-count>'+enabled+' available and enabled · '+providers.length+' registered</small></div>'+
+  '<button type="button" class="btn btn-ghost" onclick="App.mf445Settings(\'v221-settings-api-providers\')">'+mf425Icon('settings',15)+' API Setup</button></header>'+
+  '<div class="mf446-provider-tools"><button type="button" onclick="App.mf446ProviderAll('+JSON.stringify(mode)+',true)">Enable available</button>'+
+  '<button type="button" onclick="App.mf446ProviderAll('+JSON.stringify(mode)+',false)">Disable all</button></div>'+
+  '<div class="mf445-provider-grid">'+providers.map(p=>{
+   const id=String(p.id);
+   if(!/^[a-z][a-z0-9_-]{0,60}$/i.test(id))return '';
+   const disabled=!p.available;
+   return '<div class="mf445-provider mf446-provider" data-mf446-provider="'+mf445Esc(id)+'" data-status="'+(disabled?'unavailable':p.enabled?'enabled':'disabled')+'">'+
+    '<label class="mf446-provider-check"><input type="checkbox" data-mf446-toggle="'+mf445Esc(id)+'" '+
+    (p.enabled&&p.available?'checked ':'')+(disabled?'disabled ':'')+
+    'onchange="App.mf446ToggleProvider('+mf445Esc(JSON.stringify(mode))+','+mf445Esc(JSON.stringify(id))+',this.checked)">'+
+    '<span class="mf445-provider-info"><strong>'+mf445Esc(p.name)+'</strong><small>'+mf445Esc(p.detail)+'</small></span></label>'+
+    '<span class="mf445-provider-status">'+(disabled?'Unavailable':p.enabled?'Enabled':'Disabled')+'</span>'+
+    (disabled?'<button class="mf445-provider-setup" type="button" onclick="App.mf445Settings(\'v221-settings-api-providers\')" aria-label="Set up '+mf445Esc(p.name)+'">'+mf425Icon('settings',15)+'</button>':'')+
+    '</div>';
+  }).join('')+'</div><small class="mf445-provider-note">Enable or disable APIs here; each recovery engine saves its own provider preferences. Unavailable adapters need Setup first.</small></section>';
+}
+function mf446ToggleProvider(mode,id,on){
+ if(!['cover','metadata'].includes(mode))return;
+ const item=mf445Providers(mode).find(x=>x.id===id);
+ if(!item||!item.available){showToast('This API is unavailable. Open API Setup to configure it.');return;}
+ const prop=mode==='cover'?'v424Covers':'v439Metadata',current=mode==='cover'?mf424Defaults():mf439Preferences();
+ const next=new Set(current.enabled);
+ if(on)next.add(id);else next.delete(id);
+ S.settings=S.settings||{};
+ S.settings[prop]={...(S.settings[prop]||{}),enabled:[...next]};
+ const providerRoot=document.querySelector('#mf445-workspace .mf446-providers');
+ if(providerRoot){
+  const row=[...providerRoot.querySelectorAll('[data-mf446-provider]')].find(n=>n.dataset.mf446Provider===id);
+  if(row){
+   row.dataset.status=on?'enabled':'disabled';
+   const input=row.querySelector('input[data-mf446-toggle]');if(input)input.checked=!!on;
+   const label=row.querySelector('.mf445-provider-status');if(label)label.textContent=on?'Enabled':'Disabled';
+  }
+  const ready=mf445Providers(mode).filter(p=>p.enabled&&p.available).length;
+  const summary=providerRoot.querySelector('[data-mf446-provider-count]');
+  if(summary)summary.textContent=ready+' available and enabled · '+mf445Providers(mode).length+' registered';
+ }
+ mf446UpdateSummary();
+ Promise.resolve(saveState()).catch(err=>console.warn('Recovery provider settings not saved:',err));
+}
+function mf446ProviderAll(mode,on){
+ if(!['cover','metadata'].includes(mode))return;
+ const prop=mode==='cover'?'v424Covers':'v439Metadata',current=mode==='cover'?mf424Defaults():mf439Preferences();
+ const available=mf445Providers(mode).filter(p=>p.available).map(p=>p.id);
+ const next=on?[...new Set([...current.enabled,...available])]:current.enabled.filter(id=>!available.includes(id));
+ S.settings=S.settings||{};
+ S.settings[prop]={...(S.settings[prop]||{}),enabled:next};
+ mf445Panel(mode);
+ Promise.resolve(saveState()).catch(err=>console.warn('Recovery provider settings not saved:',err));
+}
+function mf446CategoryRows(mode){
+ const scope=mf446State(mode);
+ const statusMode=scope.mode==='categoryStatus';
+ const valid=!(mode==='cover'?MF445.oneId:MF445.metadataId)&&(scope.mode==='category'||statusMode);
+ const cats=(S.categories||[]).filter(c=>c?.id!=null);
+ const count=new Map();
+ for(const item of S.library||[])if(item?.categoryId!=null){
+  const key=String(item.categoryId);count.set(key,(count.get(key)||0)+1);
+ }
+ return '<details class="mf446-categories" '+(valid?'open':'')+' '+(valid?'':'hidden')+'>'+
+  '<summary>'+mf425Icon('layers',16)+' Choose categories <small>'+scope.categories.length+' / '+cats.length+' chosen</small>'+mf425Icon('chevronDown',15)+'</summary>'+
+  '<div class="mf446-category-tools"><button type="button" onclick="App.mf446AllCategories(true)">Select all</button>'+
+  '<button type="button" onclick="App.mf446AllCategories(false)">Clear selection</button></div>'+
+  '<div class="mf445-category-grid mf446-category-grid">'+cats.map(c=>{
+   const id=String(c.id),isOn=scope.categories.includes(id),statuses=scope.pairs[id]||[];
+   return '<div class="mf446-category"><label class="mf446-category-top">'+
+    '<input type="checkbox" '+(isOn?'checked ':'')+'data-mf446-category="'+mf445Esc(id)+'" onchange="App.mf446ToggleCategory('+mf445Esc(JSON.stringify(id))+',this.checked)">'+
+    '<span class="mf445-category-art">'+mf445CategoryIcon(c)+'</span>'+
+    '<span class="mf445-category-label"><strong>'+mf445Esc(c.name||id)+'</strong><small>'+Number(count.get(id)||0).toLocaleString()+' titles</small></span></label>'+
+    (isOn&&statusMode?'<details class="mf446-statuses" open><summary>Statuses ('+statuses.length+' / '+MF446_STATUS.length+')</summary>'+
+    '<div>'+MF446_STATUS.map(([status,label])=>
+     '<label><input type="checkbox" '+(statuses.includes(status)?'checked ':'')+
+     'onchange="App.mf446ToggleStatus('+mf445Esc(JSON.stringify(id))+','+JSON.stringify(status)+',this.checked)">'+mf445Esc(label)+'</label>').join('')+
+    '</div></details>':'')+'</div>';
+  }).join('')+'</div></details>';
+}
+function mf446ScopeHtml(mode){
+ const forced=mode==='cover'?MF445.oneId:MF445.metadataId;
+ const state=mf446State(mode);
+ const ids=mf446ScopeIds(mode);
+ const scope=forced?'single':state.mode;
+ const selected=typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds().length:0;
+ const cap=mode==='metadata'?Math.max(1,Math.min(250,Number(mf439Preferences().maxBatch)||250)):0;
+ return '<section class="mf445-section mf446-scope" aria-label="Recovery scope">'+
+  '<header><strong>'+mf425Icon('layers',17)+' Recovery scope</strong><small>Choose exactly which saved titles are eligible</small></header>'+
+  '<label class="mf446-scope-mode">Title scope <select data-mf446-scope onchange="App.mf446SelectScope(this.value)" '+(forced?'disabled':'')+'>'+
+  (forced?'<option value="single" selected>This Title</option>':MF446_MODES.map(([id,label])=>'<option value="'+id+'" '+(scope===id?'selected':'')+'>'+mf445Esc(label)+'</option>').join(''))+
+  '</select></label>'+
+  (scope==='library'?'<p class="mf446-explanation">Current Library search, category, status and priority filters, across every page. A snapshot is taken when recovery begins.</p>':'')+
+  (scope==='selected'?'<p class="mf446-explanation">'+selected.toLocaleString()+' checked title(s) in MediaFlow. Use Library checkboxes to change your selection.</p>':'')+
+  (scope==='all'?'<p class="mf446-explanation">Every saved title in your Library, including all categories and statuses.</p>':'')+
+  mf446CategoryRows(mode)+
+  '<div class="mf446-count" role="status" aria-live="polite"><strong data-mf446-in-scope>'+ids.length.toLocaleString()+
+  '</strong> titles in scope'+(cap&&ids.length>cap?' · <b>first '+cap.toLocaleString()+' per metadata batch</b>':'')+
+  (cap&&ids.length?' · batch limit '+cap.toLocaleString():'')+'</div></section>';
+}
+function mf446SelectScope(value){
+ const mode=MF445.mode,scope=mf446State(mode);
+ if(!MF446_MODES.some(row=>row[0]===value))return;
+ scope.mode=value;
+ mf446StoreScope(mode);mf445Panel(mode);
+}
+function mf446ToggleCategory(id,on){
+ const mode=MF445.mode,scope=mf446State(mode);
+ if(!(S.categories||[]).some(c=>String(c?.id)===id))return;
+ const values=new Set(scope.categories);
+ if(on){values.add(id);if(!scope.pairs[id]||!scope.pairs[id].length)scope.pairs[id]=MF446_STATUS.map(x=>x[0]);}
+ else values.delete(id);
+ scope.categories=[...values];mf446StoreScope(mode);mf445Panel(mode);
+}
+function mf446AllCategories(on){
+ const scope=mf446State(MF445.mode);
+ scope.categories=on?(S.categories||[]).filter(c=>c?.id!=null).map(c=>String(c.id)):[];
+ if(on)for(const id of scope.categories)if(!scope.pairs[id]?.length)scope.pairs[id]=MF446_STATUS.map(s=>s[0]);
+ mf446StoreScope(MF445.mode);mf445Panel(MF445.mode);
+}
+function mf446ToggleStatus(category,status,on){
+ const scope=mf446State(MF445.mode);
+ if(!scope.categories.includes(category)||!MF446_STATUS.some(x=>x[0]===status))return;
+ const checked=new Set(scope.pairs[category]||[]);
+ if(on)checked.add(status);else checked.delete(status);
+ scope.pairs[category]=[...checked];
+ mf446StoreScope(MF445.mode);mf445Panel(MF445.mode);
+}
+function mf446UpdateSummary(){
+ const root=document.getElementById('mf445-workspace');if(!root)return;
+ const mode=MF445.mode,ids=mf446ScopeIds(mode);
+ const ready=mf445Providers(mode).some(p=>p.available&&p.enabled);
+ const label=root.querySelector('.mf445-summary>span:first-child');
+ if(label)label.innerHTML=mf425Icon('layers',17)+' <strong>'+ids.length.toLocaleString()+'</strong> in recovery scope';
+ const section=root.querySelector('.mf446-scope [data-mf446-in-scope]');
+ if(section)section.textContent=ids.length.toLocaleString();
+ const cap=mode==='metadata'?mf439Preferences().maxBatch:Infinity;
+ const actionButtons=root.querySelectorAll('.mf445-actions .btn-primary');
+ for(const button of actionButtons){
+  const action=button.getAttribute('onclick')||'';
+  button.disabled=!ready||(action.includes('preview')?ids.length!==1:
+   action.includes('batch')&&!!MF445.metadataId?true:!ids.length);
+ }
+ if(mode==='metadata'){
+  const note=root.querySelector('.mf446-scope .mf446-count');
+  if(note)note.innerHTML='<strong data-mf446-in-scope>'+ids.length.toLocaleString()+'</strong> titles in scope'+
+   (ids.length>cap?' · <b>first '+cap+' per metadata batch</b>':'')+' · batch limit '+cap;
+ }
+}
+const mf446PreviousSourceHtml=mf445SourceHtml;
+mf445SourceHtml=function(mode){return mf446SourceHtml(mode);};
+const mf446PreviousCategoryHtml=mf445Categories;
+mf445Categories=function(){return mf446ScopeHtml(MF445.mode);};
+const mf446PreviousPanel=mf445Panel;
+mf445Panel=function(mode){
+ mf446PreviousPanel.apply(this,arguments);
+ // Original actions use selected Library checkboxes, not the current workspace
+ // scope; replace eligibility before users can launch a job.
+ mf446UpdateSummary();
+};
+const mf446OriginalCandidates=mf439BatchCandidates;
+mf439BatchCandidates=function(){
+ if(Array.isArray(MF446.pendingBatchIds)){
+  const max=Math.max(1,Math.min(250,Number(mf439Preferences().maxBatch)||250));
+  return MF446.pendingBatchIds.slice(0,max);
+ }
+ return mf446OriginalCandidates.apply(this,arguments);
+};
+function mf446ApplyCoverScope(selected){
+ const input=document.querySelector('#mf425-scope [name="mf425-scope-mode"]');
+ if(!input||MF425.oneId)return;
+ const state=mf446State('cover'),mode=state.mode;
+ MF425.locked=false;
+ MF425.selected=['library','selected'].includes(mode)?selected.slice():[];
+ const mapMode=mode==='library'?'selected':mode;
+ input.value=mapMode;
+ if(mode==='library'){
+  const option=input.querySelector('option[value="selected"]');
+  if(option)option.textContent='Library (current filters, '+selected.length.toLocaleString()+')';
+ }
+ const categories=document.querySelectorAll('#mf425-scope input[data-mf425-category]');
+ for(const checkbox of categories)checkbox.checked=state.categories.includes(checkbox.value);
+ mf425ScopeChange();
+ if(mode==='categoryStatus'){
+  for(const checkbox of document.querySelectorAll('#mf425-scope input[data-mf425-status]'))
+   checkbox.checked=(state.pairs[checkbox.dataset.mf425Status]||[]).includes(checkbox.value);
+  mf425UpdateCount();
+ }
+ if(['library','selected'].includes(mode)){
+  // v436's title review UI must match the actual immutable selected IDs.
+  const prev=document.querySelector('#mf436-selection-summary');
+  const before=document.getElementById('mf425-categories');
+  const rendered=MF425.selected.length?mf436SelectedDetails():'';
+  if(prev){if(rendered)prev.outerHTML=rendered;else prev.remove();}
+  else if(rendered)before?.insertAdjacentHTML('beforebegin',rendered);
+  const set=new Set(MF425.selected);
+  MF436.reviewIds=(S.library||[]).filter(t=>set.has(String(t?.id))).slice(0,36).map(t=>String(t.id));
+  mf425ScopeChange();
+ }
+}
+const mf446PreviousStart=App.mf445Start;
+async function mf446Start(action){
+ const mode=MF445.mode,ids=mf446ScopeIds(mode),ready=mf445Providers(mode).some(p=>p.available&&p.enabled);
+ if(!ready){showToast('Enable at least one available '+mode+' provider before starting.');return;}
+ if(!ids.length){showToast('There are no Library titles in the chosen recovery scope.');return;}
+ if(action==='cover'&&mode==='cover'){
+  const scope=ids.slice();
+  // Use v445 -> v425 launch; immediately prefill its original safe scope UI.
+  const result=mf446PreviousStart('cover');
+  mf446ApplyCoverScope(scope);
+  return result;
+ }
+ if(mode!=='metadata')return;
+ if(action==='preview'){
+  if(ids.length!==1){showToast('Choose a scope containing exactly one title to preview.');return;}
+  mf445Close();return mf445OriginalMetadataOpen(ids[0]);
+ }
+ if(action==='batch'){
+  if(MF445.metadataId){showToast('Use Preview for a single saved title.');return;}
+  if(MF446.pendingBatchIds){showToast('A metadata recovery confirmation is already open.');return;}
+  // Keep the selected IDs through both confirmations in v442/v439. v439 reads
+  // the candidate snapshot only after any unfinished-queue confirmation.
+  MF446.pendingBatchIds=ids.slice();
+  mf445Close();
+  try{return await App.mf439ConfirmBatch();}
+  finally{MF446.pendingBatchIds=null;}
+ }
+}
+App.mf445Start=mf446Start;
+// Move the Cover Setup shortcut to the shared widget footer, immediately
+// before Recovery Settings. Both rows now have New Recovery actions.
+const mf446OldCoverRow=mf441CoverRow;
+mf441CoverRow=function(state){
+ const html=mf446OldCoverRow.apply(this,arguments);
+ return html.replace('onclick="App.mf441OpenCover()">'+mf425Icon('settings',15)+' Setup',
+  'onclick="App.mf445Open(&#39;cover&#39;)">'+mf425Icon('images',15)+' New Recovery');
+};
+const mf446OldWidget=mf441WidgetHtml;
+mf441WidgetHtml=function(prefs,state){
+ const html=mf446OldWidget.apply(this,arguments);
+ return html.replace('<div class="mf441-widget-foot"><button type="button" onclick="App.mf441Settings()">',
+  '<div class="mf441-widget-foot mf446-widget-foot"><button type="button" onclick="App.mf446Setup()">'+mf425Icon('settings',15)+
+  ' Setup</button><button type="button" onclick="App.mf441Settings()">');
+};
+function mf446Setup(){return mf441Settings('v221-settings-api-providers');}
+App.mf446Setup=mf446Setup;
+Object.assign(App,{mf446ToggleProvider,mf446ProviderAll,mf446SelectScope,
+ mf446ToggleCategory,mf446AllCategories,mf446ToggleStatus,mf446Start});
+window.MediaFlowV446=Object.freeze({version:446,providers:mf445Providers,
+ scopeIds:mf446ScopeIds,scopes:MF446_MODES.map(x=>x[0]),sourceHtml:mf446SourceHtml,
+ scopeHtml:mf446ScopeHtml,coverRow:mf441CoverRow,widget:mf441WidgetHtml});
+/* MediaFlow v447 — universal recovery shortcuts and real sequential Cover → Metadata.
+ * Existing v424, v439 and v442 engines own all writes, user confirmations, locks
+ * and checkpoints. This module only supplies entry points and a scoped handoff.
+ */
+const MF447_VERSION=447;
+const MF447_SHORTCUTS=['floating','library','editor','details','collections','order','widget'];
+const MF447={active:'cover',keepCombined:false,contextIds:null,contextLabel:'',arming:null,handoff:false};
+const mf447Escape=x=>mf424Escape(String(x??''));
+function mf447Prefs(){
+ const data=S.settings?.v447RecoveryShortcuts||{};
+ return Object.fromEntries(MF447_SHORTCUTS.map(key=>[key,data[key]!==false]));
+}
+function mf447SaveShortcut(key,on){
+ if(!MF447_SHORTCUTS.includes(key))return;
+ S.settings=S.settings||{};S.settings.v447RecoveryShortcuts={...mf447Prefs(),[key]:Boolean(on)};
+ Promise.resolve(saveState()).catch(err=>console.warn('Shortcut preference not saved',err));
+ if(key==='floating')try{render();}catch(_){}
+ if(key==='widget')mf441Paint();
+ showToast('Recovery shortcut preference saved.');
+}
+function mf447AllowedIds(ids){
+ const available=new Set((S.library||[]).filter(x=>x?.id!=null).map(x=>String(x.id)));
+ return [...new Set((Array.isArray(ids)?ids:[]).map(String).filter(id=>available.has(id)))];
+}
+function mf447ScopeSnapshot(){
+ const scope=MF447.contextIds&&mf446State('cover').mode==='selected'?
+  mf447AllowedIds(MF447.contextIds):mf446ScopeIds('cover');
+ return mf447AllowedIds(scope);
+}
+function mf447ComboKey(){return 'mediaflow-v447-combined:'+mf439Account();}
+function mf447ReadCombo(){
+ try{
+  const raw=JSON.parse(localStorage.getItem(mf447ComboKey())||'null');
+  if(!raw||raw.schema!==1||raw.account!==mf439Account()||
+     !['cover','ready-metadata','metadata','completed'].includes(raw.stage)||
+     !Array.isArray(raw.ids)||raw.ids.length>250)return null;
+  // Widget paints must not scan the entire Library (100k titles possible).
+  // Resolve membership against the current account only at stage transitions.
+  const ids=[...new Set(raw.ids.filter(id=>['string','number'].includes(typeof id)).map(String).filter(Boolean))];
+  if(ids.length!==raw.ids.length)return null;
+  return {...raw,ids};
+ }catch(_){return null;}
+}
+function mf447WriteCombo(combo){
+ try{
+  if(combo)localStorage.setItem(mf447ComboKey(),JSON.stringify(combo));
+  else localStorage.removeItem(mf447ComboKey());
+ }catch(err){console.warn('Combined recovery checkpoint unavailable',err);showToast('Combined handoff could not be saved. Use independent recovery actions.');}
+}
+function mf447Combo(){return mf447ReadCombo();}
+async function mf447ClearCombo(){
+ if(MF447.handoff||MF424.running||MF439.working){showToast('Pause the active recovery first.');return;}
+ const combo=mf447Combo();
+ if(combo&&combo.stage!=='completed'&&
+    !await mf444Confirm('Clear combined recovery shortcut?',
+    'Remove the combined-stage handoff. Existing cover and metadata checkpoints and recovered Library fields remain unchanged.',
+    'Clear Handoff',true,combo.ids.length,'cover'))return;
+ mf447WriteCombo(null);mf441Paint();
+}
+function mf447Open(kind='cover',options={}){
+ if(!['cover','metadata','both'].includes(kind))kind='cover';
+ MF447.active=kind;
+ const ids=Array.isArray(options?.ids)?mf447AllowedIds(options.ids):null;
+ if(ids&&!ids.length){showToast('This collection or queue has no saved Library titles to recover.');return;}
+ MF447.contextIds=ids?.length?ids:null;
+ MF447.contextLabel=ids?.length?String(options.label||'Selected titles'):'';
+ if(ids?.length){
+  MF446.draft.cover={...mf446State('cover'),mode:'selected'};
+  MF446.draft.metadata={...mf446State('metadata'),mode:'selected'};
+ }else if(!options?.id&&typeof mf436SelectedLibraryIds==='function'&&mf436SelectedLibraryIds().length&&
+          ['cover','metadata','both'].includes(kind)){
+  // A quick action should initially honor checked titles, without removing
+  // the option to switch to All, current Library, or categories.
+  MF446.draft.cover={...mf446State('cover'),mode:'selected'};
+  MF446.draft.metadata={...mf446State('metadata'),mode:'selected'};
+ }
+ mf445Open(kind==='both'?'cover':kind,{entry:options?.entry||'shortcut',id:options?.id||''});
+ if(kind==='both')mf445Panel('both');
+}
+const mf447OriginalClose=mf445Close;
+mf445Close=function(){
+ const result=mf447OriginalClose.apply(this,arguments);
+ MF447.contextIds=null;MF447.contextLabel='';MF447.active='cover';
+ return result;
+};
+App.mf445Close=mf445Close;
+const mf447PreviousScopeIds=mf446ScopeIds;
+mf446ScopeIds=function(mode){
+ if(MF447.contextIds&&mf446State(mode).mode==='selected'&&
+    !(mode==='cover'?MF445.oneId:MF445.metadataId))return mf447AllowedIds(MF447.contextIds);
+ return mf447PreviousScopeIds.apply(this,arguments);
+};
+function mf447EnhanceTabs(){
+ const root=document.getElementById('mf445-workspace'),tabs=root?.querySelector('.mf445-tabs');
+ if(!tabs||tabs.querySelector('[data-mf445-tab="both"]'))return;
+ const btn=document.createElement('button');btn.type='button';btn.role='tab';
+ btn.id='mf445-tab-both';btn.dataset.mf445Tab='both';btn.setAttribute('aria-controls','mf445-panel');
+ btn.innerHTML=mf425Icon('layers',17)+' Recover Both';
+ btn.addEventListener('click',()=>mf445Panel('both'));
+ tabs.appendChild(btn);tabs.classList.add('mf447-three-tabs');
+}
+function mf447BothPanel(){
+ const root=document.getElementById('mf445-workspace'),pane=root?.querySelector('[data-mf445-panel]');
+ if(!pane)return;
+ const ids=mf447ScopeSnapshot(),cap=mf439Preferences().maxBatch;
+ const coverReady=mf445Providers('cover').some(p=>p.available&&p.enabled);
+ const metadataReady=mf445Providers('metadata').some(p=>p.available&&p.enabled);
+ root.querySelectorAll('[data-mf445-tab]').forEach(btn=>{
+  const active=btn.dataset.mf445Tab==='both';btn.setAttribute('aria-selected',String(active));btn.tabIndex=active?0:-1;
+ });
+ pane.setAttribute('aria-labelledby','mf445-tab-both');
+ pane.innerHTML='<p class="mf445-intro">Cover Recovery runs first. After its final review is resolved, Metadata Recovery starts only with your confirmation. Both engines keep their independent provider and safety settings.</p>'+
+  '<div class="mf445-summary"><span>'+mf425Icon('layers',17)+' <strong>'+ids.length.toLocaleString()+
+  '</strong> titles in scope</span><span>'+mf425Icon('shield',16)+' Two protected stages</span></div>'+
+  (MF447.contextLabel?'<p class="mf447-context">'+mf425Icon('check',15)+' '+mf447Escape(MF447.contextLabel)+' · switch scope at any time</p>':'')+
+  mf446ScopeHtml('cover')+
+  '<div class="mf447-stage"><strong>'+mf425Icon('images',18)+' 1. Cover providers</strong>'+
+  mf446SourceHtml('cover')+'</div>'+
+  '<div class="mf447-stage"><strong>'+mf425Icon('database',18)+' 2. Metadata providers</strong>'+
+  mf446SourceHtml('metadata')+'</div>'+
+  '<div class="mf447-combined-note">'+mf425Icon('shield',17)+
+  ' Both stages use the same title snapshot, with a maximum of '+cap.toLocaleString()+
+  ' titles per combined job. Any larger scope is limited to the first '+cap.toLocaleString()+
+  ' saved titles. Manual cover reviews must be resolved before metadata begins.</div>'+
+  '<div class="mf445-actions"><button type="button" class="btn btn-primary" '+(!ids.length||!coverReady||!metadataReady?'disabled':'')+
+  ' onclick="App.mf447StartCombined()">'+mf425Icon('layers',18)+' Configure Combined Recovery</button>'+
+  '<button type="button" class="btn btn-ghost" onclick="App.mf445Settings(\'v221-settings-recovery-workspace\')">'+mf425Icon('settings',16)+' Recovery settings</button></div>';
+}
+const mf447PreviousPanel=mf445Panel;
+mf445Panel=function(mode){
+ const both=mode==='both'||(MF447.keepCombined&&mode==='cover');
+ MF447.active=both?'both':mode;
+ mf447PreviousPanel(both?'cover':mode);
+ mf447EnhanceTabs();
+ if(both)mf447BothPanel();
+ else document.querySelectorAll('#mf445-workspace [data-mf445-tab="both"]').forEach(el=>{el.setAttribute('aria-selected','false');el.tabIndex=-1;});
+};
+App.mf445Panel=mf445Panel;App.mf445Open=mf447Open;
+for(const name of ['mf446SelectScope','mf446ToggleCategory','mf446ToggleStatus','mf446AllCategories']){
+ const previous=App[name];
+ App[name]=function(){
+  if(MF447.active!=='both')return previous.apply(this,arguments);
+  MF447.keepCombined=true;
+  try{return previous.apply(this,arguments);}
+  finally{MF447.keepCombined=false;}
+ };
+}
+function mf447ApiReady(kind){return mf445Providers(kind).some(p=>p.available&&p.enabled);}
+function mf447StartCombined(){
+ if(!AUTH_USER||!MF424.ready){showToast('Sign in and let Cover Recovery initialize first.');return;}
+ if(MF424.running||MF439.working){showToast('Pause the active recovery process before starting another job.');return;}
+ if(!mf447ApiReady('cover')||!mf447ApiReady('metadata')){
+  showToast('Enable at least one available provider for each recovery engine.');return;
+ }
+ const previous=mf447Combo();
+ if(previous&&!['completed'].includes(previous.stage)){
+  showToast('A combined recovery is unfinished. Complete or clear it before starting a new one.');return;
+ }
+ const ids=mf447ScopeSnapshot(),max=mf439Preferences().maxBatch,selected=ids.slice(0,max);
+ if(!selected.length){showToast('Choose at least one saved Library title.');return;}
+ if(ids.length>max)showToast('Combined Recovery uses the first '+max+' titles in the chosen scope. The original scope remains unchanged.');
+ const missing=new Set((S.library||[]).filter(mf424Missing).map(x=>String(x.id)));
+ MF447.arming={schema:1,account:mf439Account(),ids:selected,created:Date.now(),stage:'configuring',coverId:null};
+ if(!selected.some(id=>missing.has(id))){
+  // Nothing to search in the cover stage. Metadata still requires its own
+  // explicit confirmation through the existing v439/v442 engine.
+  const intent={...MF447.arming,stage:'ready-metadata',coverId:null};
+  MF447.arming=null;mf447WriteCombo(intent);mf445Close();
+  showToast('All scoped titles already have covers. Confirm the Metadata Recovery stage.');
+  void mf447ContinueCombined();return;
+ }
+ const result=App.mf445Start('cover'); // Existing v446 scope → original v425 config.
+ const input=document.querySelector('#mf425-scope [name="mf425-scope-mode"]');
+ if(!input){
+  MF447.arming=null;showToast('Could not open the Cover Recovery configuration.');return result;
+ }
+ if(!MF425.oneId){
+  MF425.selected=selected.slice();MF425.locked=false;input.value='selected';
+  const option=input.querySelector('option[value="selected"]');
+  if(option)option.textContent='Combined Recovery · '+selected.length+' titles';
+  mf425ScopeChange();
+ }
+ return result;
+}
+const mf447OriginalStartCover=App.mf424Start;
+App.mf424Start=async function(){
+ const old=MF424.job?.id||'';
+ const armed=MF447.arming;
+ const result=await mf447OriginalStartCover.apply(this,arguments);
+ if(armed&&MF447.arming===armed&&MF424.job?.id&&MF424.job.id!==old&&
+    Array.isArray(MF424.job.ids)){
+  // Only arm after the original confirmation and durable cover job creation.
+  mf447WriteCombo({...armed,stage:'cover',coverId:MF424.job.id});
+  MF447.arming=null;mf447CheckCombo();
+ }
+ return result;
+};
+function mf447CheckCombo(){
+ const combo=mf447Combo();if(!combo)return;
+ if(combo.stage==='cover'){
+  const job=MF424.job;
+  if(!job||job.id!==combo.coverId||job.account!==mf424Account())return;
+  if(job.status!=='complete'||MF424.running||Number(job.pending)>0)return;
+  const ready={...combo,stage:'ready-metadata'};
+  mf447WriteCombo(ready);showToast('Cover stage complete. Metadata Recovery is ready for confirmation.');
+  mf441Paint();
+  if(!MF447.handoff)queueMicrotask(()=>{void mf447ContinueCombined();});
+ }else if(combo.stage==='metadata'){
+  const job=MF439.job||mf439ReadJob();
+  if(job&&job.status==='completed'&&job.startedAt===combo.metadataAt){
+   mf447WriteCombo({...combo,stage:'completed'});
+   showToast('Cover + Metadata Recovery completed.');
+   mf441Paint();
+  }
+ }
+}
+const mf447OriginalShowWidget=mf441Show;
+mf441Show=function(prefs,state){
+ if(prefs.visibility==='hidden')return false;
+ const combo=mf447Combo();
+ if(combo&&combo.stage!=='completed')return true;
+ return mf447OriginalShowWidget.apply(this,arguments);
+};
+const mf447OriginalCoverPaint=mf424Paint;
+mf424Paint=function(){
+ const result=mf447OriginalCoverPaint.apply(this,arguments);
+ const combo=mf447Combo();
+ if(combo?.stage==='cover'&&MF424.job?.id===combo.coverId&&
+    MF424.job.status==='complete'&&!MF424.running){
+  queueMicrotask(mf447CheckCombo);
+ }
+ return result;
+};
+const mf447OriginalRunCover=mf424Run;
+mf424Run=async function(){
+ const result=await mf447OriginalRunCover.apply(this,arguments);
+ mf447CheckCombo();return result;
+};
+const mf447OriginalPaintMetadata=mf439PaintJob;
+mf439PaintJob=function(){
+ const result=mf447OriginalPaintMetadata.apply(this,arguments);
+ if(MF439.job?.status==='completed'&&!MF439.working)mf447CheckCombo();
+ return result;
+};
+async function mf447ContinueCombined(){
+ if(MF447.handoff)return;
+ const combo=mf447Combo();if(!combo||combo.stage!=='ready-metadata')return;
+ if(combo.coverId){
+  const job=MF424.job;
+  if(!job||job.id!==combo.coverId||job.account!==mf424Account()||job.status!=='complete'||MF424.running){
+   showToast('Finish the matching Cover Recovery job and all pending reviews before continuing.');return;
+  }
+ }
+ if(MF439.working||MF424.running){showToast('Finish the active recovery stage first.');return;}
+ const ids=mf447AllowedIds(combo.ids).slice(0,mf439Preferences().maxBatch);
+ if(!ids.length||!mf447ApiReady('metadata')){showToast('Enable a metadata provider and keep the saved titles available.');return;}
+ MF447.handoff=true;const previous=MF439.job;
+ MF446.pendingBatchIds=ids;
+ try{
+  await App.mf439ConfirmBatch(); // User confirmation + existing lease/overwrite safeguards.
+  if(MF439.job&&MF439.job!==previous&&Array.isArray(MF439.job.ids)&&
+     MF439.job.ids.length===ids.length&&MF439.job.ids.every((id,i)=>String(id)===ids[i])){
+   mf447WriteCombo({...combo,stage:'metadata',metadataAt:MF439.job.startedAt});
+   mf447CheckCombo();
+  }else showToast('Metadata stage not started. Continue it later from Background Processes.');
+ }catch(err){console.warn('Combined metadata handoff failed:',err);showToast('Metadata stage not started; saved cover progress is safe.');}
+ finally{MF446.pendingBatchIds=null;MF447.handoff=false;mf441Paint();}
+}
+function mf447ComboControls(){
+ const combo=mf447Combo();
+ if(!combo)return '';
+ const job=combo.stage==='cover'?MF424.job:combo.stage==='metadata'?(MF439.job||mf439ReadJob()):null;
+ const done=combo.stage==='completed',ready=combo.stage==='ready-metadata';
+ return '<div class="mf447-combo-status" role="status"><span>'+mf425Icon('layers',16)+
+  ' <strong>Combined Recovery</strong><small>'+mf447Escape(done?'Complete':ready?'Cover complete · metadata confirmation needed':
+   combo.stage==='cover'?'Cover stage · '+String(job?.status||'waiting'):
+   'Metadata stage · '+String(job?.status||'running'))+'</small></span>'+
+  (ready?'<button type="button" onclick="App.mf447ContinueCombined()">'+mf425Icon('database',15)+' Continue Metadata</button>':'')+
+  ((done||combo.stage==='cover'&&(!job||job.id!==combo.coverId||job.status==='stopped')||combo.stage==='metadata'&&job?.status==='paused')?'<button type="button" onclick="App.mf447ClearCombo()">'+mf425Icon('x',15)+' '+(done?'Dismiss':'Clear Handoff')+'</button>':'')+
+  '</div>';
+}
+const mf447OriginalWidget=mf441WidgetHtml;
+mf441WidgetHtml=function(prefs,state){
+ let html=mf447OriginalWidget.apply(this,arguments);
+ if(!mf447Prefs().widget)return html;
+ const anchor='<div class="mf441-widget-foot mf446-widget-foot">';
+ if(html.includes(anchor))html=html.replace(anchor,mf447ComboControls()+anchor);
+ return html.replace(anchor,anchor+'<button type="button" onclick="App.mf447Open(\'both\',{entry:\'floating\'})">'+
+  mf425Icon('layers',15)+' Recover Both</button>');
+};
+const mf447Actions=[
+ ['cover','Cover Recovery','images'],['metadata','Metadata Recovery','database'],['both','Recover Both','layers']
+];
+function mf447Buttons(options={}){
+ const compact=options.compact!==false,ids=options.ids||null;
+ const arg=ids?{ids,label:options.label||'Selected titles'}:options.id?{id:options.id}:{entry:options.entry||'shortcut'};
+ const serialized=mf447Escape(JSON.stringify(arg));
+ return '<div class="mf447-shortcut-group" role="group" aria-label="Recovery actions">'+
+  mf447Actions.map(([kind,label,icon])=>'<button type="button" class="btn '+(compact?'btn-sm ':'')+'btn-ghost" '+
+   'onclick="App.mf447Open(\''+kind+'\','+serialized+')" title="'+label+'">'+mf425Icon(icon,16)+' '+label+'</button>').join('')+'</div>';
+}
+const mf447PreviousDetails=v181TitleDetailsHtml;
+v181TitleDetailsHtml=function(item){
+ let html=mf447PreviousDetails.apply(this,arguments);
+ if(!mf447Prefs().details||item?.id==null)return html;
+ // Replace v445's cover-only "combined" link with a real two-stage route.
+ html=html.replace(/onclick="App\.mf445Open\('cover',\{id:/g,'onclick="App.mf447Open(\'both\',{id:');
+ const id=mf447Escape(JSON.stringify(String(item.id)));
+ const buttons='<button class="btn btn-sm btn-ghost" type="button" onclick="App.mf447Open(\'cover\',{id:'+id+'})">'+mf425Icon('images',16)+' Fix Cover</button>'+
+  '<button class="btn btn-sm btn-ghost" type="button" onclick="App.mf447Open(\'metadata\',{id:'+id+'})">'+mf425Icon('database',16)+' Fix Metadata</button>';
+ // The original v439 Fix Metadata action remains; avoid a duplicate button.
+ return html.includes('data-mf439-details-action="1"')?
+  html.replace(/(<div class="v181-detail-actions"[^>]*>)/,'$1'+buttons.replace(/<button class="btn btn-sm btn-ghost" type="button" onclick="App\.mf447Open\('metadata',[\s\S]*?<\/button>/,'') ):
+  html.replace(/(<div class="v181-detail-actions"[^>]*>)/,'$1'+buttons);
+};
+const mf447PreviousEditor=libraryModalHtml;
+libraryModalHtml=function(item){
+ let html=String(mf447PreviousEditor.apply(this,arguments)||'');
+ if(!mf447Prefs().editor||!item?.id)return html;
+ const buttons=mf447Buttons({id:String(item.id)});
+ if(html.includes('mf439-editor-action'))return html.replace('<div class="mf439-editor-action">','<div class="mf439-editor-action mf447-editor-actions">'+buttons);
+ if(html.includes('mf425-editor-tools'))return html.replace(/(<div class="mf425-editor-tools"[^>]*>)/,'$1'+buttons);
+ return html;
+};
+const mf447PreviousLibrary=renderLibrary;
+renderLibrary=function(){
+ let html=String(mf447PreviousLibrary.apply(this,arguments)||'');
+ if(!mf447Prefs().library||!html.includes('mf425-tools-button'))return html;
+ const button=/<button[^>]*mf425-tools-button[^>]*>[\s\S]*?<\/button>/;
+ return html.replace(button,match=>match+mf447Buttons({entry:'library'}));
+};
+const mf447PreviousCollection=v274CollectionDetailHtml;
+v274CollectionDetailHtml=function(c){
+ const html=mf447PreviousCollection.apply(this,arguments);
+ if(!mf447Prefs().collections||!c)return html;
+ const ids=mf447AllowedIds(c.titleIds);
+ return html.replace('<div class="mf274-hero-actions">','<div class="mf274-hero-actions">'+
+  mf447Buttons({ids,label:'Collection: '+String(c.title||'Untitled')}));
+};
+const mf447PreviousQuickbar=v354QuickBar;
+v354QuickBar=function(){
+ const html=mf447PreviousQuickbar.apply(this,arguments);
+ if(!mf447Prefs().order)return html;
+ // Personal Order is a distinct title queue, not the entire Library.
+ const ids=typeof v138OrderedItems==='function'?
+  mf447AllowedIds(v138OrderedItems().map(item=>item?.id).filter(Boolean)):[];
+ return html.replace('<div class="mf354-quick-switch"',mf447Buttons({ids,label:'Personal Order titles'})+'<div class="mf354-quick-switch"');
+};
+const mf447PreviousFloat=mf397Markup;
+mf397Markup=function(){
+ let html=mf447PreviousFloat.apply(this,arguments);
+ if(!mf447Prefs().floating)return html.replace(/<button[^>]*mf436-cover-action[^>]*>[\s\S]*?<\/button>/,'');
+ const target='      </div>\n      <button type="button" id="mf397-fab"';
+ if(!html.includes(target))return html;
+ const additions=[
+  ['metadataRecovery','New Metadata Recovery','database','05'],
+  ['bothRecovery','New Combined Recovery','layers','06']
+ ].map(([action,label,icon,n])=>
+  '        <button type="button" class="mf397-fan-action mf447-float-action" data-action="'+action+'">'+
+  '<span class="mf397-action-symbol">'+mf425Icon(icon,20)+'</span>'+
+  '<span><strong>'+label+'</strong><small>Configure in the unified workspace</small></span><em>'+n+'</em></button>\n').join('');
+ return html.replace(target,additions+target);
+};
+const mf447PreviousFloatAction=mf397Action;
+mf397Action=function(action){
+ if(['coverRecovery','metadataRecovery','bothRecovery'].includes(action)){
+  mf397SetMenu(false);
+  if(!AUTH_USER){showToast('Sign in before starting recovery.');return;}
+  if((action==='coverRecovery'||action==='bothRecovery')&&!MF424.ready){
+   showToast('Cover Recovery is initializing; open this action once storage is ready.');return;
+  }
+  return mf447Open(action==='bothRecovery'?'both':action==='metadataRecovery'?'metadata':'cover',{entry:'floating'});
+ }
+ return mf447PreviousFloatAction.apply(this,arguments);
+};
+const mf447PreviousSettings=mf441WorkspaceHtml;
+mf441WorkspaceHtml=function(){
+ const html=mf447PreviousSettings.apply(this,arguments);
+ const inputs=MF447_SHORTCUTS.map(key=>{
+  const titles={floating:'Floating + menu',library:'Library toolbar',editor:'Add/Edit Title (saved titles)',details:'Title Details',
+   collections:'Collection details',order:'Personal Order',widget:'Background Processes widget'};
+  return '<label><input type="checkbox" '+(mf447Prefs()[key]?'checked ':'')+
+   'onchange="App.mf447SaveShortcut(\''+key+'\',this.checked)">'+mf447Escape(titles[key])+'</label>';
+ }).join('');
+ const section='<fieldset class="mf447-settings-shortcuts"><legend>'+mf425Icon('layers',16)+' Recovery Actions & Shortcuts</legend>'+
+  '<p>Enable or hide shortcut groups without changing the recovery engines, provider preferences or saved jobs.</p>'+
+  '<div>'+inputs+'</div><button type="button" class="btn btn-ghost" onclick="App.mf447Open(\'both\')">'+
+  mf425Icon('layers',16)+' Open Combined Recovery</button></fieldset>';
+ const anchor='<fieldset class="mf441-widget-preferences">';
+ return html.includes(anchor)?html.replace(anchor,section+anchor):html+section;
+};
+document.addEventListener('DOMContentLoaded',()=>{ // Resume safe handoff visibility without auto-scanning.
+ const combo=mf447Combo();if(combo?.stage==='ready-metadata')mf441Paint();
+},{once:true});
+Object.assign(App,{mf447Open,mf447SaveShortcut,mf447StartCombined,mf447ContinueCombined,
+ mf447ClearCombo,mf447CheckCombo});
+window.MediaFlowV447=Object.freeze({version:447,open:mf447Open,buttons:mf447Buttons,
+ prefs:mf447Prefs,scope:mf447ScopeSnapshot,combo:mf447Combo,check:mf447CheckCombo,
+ shortcuts:MF447_SHORTCUTS.slice()});
+/* MediaFlow v448 — Smart Auto-Fill & Automatic Recovery.
+ * Existing v424/v439/v442 jobs retain control of API calls, locks, safe writes,
+ * confirmation dialogs and checkpoints. v448 adds opt-in safety policies,
+ * confidence labels and a bounded evidence-review queue.
+ */
+const MF448_VERSION=448;
+const MF448_DEFAULT={coverPolicy:'original',coverConfidence:98,
+ metadataPolicy:'original',metadataConfidence:94,collectReviews:true};
+const MF448={reviewQueue:null,reviewAccount:'',window:null,policyActive:false};
+function mf448Prefs(){
+ const data=S.settings?.v448SmartRecovery||{};
+ const cp=['original','strict','review'].includes(data.coverPolicy)?data.coverPolicy:'original';
+ const mp=['original','review'].includes(data.metadataPolicy)?data.metadataPolicy:'original';
+ const int=(n,floor,ceil,def)=>Number.isFinite(Number(n))?Math.max(floor,Math.min(ceil,Math.floor(Number(n)))):def;
+ return {...MF448_DEFAULT,...data,coverPolicy:cp,metadataPolicy:mp,
+  coverConfidence:int(data.coverConfidence,95,99,98),
+  metadataConfidence:int(data.metadataConfidence,94,99,
+   Math.round(Math.max(.94,Math.min(.99,Number(S.settings?.v439Metadata?.minimumConfidence)||.94))*100)),
+  collectReviews:data.collectReviews!==false,
+  dashboardAutoSave:!!S.settings?.v430MissingCoversAutoSave};
+}
+function mf448Set(key,value){
+ const valid=['coverPolicy','coverConfidence','metadataPolicy','metadataConfidence','collectReviews','dashboardAutoSave'];
+ if(!valid.includes(key))return;
+ if(key==='dashboardAutoSave'){
+  const checked=!!value;
+  if(typeof App.mf430SetMissingAutoSave==='function')App.mf430SetMissingAutoSave(checked);
+  else{S.settings=S.settings||{};S.settings.v430MissingCoversAutoSave=checked;}
+ }else{
+  S.settings=S.settings||{};
+  S.settings.v448SmartRecovery={...(S.settings.v448SmartRecovery||{}),[key]:value};
+ }
+ mf448Persist();
+ if(document.getElementById('mf445-workspace'))mf445Panel(MF447.active==='both'?'both':MF445.mode);
+ mf441Paint();
+}
+function mf448Persist(){
+ Promise.resolve(saveState()).catch(error=>{console.warn('Smart recovery settings save failed',error);showToast('Smart Recovery settings could not be saved.');});
+}
+function mf448PolicyCover(){
+ return MF424.job?.mf448Options?.coverPolicy?MF424.job.mf448Options:mf448Prefs();
+}
+function mf448PolicyMetadata(){
+ return MF439.job?.mf448Options?.metadataPolicy?MF439.job.mf448Options:mf448Prefs();
+}
+function mf448MetaAccount(){return String(mf439Account());}
+function mf448ReviewKey(){return 'mediaflow-v448-review:'+mf448MetaAccount();}
+function mf448ReadReviews(){
+ const account=mf448MetaAccount();
+ if(MF448.reviewAccount!==account){
+  MF448.reviewAccount=account;MF448.reviewQueue=[];
+  try{
+   const rows=JSON.parse(localStorage.getItem(mf448ReviewKey())||'[]');
+   if(Array.isArray(rows))MF448.reviewQueue=rows.filter(x=>
+    x&&typeof x.id==='string'&&Number.isFinite(Number(x.at))&&
+    ['low-confidence','conflict','manual-review'].includes(x.reason)).slice(-250);
+  }catch(error){console.warn('Could not read metadata review index',error);}
+ }
+ return MF448.reviewQueue;
+}
+function mf448StoreReviews(){
+ try{localStorage.setItem(mf448ReviewKey(),JSON.stringify(mf448ReadReviews().slice(-250)));}
+ catch(error){console.warn('Could not persist metadata review index',error);}
+}
+function mf448QueueReview(preview){
+ if(!mf448PolicyMetadata().collectReviews||!MF439.working||!MF439.job||!preview?.titleId)return;
+ const pending=(preview.proposals||[]).filter(p=>
+  !p.protected&&!p.same&&!p.hasOriginal&&
+  (p.status==='conflict'||p.status==='review'||mf448PolicyMetadata().metadataPolicy==='review'));
+ if(!pending.length)return;
+ const conflicts=pending.filter(x=>x.disagree).length;
+ const reason=mf448PolicyMetadata().metadataPolicy==='review'?'manual-review':
+  conflicts?'conflict':'low-confidence';
+ const id=String(preview.titleId),queue=mf448ReadReviews();
+ const existing=queue.findIndex(row=>row.id===id);
+ if(existing>=0)queue.splice(existing,1);
+ queue.push({id,at:Date.now(),reason,fields:Math.min(100,pending.length),
+  providers:Math.min(50,Number(preview.providers?.length)||0)});
+ if(queue.length>250)queue.splice(0,queue.length-250);
+ mf448StoreReviews();
+}
+const mf448OriginalProposals=mf439Proposals;
+mf439Proposals=function(item,results){
+ const preview=mf448OriginalProposals.apply(this,arguments);
+ mf448QueueReview(preview);
+ return preview;
+};
+const mf448OriginalMetaPreferences=mf439Preferences;
+mf439Preferences=function(){
+ const prefs=mf448OriginalMetaPreferences.apply(this,arguments),policy=mf448PolicyMetadata();
+ const configured=S.settings?.v448SmartRecovery?.metadataConfidence;
+ const explicit=configured!==null&&configured!==undefined&&Number.isFinite(Number(configured));
+ return {...prefs,minimumConfidence:explicit||MF439.job?.mf448Options?.metadataConfidence!=null?
+  policy.metadataConfidence/100:Math.max(.94,Number(prefs.minimumConfidence)||.94)};
+};
+const mf448OriginalMetaApply=mf439Apply;
+mf439Apply=function(item,preview,mode='review'){
+ if(mode==='automatic'&&mf448PolicyMetadata().metadataPolicy==='review'){
+  // The job still advances with a checkpoint and review index, but never
+  // commits any proposed metadata without the user's per-title preview.
+  return {changed:0,legacy:0,fields:0,ratings:0,reviewOnly:true};
+ }
+ return mf448OriginalMetaApply.apply(this,arguments);
+};
+const mf448OriginalCoverSaveJob=mf424SaveJob;
+mf424SaveJob=async function(){
+ if(MF424.job&&!MF424.job.mf448Options)
+  MF424.job.mf448Options={coverPolicy:mf448Prefs().coverPolicy,coverConfidence:mf448Prefs().coverConfidence};
+ return mf448OriginalCoverSaveJob.apply(this,arguments);
+};
+const mf448OriginalMetaSaveJob=mf439SaveJob;
+mf439SaveJob=function(){
+ if(MF439.job&&!MF439.job.mf448Options)
+  MF439.job.mf448Options={metadataPolicy:mf448Prefs().metadataPolicy,
+   metadataConfidence:mf448Prefs().metadataConfidence,collectReviews:mf448Prefs().collectReviews};
+ return mf448OriginalMetaSaveJob.apply(this,arguments);
+};
+const mf448OriginalCoverProcess=mf424Process;
+mf424Process=async function(item){
+ const policy=mf448PolicyCover();
+ if(policy.coverPolicy==='original')return mf448OriginalCoverProcess.apply(this,arguments);
+ if(!mf424Missing(item)){MF424.job.skipped++;return;}
+ const expected=Number(item.modifiedAt)||0,candidates=await mf424Candidates(item);
+ if(!candidates.length){MF424.job.unresolved++;mf424Note('unresolved','No verified cover found',item.id);return;}
+ const selected=candidates.slice().sort((a,b)=>Number(b.confidence)-Number(a.confidence));
+ const best=selected[0],threshold=Math.max(.95,policy.coverConfidence/100);
+ const trusted=best.idMatch===true&&Number(best.confidence)>=threshold;
+ const alternatives=selected.filter(x=>x.idMatch===true&&Number(x.confidence)>=threshold&&x.url!==best.url);
+ // The strict policy is stronger than the original engine. Conflicting
+ // verified artworks or anything without saved direct-ID evidence stay manual.
+ if(policy.coverPolicy==='review'||!trusted||alternatives.length){
+  mf424QueueReview(item,candidates);
+  if(alternatives.length)mf424Note('review','Conflicting verified cover candidates; manual decision required',item.id);
+  return;
+ }
+ if(await mf424Apply(item,best,expected)){
+  MF424.job.fixed++;mf424Note('recovered','Strict verified auto-fill: '+best.provider,item.id);
+ }else{
+  MF424.job.unresolved++;mf424Note('conflict','Title changed or cover validation failed',item.id);
+ }
+};
+const mf448OriginalInstantCandidates=mf425CandidatesHtml;
+mf425CandidatesHtml=function(candidates,item){
+ let raw=mf448OriginalInstantCandidates.apply(this,arguments);
+ let card=0;
+ raw=raw.replace(/(<article class="mf425-candidate"[^>]*>)/g,match=>{
+  const candidate=candidates[card++];if(!candidate)return match;
+  const verified=candidate.idMatch===true&&Number(candidate.confidence)>=.95;
+  const pct=Math.round(Math.max(0,Math.min(1,Number(candidate.confidence)||0))*100);
+  return match+'<span class="mf448-candidate-confidence '+(verified?'verified':'review')+'">'+
+   mf425Icon(verified?'shield':'search',13)+' '+pct+'% · '+(verified?'Direct ID match':'Manual review')+'</span>';
+ });
+ const policy=mf448Prefs();
+ // Candidate cards remain interactive. Evidence is explanatory only: a
+ // title-only match never becomes auto-verified from this badge.
+ return raw.replace(/(<div class="mf425-found-count"[^>]*>)/,
+  '$1<span class="mf448-evidence-caption">Manual review for ambiguous matches · saved external IDs required for automatic recovery.</span>')+
+  '<div class="mf448-instant-policy">'+mf425Icon('shield',15)+
+  (policy.dashboardAutoSave?
+  ' Dashboard: auto-save and go next only for one uniquely verified image.':
+  ' Dashboard: Save cover & Next remains manual until enabled in Smart Recovery.')+'</div>';
+};
+function mf448ConfigHtml(kind='both'){
+ const p=mf448Prefs(),isCover=kind==='cover'||kind==='both',isMeta=kind==='metadata'||kind==='both';
+ const select=(key,rows,val)=>'<select data-mf448-key="'+key+'" onchange="App.mf448Set(\''+key+'\',this.value)">'+
+  rows.map(([id,label])=>'<option value="'+id+'" '+(id===val?'selected':'')+'>'+mf424Escape(label)+'</option>').join('')+'</select>';
+ const number=(key,val,low,high)=>'<input type="number" data-mf448-key="'+key+'" inputmode="numeric" min="'+low+'" max="'+high+'" step="1" value="'+val+
+  '" onchange="App.mf448Set(\''+key+'\',Math.max('+low+',Math.min('+high+',Number(this.value)||'+low+')))">';
+ const check=(key,on,title)=>'<label class="mf448-checkbox"><input type="checkbox" data-mf448-key="'+key+'" '+(on?'checked ':'')+
+  'onchange="App.mf448Set(\''+key+'\',this.checked)">'+title+'</label>';
+ return '<section class="mf448-settings" data-mf-setting-id="smart-recovery" aria-label="Smart Auto-Fill Recovery">'+
+  '<header><span>'+mf425Icon('shield',19)+'</span><div><strong>Smart Auto-Fill & Automatic Recovery</strong>'+
+  '<small>Confidence gates, opt-in automation and protected manual review</small></div></header>'+
+  '<div class="mf448-grid">'+
+  (isCover?'<div class="mf448-policy"><strong>'+mf425Icon('images',16)+' Cover auto-fill</strong>'+
+    '<label>Automatic selection policy'+select('coverPolicy',[
+     ['original','Verified ID matching (existing behavior)'],
+     ['strict','Strict ID-verified / no competing artwork'],
+     ['review','Manual review for every candidate']],p.coverPolicy)+'</label>'+
+    '<label>Strict minimum confidence (%)'+number('coverConfidence',p.coverConfidence,95,99)+'</label>'+
+    check('dashboardAutoSave',p.dashboardAutoSave,'Dashboard: automatically save one uniquely ID-verified cover and advance to next title')+
+    '<small>Existing covers are never automatically replaced. Manual matches remain available.</small></div>':'')+
+  (isMeta?'<div class="mf448-policy"><strong>'+mf425Icon('database',16)+' Metadata auto-fill</strong>'+
+    '<label>Batch behavior'+select('metadataPolicy',[
+     ['original','Fill verified missing fields (existing behavior)'],
+     ['review','Review all candidates manually; no batch writes']],p.metadataPolicy)+'</label>'+
+    '<label>Minimum evidence confidence (%)'+number('metadataConfidence',p.metadataConfidence,94,99)+'</label>'+
+    check('collectReviews',p.collectReviews,'Remember ambiguous / conflicting title matches for manual review')+
+    '<small>Only empty, unprotected, agreed-upon fields can auto-fill. Personal ratings, progress and existing values remain protected.</small></div>':'')+
+  '</div><div class="mf448-tools"><button class="btn btn-ghost" type="button" onclick="App.mf448OpenReviews()">'+
+  mf425Icon('search',15)+' Metadata review queue ('+mf448ReadReviews().length+')</button>'+
+  '<small>Saved per account in this browser · up to 250 review references</small></div></section>';
+}
+const mf448OriginalPanel=mf445Panel;
+mf445Panel=function(mode){
+ const result=mf448OriginalPanel.apply(this,arguments);
+ const root=document.getElementById('mf445-workspace'),panel=root?.querySelector('[data-mf445-panel]');
+ if(panel&&!panel.querySelector('.mf448-settings')){
+  const anchor=panel.querySelector('.mf445-actions');
+  if(anchor)anchor.insertAdjacentHTML('beforebegin',mf448ConfigHtml(mode==='both'?'both':mode));
+ }
+ return result;
+};
+App.mf445Panel=mf445Panel;
+const mf448OriginalWorkspace=mf441WorkspaceHtml;
+mf441WorkspaceHtml=function(){
+ const html=mf448OriginalWorkspace.apply(this,arguments),anchor='<fieldset class="mf447-settings-shortcuts">';
+ return html.includes(anchor)?html.replace(anchor,mf448ConfigHtml('both')+anchor):html+mf448ConfigHtml('both');
+};
+const mf448OriginalMetadataSettings=mf439SettingsHtml;
+mf439SettingsHtml=function(){
+ const html=mf448OriginalMetadataSettings.apply(this,arguments);
+ return html.replace('<div id="mf439-batch-status"',mf448ConfigHtml('metadata')+'<div id="mf439-batch-status"');
+};
+function mf448OpenReviews(){
+ document.getElementById('mf448-review-dialog')?.remove();
+ const catalog=new Map((S.library||[]).filter(item=>item?.id!=null).map(item=>[String(item.id),item]));
+ const rows=mf448ReadReviews().slice().reverse().filter(x=>catalog.has(x.id));
+ const root=document.createElement('div');root.id='mf448-review-dialog';root.className='mf424-modal mf425-themed mf448-review-overlay';
+ root.innerHTML='<div class="mf424-shade" data-mf448-close></div>'+
+  '<section class="mf424-dialog mf448-dialog" role="dialog" aria-modal="true" aria-label="Metadata candidates requiring manual review">'+
+  '<header><div><small>SMART RECOVERY</small><h2>'+mf425Icon('search',20)+' Metadata review queue</h2>'+
+  '<p>Low-confidence, conflicting or manual-review candidates. Nothing in this list is automatically written.</p></div>'+
+  '<button type="button" class="btn btn-ghost" data-mf448-close>'+mf425Icon('x',17)+' Close</button></header>'+
+  '<div class="mf448-review-list">'+(rows.length?rows.map(x=>{
+   const item=catalog.get(x.id);
+   return '<div class="mf448-review-row"><span><strong>'+mf424Escape(item?.title||x.id)+'</strong>'+
+    '<small>'+mf424Escape(x.reason.replace(/-/g,' '))+' · '+Number(x.fields)+' fields · '+new Date(x.at).toLocaleString()+'</small></span>'+
+    '<button type="button" class="btn btn-sm" onclick="App.mf448PreviewReview('+mf424Escape(JSON.stringify(x.id))+')">'+
+    mf425Icon('search',15)+' Preview</button></div>';
+  }).join(''):'<p class="mf448-empty">No titles need manual metadata review yet.</p>')+'</div>'+
+  '<div class="mf448-review-footer"><button type="button" class="btn btn-ghost" onclick="App.mf448ClearReviews()">'+mf425Icon('x',15)+' Clear review list</button></div></section>';
+ root.querySelectorAll('[data-mf448-close]').forEach(el=>el.addEventListener('click',()=>mf448CloseReviews()));
+ root.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();mf448CloseReviews();}});
+ document.body.appendChild(root);root.querySelector('[data-mf448-close]')?.focus();
+}
+function mf448CloseReviews(){document.getElementById('mf448-review-dialog')?.remove();}
+function mf448PreviewReview(id){
+ const record=mf448ReadReviews().find(x=>x.id===String(id));
+ if(!record||(S.library||[]).every(x=>String(x?.id)!==String(id))){showToast('The selected Library title is no longer available.');return;}
+ mf448CloseReviews();mf445Close();
+ return mf445OriginalMetadataOpen(String(id)); // Original single-title evidence preview.
+}
+async function mf448ClearReviews(){
+ const count=mf448ReadReviews().length;
+ if(count&&!await mf444Confirm('Clear metadata review references?',
+  'Remove '+count+' review shortcuts from this browser. Saved metadata and ongoing recovery checkpoints will not change.',
+  'Clear review list',true,count,'metadata'))return;
+ MF448.reviewQueue=[];mf448StoreReviews();mf448OpenReviews();
+}
+Object.assign(App,{mf448Set,mf448OpenReviews,mf448CloseReviews,mf448PreviewReview,mf448ClearReviews});
+window.MediaFlowV448=Object.freeze({version:448,prefs:mf448Prefs,
+ settings:mf448ConfigHtml,review:mf448ReadReviews,strictPolicy:mf448PolicyCover,
+ metadataPolicy:mf448PolicyMetadata});
+/* MediaFlow v449 — Top-aligned Add/Edit recovery actions and Library toolbar cleanup.
+ * Pure presentation. All v424/v439/v447 recovery actions, title saving,
+ * draft protection and provider settings remain under their existing owners.
+ */
+const MF449_VERSION=449;
+function mf449DraftButtons(){
+ const actions=[['images','Cover Recovery'],['database','Metadata Recovery'],
+  ['layers','Recover Both'],['search','Fix Metadata']];
+ return '<div class="mf449-editor-action-row mf449-editor-draft-actions" role="group" aria-label="Recovery actions (save title first)">'+
+  actions.map(([icon,label])=>'<button class="btn btn-sm btn-ghost" type="button" disabled '+
+   'title="Save this title first to enable recovery" aria-label="'+mf424Escape(label)+' — save title first">'+
+   mf425Icon(icon,16)+' '+label+'</button>').join('')+'</div>';
+}
+function mf449TransformEditor(raw,item){
+ // v239/v240 editor wrappers are stable; modify the returned markup only.
+ // No DOM edits to the active form while the user is typing.
+ try{
+  const host=document.createElement('div');host.innerHTML=raw;
+  const editor=host.querySelector('.v240-library-editor,.v238-library-editor');
+  const title=editor?.querySelector('.modal-title');
+  if(!editor||!title)return raw;
+  const saved=!!item?.id;
+  const toolbar=document.createElement('section');
+  toolbar.className='mf449-editor-recovery-toolbar';
+  toolbar.setAttribute('aria-label','Title recovery actions');
+  toolbar.setAttribute('data-mf449-toolbar',saved?'saved':'draft');
+  if(saved){
+   // v447 inserts the three choices into v439's editor-action wrapper.
+   // Move those actual nodes — preserving inline actions and any provider
+   // preference logic — rather than constructing duplicate buttons.
+   const group=editor.querySelector('.mf439-editor-action .mf447-shortcut-group, .mf447-editor-actions .mf447-shortcut-group');
+   if(group)toolbar.appendChild(group);
+   else if(typeof mf447Prefs==='function'&&mf447Prefs().editor&&typeof mf447Buttons==='function'){
+    const parsed=document.createElement('div');parsed.innerHTML=mf447Buttons({id:String(item.id)});
+    if(parsed.firstElementChild)toolbar.appendChild(parsed.firstElementChild);
+   }
+   const metadata=editor.querySelector('.mf439-editor-action > button[onclick*="mf439Open"]');
+   if(metadata)toolbar.appendChild(metadata);
+   else{
+    const button=document.createElement('button');button.type='button';button.className='btn btn-sm btn-ghost';
+    button.innerHTML=mf425Icon('search',16)+' Fix Metadata';
+    button.addEventListener('click',()=>App.mf439Open(String(item.id)));
+    toolbar.appendChild(button);
+   }
+   // Remove only the now-empty injection wrapper; leave adjacent recovery
+   // settings, title metadata editors and save controls unchanged.
+   editor.querySelectorAll('.mf439-editor-action').forEach(el=>{
+    if(!el.querySelector('button,input,select,textarea'))el.remove();
+   });
+  }else{
+   // Unsaved draft has no durable Library ID. Four visible but disabled
+   // actions communicate the feature without risking Library-wide recovery.
+   toolbar.innerHTML=mf449DraftButtons()+
+    '<small class="mf449-draft-note">'+mf425Icon('shield',14)+
+    ' Save this title before starting recovery. You can still edit its fields normally.</small>';
+  }
+  title.before(toolbar);
+  return host.innerHTML;
+ }catch(error){
+  console.warn('v449 recovery toolbar relocation failed, preserving editor markup',error);
+  return raw;
+ }
+}
+const mf449PreviousEditor=libraryModalHtml;
+libraryModalHtml=function(item){
+ return mf449TransformEditor(String(mf449PreviousEditor.apply(this,arguments)||''),item);
+};
+function mf449CleanLibraryMarkup(raw){
+ raw=String(raw||'');
+ // v425's original one-off button duplicates v447's Cover Recovery action.
+ // Keep v447's Cover / Metadata / Recover Both controls intact in both
+ // Normal and Dynamic Library toolbars, regardless of layout or selection.
+ let html=raw.replace(/<button\b(?=[^>]*\bmf425-tools-button\b)[^>]*>[\s\S]*?<\/button>/g,'');
+ html=html.replace(/<div class="mf425-library-tools">\s*<\/div>/g,'');
+ return html;
+}
+const mf449PreviousLibrary=renderLibrary;
+renderLibrary=function(){return mf449CleanLibraryMarkup(mf449PreviousLibrary.apply(this,arguments));};
+window.MediaFlowV449=Object.freeze({version:449,draft:mf449DraftButtons,transform:mf449TransformEditor,cleanLibrary:mf449CleanLibraryMarkup});
+/* MediaFlow v450 — Universal metadata expansion and source-specific external ratings.
+ * Additive only: old envelopes, manually protected fields, personal scores,
+ * progress, covers, IDs and recovery matching remain owned by their v437/v439 code.
+ */
+const MF450_VERSION=450;
+const MF450_EXTRA_FIELDS={
+ shared:[
+  ['subtitle','Subtitle'],['originalReleaseDate','Original release date'],
+  ['endDate','End / final release date'],['productionCompanies','Production companies','list'],
+  ['contentWarnings','Content warnings','list'],['associatedWorks','Related works','list']
+ ],
+ anime:[
+  ['animeFormat','Anime format'],['animeAdaptedFrom','Adapted from'],
+  ['animeEpisodeCount','Episode count (source metadata)','number'],
+  ['animeEpisodeMinutes','Episode duration (minutes)','decimal'],
+  ['animeStudios','Animation studios','list'],['animeThemes','Themes','list']
+ ],
+ manga:[
+  ['mangaDemographic','Demographic'],['mangaPublicationStatus','Publication status'],
+  ['readingDirection','Reading direction'],['mangaImprint','Imprint'],
+  ['mangaOriginalUrl','Official manga URL','url']
+ ],
+ movie:[
+  ['cinematographers','Cinematographers','list'],['filmEditors','Film editors','list'],
+  ['filmComposers','Score composers','list'],['filmFestivals','Festival selections','list']
+ ],
+ tv:[
+  ['tvEpisodeMinutes','Episode length (minutes)','decimal'],
+  ['tvLastAirDate','Last air date'],['tvStreamingServices','Streaming services','list'],
+  ['tvOfficialEpisodeGuide','Official episode guide','url']
+ ],
+ book:[
+  ['isbn10','ISBN-10'],['isbn13','ISBN-13'],['bookFormat','Book format'],
+  ['bookPublicationDate','Publication date'],['bookSubjects','Subjects','list'],
+  ['audiobookDurationMinutes','Audiobook duration (minutes)','decimal']
+ ],
+ comic:[
+  ['comicCharacters','Characters','list'],['comicUniverse','Universe'],
+  ['comicStoryArc','Story arc'],['comicCollection','Collected edition']
+ ],
+ game:[
+  ['gameDirectors','Game directors','list'],['gameGenres','Game genres','list'],
+  ['gameReleaseDate','Release date'],['gameStoreUrl','Official store URL','url'],
+  ['gamePlaytimeHours','Estimated playtime (hours)','decimal'],
+  ['gameRatingBoard','Content rating board']
+ ],
+ visual_novel:[
+  ['vnScenarioWriters','Scenario writers','list'],['vnPlatforms','Platforms','list'],
+  ['vnLanguages','Supported languages','list'],['vnPlaytimeHours','Estimated length (hours)','decimal'],
+  ['vnOriginalReleaseDate','Original release date']
+ ],
+ music:[
+  ['albumBarcode','Album barcode / UPC'],['albumLanguage','Language'],
+  ['albumReleaseDate','Album release date'],['albumDurationMinutes','Album duration (minutes)','decimal'],
+  ['albumGenres','Album genres','list'],['albumCredits','Music credits','list']
+ ],
+ interactive_fiction:[
+  ['ifSeries','Series'],['ifReleaseDate','Release date'],
+  ['ifLanguages','Available languages','list'],['ifCompetition','Competition / award'],
+  ['ifGenres','IF genres','list'],['ifStoryWords','Approximate words','number']
+ ],
+ other:[
+  ['otherFormat','Media format'],['otherPublisher','Publisher / creator'],
+  ['otherOfficialUrl','Official URL','url'],['otherEdition','Edition']
+ ]
+};
+for(const [media,fields] of Object.entries(MF450_EXTRA_FIELDS)){
+ let group=MF437_FIELDS.find(row=>row[0]===media);
+ if(!group){group=[media,'Other media',[]];MF437_FIELDS.push(group);}
+ for(const field of fields){
+  if(MF437_FIELD_MAP.has(field[0]))continue;
+  group[2].push(field);MF437_FIELD_MAP.set(field[0],field);
+ }
+}
+const MF450_EXTRA_RATINGS=[
+ ['rawg','RAWG',5],['googlebooks','Google Books',5],['audible','Audible',5]
+];
+for(const row of MF450_EXTRA_RATINGS)if(!MF437_RATING_MAP.has(row[0])){
+ MF437_RATING_SOURCES.push(row);MF437_RATING_MAP.set(row[0],row);
+}
+/* VNDB's official public API returns 10–100, not a 0–10 score.
+ * Previously saved scores retain their explicit stored scales unchanged. */
+const mf450Vndb=MF437_RATING_MAP.get('vndb');
+if(mf450Vndb)mf450Vndb[2]=100;
+const MF450_EXTRA_IDS=[
+ ['google_books','Google Books'],['openlibrary_work','Open Library Work'],
+ ['openlibrary_edition','Open Library Edition'],['audible','Audible'],
+ ['rawg','RAWG'],['comicbookroundup','Comic Book Roundup'],
+ ['storygraph','The StoryGraph'],['hardcover','Hardcover'],['goodreads','Goodreads']
+];
+for(const [key,name] of MF450_EXTRA_IDS)if(!V377_ID_PROVIDERS.some(row=>row[0]===key))
+ V377_ID_PROVIDERS.push([key,name,'Optional verified external identifier']);
+/* Distinct, offline-capable provider marks; no remote image dependency.
+ * They are identification marks, not claims of official vendor logos. */
+const MF450_MARKS={
+ imdb:'IMDb',trakt:'trakt',rottentomatoes_critics:'🍅',
+ rottentomatoes_audience:'🍿',mal:'MAL',anilist:'AL',kitsu:'K',
+ tmdb:'TMDB',simkl:'simkl',anidb:'AniDB',tvmaze:'TV',
+ metacritic:'MC',letterboxd:'●●●',goodreads:'g',
+ storygraph:'SG',hardcover:'HC',igdb:'IGDB',opencritic:'OC',
+ steam:'STEAM',backloggd:'B',vndb:'VNDB',mangaupdates:'MU',
+ rateyourmusic:'RYM',discogs:'D',ifdb:'IFDB',
+ rawg:'RAWG',googlebooks:'G Books',audible:'A'
+};
+function mf450ProviderMark(key){
+ const symbol=MF450_MARKS[key]||String(key).slice(0,5).toUpperCase();
+ return '<span class="mf450-source-mark" data-mf450-source="'+escapeHtml(key)+'" aria-hidden="true">'+escapeHtml(symbol)+'</span>';
+}
+function mf450CanonicalRating(key){
+ const normal=String(key||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+ const synonyms={
+  rottentomatoes:'rottentomatoes_critics',rottentomatoescritics:'rottentomatoes_critics',
+  rottentomatoesaudience:'rottentomatoes_audience',
+  rtaudience:'rottentomatoes_audience',rtcritics:'rottentomatoes_critics',
+  myanimelist:'mal',malofficial:'mal',themoviedb:'tmdb',
+  googlebooksrating:'googlebooks',steamreviews:'steam'
+ };
+ if(synonyms[normal])return synonyms[normal];
+ return MF437_RATING_SOURCES.find(row=>row[0].replace(/[^a-z0-9]/g,'')===normal)?.[0]||null;
+}
+function mf450NormalizeRatingMap(input){
+ const raw=input&&typeof input==='object'&&!Array.isArray(input)?input:{};
+ const result={},priority={};
+ for(const [key,rating] of Object.entries(raw)){
+  const canonical=mf450CanonicalRating(key);
+  if(!canonical)continue;
+  const data=rating&&typeof rating==='object'&&!Array.isArray(rating)?rating:{score:rating};
+  const value=data.score??data.value;
+  if(value===null||value===undefined||String(value).trim()==='')continue;
+  const scale=Number(data.scale??MF437_RATING_MAP.get(canonical)?.[2]);
+  const score=Number(value),votes=data.votes??data.voteCount??null;
+  const count=votes===null||String(votes).trim()===''?null:Number(votes);
+  if(!Number.isFinite(score)||!Number.isFinite(scale)||scale<=0||scale>100000||
+     score<0||score>scale||(count!==null&&(!Number.isSafeInteger(count)||count<0)))continue;
+  const entry={score,scale,votes:count};
+  const level=key===canonical?2:1;
+  if(!(canonical in result)||level>priority[canonical]){
+   result[canonical]=entry;priority[canonical]=level;
+  }else if(level===priority[canonical]&&JSON.stringify(result[canonical])!==JSON.stringify(entry)){
+   /* Two conflicting aliases never silently produce a guessed winner. */
+   delete result[canonical];priority[canonical]=3;
+  }
+ }
+ return result;
+}
+const mf450BaseTranslateGateway=mf439TranslateGateway;
+mf439TranslateGateway=function(provider,record,item){
+ const row=mf450BaseTranslateGateway.apply(this,arguments);
+ if(!row)return row; // Keep original verified gateway/ID evidence check.
+ const raw=record.fields&&typeof record.fields==='object'?record.fields:{};
+ const type=item?.universalMetadata?.mediaType||'unspecified';
+ const fields={...row.fields};
+ const assign=(field,value)=>{if(value!=null&&value!==''&&MF437_FIELD_MAP.has(field))fields[field]=value;};
+ for(const key of ['originalTitle','episodeCount','chapterCount','volumeCount','authors',
+  'platforms','directors','cast','countries','budget'])
+  if(raw[key]!==undefined&&MF437_FIELD_MAP.has(key))assign(key,raw[key]);
+ if(raw.cast&&type==='tv')assign('tvCast',raw.cast);
+ if(raw.artists&&type==='music')assign('albumArtists',raw.artists);
+ if(raw.artists&&type==='manga')assign('mangaArtists',raw.artists);
+ if(raw.developers&&type==='game')assign('gameDevelopers',raw.developers);
+ if(raw.episodeCount&&type==='anime')assign('animeEpisodeCount',raw.episodeCount);
+ if(raw.publishers&&type==='manga')assign('mangaPublisher',Array.isArray(raw.publishers)?raw.publishers.join(', '):raw.publishers);
+ if(raw.publishers&&type==='comic')assign('comicPublisher',Array.isArray(raw.publishers)?raw.publishers.join(', '):raw.publishers);
+ if(raw.cast&&type==='anime')assign('animeVoiceCast',raw.cast);
+ if(raw.genres&&type==='game')assign('gameGenres',raw.genres);
+ if(raw.genres&&type==='music')assign('albumGenres',raw.genres);
+ row.fields=fields;
+ row.ratings=mf450NormalizeRatingMap({...record.ratings,...row.ratings});
+ return row;
+};
+/* All public/gateway proposals still pass through v439 verification,
+ * confidence thresholds, protected-field and conflict checks. */
+const mf450BaseProposals=mf439Proposals;
+mf439Proposals=function(item,results){
+ const safe=(Array.isArray(results)?results:[]).map(row=>({
+  ...row,ratings:mf450NormalizeRatingMap(row.ratings)
+ }));
+ return mf450BaseProposals.call(this,item,safe);
+};
+const mf450BaseApply=mf439Apply;
+mf439Apply=function(item,preview,mode){
+ const before={...((item?.universalMetadata||{}).externalRatings||{})};
+ const result=mf450BaseApply.apply(this,arguments);
+ if(!result?.changed||!item?.universalMetadata)return result;
+ const env=item.universalMetadata;
+ env.schemaVersion=Math.max(2,Number(env.schemaVersion)||1);
+ for(const p of preview?.proposals||[]){
+  if(!p.selected||!p.token?.startsWith('rating.'))continue;
+  const key=p.token.slice(7),choice=p.options?.[p.choice]||p.options?.[0];
+  const provider=choice?.sources?.[0];
+  if(!provider||before[key]?.score!=null||env.externalRatings?.[key]?.score==null)continue;
+  const provenance=env.provenance?.[p.token];
+  if(provenance?.source!==provider.provider||provenance.verified!==true)continue;
+  if(provider.recordId!=null)
+   provenance.recordId=String(provider.recordId).slice(0,200);
+  env.externalRatings[key].sourceRecordId=provenance.recordId||'';
+ }
+ return result;
+};
+const mf450BaseSaveCapture=mf437SaveCapture;
+mf437SaveCapture=function(item,previous,capture){
+ const changed=mf450BaseSaveCapture.apply(this,arguments);
+ if(changed&&item?.universalMetadata)
+  item.universalMetadata.schemaVersion=Math.max(2,Number(item.universalMetadata.schemaVersion)||1);
+ return changed;
+};
+function mf450RatingTiles(item){
+ const meta=mf437Normalized(item?.universalMetadata);
+ return MF437_RATING_SOURCES.map(([key,label])=>{
+  const score=meta.externalRatings[key];
+  if(score?.score===null||score?.score===undefined)return '';
+  const value=Number(score.score),max=Number(score.scale);
+  if(!Number.isFinite(value)||!Number.isFinite(max)||max<=0||value<0||value>max)return '';
+  const prov=meta.provenance['rating.'+key]||{};
+  const labelText=prov.source==='manual'?'Manually entered':
+   prov.verified===true?'Verified provider data':'Saved external rating';
+  const by=prov.source&&prov.source!=='manual'?' · '+String(prov.source):'';
+  const votes=Number(score.votes);
+  const voteText=score.votes!=null&&Number.isSafeInteger(votes)&&votes>=0?
+   '<small>'+escapeHtml(votes.toLocaleString())+' votes</small>':'';
+  const record=prov.recordId?' · Record '+String(prov.recordId).slice(0,100):'';
+  return '<div class="mf437-rating-display mf450-rating-display">'+
+   '<div class="mf450-rating-provider">'+mf450ProviderMark(key)+
+   '<small>'+escapeHtml(label)+'</small></div>'+
+   '<strong>'+escapeHtml(String(value))+' <span>/ '+escapeHtml(String(max))+'</span></strong>'+
+   voteText+'<small title="'+escapeHtml(labelText+by+record)+'">'+escapeHtml(labelText+by)+'</small>'+
+   '</div>';
+ }).filter(Boolean).join('');
+}
+const mf450BaseEditor=libraryModalHtml;
+libraryModalHtml=function(item){
+ const html=String(mf450BaseEditor.apply(this,arguments)||'');
+ if(!html.includes('mf437-ratings'))return html;
+ try{
+  const root=document.createElement('div');root.innerHTML=html;
+  const tag=root.querySelector('.mf437-ratings > summary small');
+  if(tag)tag.textContent='Original scales · manual or verified recovery';
+  const hint=root.querySelector('.mf437-ratings > .hint');
+  if(hint)hint.textContent='Ratings can be entered manually or recovered from enabled verified providers. Each score keeps its original scale and source. Recovery never changes your personal rating.';
+  root.querySelectorAll('.mf437-rating').forEach((el,index)=>{
+   const key=MF437_RATING_SOURCES[index]?.[0],heading=el.querySelector('strong');
+   if(heading&&key)heading.insertAdjacentHTML('afterbegin',mf450ProviderMark(key));
+  });
+  return root.innerHTML;
+ }catch(e){console.warn('v450 editor enhancement preserved original HTML',e);return html;}
+};
+const mf450BaseDetails=v181TitleDetailsHtml;
+v181TitleDetailsHtml=function(item){
+ const html=String(mf450BaseDetails.apply(this,arguments)||'');
+ if(!html.includes('mf437-details'))return html;
+ try{
+  const root=document.createElement('div');root.innerHTML=html;
+  const section=root.querySelector('.mf437-details');
+  const label=[...section.querySelectorAll('.v181-detail-section-label')]
+   .find(x=>x.textContent.includes('External ratings'));
+  const grid=label?.nextElementSibling;
+  if(grid?.classList.contains('mf437-detail-grid')){
+   const replacement=mf450RatingTiles(item);
+   if(replacement)grid.innerHTML=replacement;
+  }
+  return root.innerHTML;
+ }catch(e){console.warn('v450 ratings detail enhancement preserved original HTML',e);return html;}
+};
+const mf450BaseBackup=v148BuildFullBackup;
+v148BuildFullBackup=function(){
+ const out=mf450BaseBackup.apply(this,arguments);
+ if(out){
+  out.mediaFlowVersion=450;out.backupVersion=450;
+  const manifest=out.backupManifest||(out.backupManifest={});
+  manifest.includes={...(manifest.includes||{}),universalMetadataV2:true,providerRatingProvenance:true};
+  manifest.v450={schemaVersion:2,additiveFields:true,originalRatingScales:true,
+   libraryMigrationRequired:false};
+ }
+ return out;
+};
+window.MediaFlowV450=Object.freeze({
+ version:450,schemaVersion:2,fields:MF450_EXTRA_FIELDS,extraRatings:MF450_EXTRA_RATINGS,
+ normalizeRatings:mf450NormalizeRatingMap,canonical:mf450CanonicalRating,
+ ratingTiles:mf450RatingTiles,mark:mf450ProviderMark
+});
+/* MediaFlow v451 — explicit recovery stopping and safe priority handoff.
+ * Priority operates on saved title IDs, never snapshots or writes Library records.
+ * Active jobs drain at the current title boundary before their checkpoint moves.
+ */
+const MF451_VERSION=451;
+const MF451={intent:null,preparing:false,restoring:false,checking:false,preview:false,journal:null,activeAccount:mf439Account()};
+function mf451Key(){return 'mediaflow-v451-priority:'+mf439Account();}
+function mf451CoverKey(){return 'mf451-suspended-cover:'+mf439Account();}
+function mf451Read(){
+ try{const x=JSON.parse(localStorage.getItem(mf451Key())||'null');
+  return x?.account===mf439Account()&&x?.schema===1?x:null;
+ }catch(_){return null;}
+}
+function mf451Store(j){
+ MF451.journal=j;
+ try{if(j)localStorage.setItem(mf451Key(),JSON.stringify(j));
+  else localStorage.removeItem(mf451Key());
+ }catch(e){console.warn('Priority journal unavailable',e);showToast('Could not save the priority checkpoint.');return false;}
+ return true;
+}
+function mf451SavedId(id){
+ const key=String(id||'');
+ return key&&(S.library||[]).some(t=>String(t?.id)===key)?key:'';
+}
+function mf451CoverPending(job){return !!(job&&job.account===mf424Account()&&
+ Array.isArray(job.ids)&&job.cursor<job.ids.length&&!['complete','stopped'].includes(job.status));}
+function mf451MetaPending(job){return !!(job&&job.account===mf439Account()&&
+ Array.isArray(job.ids)&&job.cursor<job.ids.length&&!['completed','stopped'].includes(job.status));}
+function mf451Wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+async function mf451Drain(timeout=90000){
+ const deadline=Date.now()+timeout;
+ while((MF424.running||MF439.working||MF442.process)&&Date.now()<deadline)await mf451Wait(100);
+ return !MF424.running&&!MF439.working&&!MF442.process;
+}
+async function mf451PauseActive(){
+ const owner=mf442ProcessLease();
+ if(owner&&owner.token!==MF442.owner){
+  showToast('Another tab owns recovery. Stop or pause that tab before prioritizing a title.');return false;
+ }
+ if(MF424.job&&MF424.running){
+  MF424.job.pauseRequested=true;
+  await mf424SaveJob();
+ }
+ if(MF439.working){
+  MF439.cancel=true;
+  if(MF439.job){MF439.job.status='paused';mf439SaveJob();}
+  MF439.controller?.abort();
+ }
+ if(!await mf451Drain()){
+  showToast('The current provider request has not finished. Its checkpoint is safe; retry the priority action after it stops.');
+  return false;
+ }
+ if(MF424.job&&MF424.job.status==='running'){
+  MF424.job.status='paused';MF424.job.pauseRequested=true;await mf424SaveJob();
+ }
+ if(MF439.job&&MF439.job.status==='running'){
+  MF439.job.status='paused';mf439SaveJob();
+ }
+ return true;
+}
+async function mf451Prepare(kind,id){
+ id=mf451SavedId(id);
+ if(!id||!['cover','metadata','both'].includes(kind))return false;
+ if(MF451.preparing||MF451.restoring){showToast('Recovery queue handoff is already in progress.');return false;}
+ if(MF451.journal||mf451Read()){showToast('A priority title is already active. Finish or resume its interrupted jobs first.');return false;}
+ MF451.preparing=true;
+ let savedCover=false,savedMeta=false,created=false;
+ const wasCover=MF424.running,wasMetadata=MF439.working;
+ try{
+  if(!await mf451PauseActive())return false;
+  const cover=MF424.job,metadata=MF439.job||mf439ReadJob();
+  if(kind!=='metadata'&&mf451CoverPending(cover)){
+   // Use the recovery IndexedDB, not localStorage (100k title queues can
+   // exceed browser localStorage limits). Save before replacing main job.
+   const saved={...cover,status:'paused',pauseRequested:true,stopRequested:false,hardStop:false};
+   await mf424Storage('put',mf451CoverKey(),saved);savedCover=true;
+  }
+  const oldMeta=kind==='both'&&mf451MetaPending(metadata)?{
+   ...metadata,status:'paused',stopRequested:false
+  }:null;
+  savedMeta=!!oldMeta;
+  const combo=kind==='both'?mf447Combo():null;
+  const journal={schema:1,account:mf439Account(),kind,id,started:Date.now(),
+   coverBackup:savedCover,metadataBackup:oldMeta,combinedBackup:combo,
+   autoResume:true,coverWasRunning:wasCover,metadataWasRunning:wasMetadata,
+   priorityCoverId:'',state:'configuring'};
+  if(!mf451Store(journal))throw Error('Priority journal could not be persisted');
+  created=true;
+  if(savedCover){MF424.job=null;await mf424Storage('delete',mf424Key());}
+  if(savedMeta){MF439.job=null;localStorage.removeItem(mf439StateKey());}
+  if(combo&&combo.stage!=='completed')mf447WriteCombo(null);
+  mf441Paint();return true;
+ }catch(err){
+  console.warn('Priority handoff failed; preserving original queue',err);
+  if(savedCover&&!created)try{await mf424Storage('delete',mf451CoverKey());}catch(_){}
+  showToast('Could not safely interrupt recovery. Existing checkpoints were preserved.');
+  return false;
+ }finally{MF451.preparing=false;}
+}
+function mf451Ready(j){
+ if(!j||j.account!==mf439Account()||MF424.running||MF439.working||MF442.process)return false;
+ if(j.kind==='metadata')return !document.getElementById('mf439-recovery-modal');
+ if(j.kind==='both')return mf447Combo()?.stage==='completed';
+ if(!j.priorityCoverId)return false;
+ return MF424.job?.id===j.priorityCoverId&&
+  MF424.job.status==='complete'&&Number(MF424.job.pending||0)===0;
+}
+async function mf451Restore({force=false}={}){
+ const j=MF451.journal||mf451Read();
+ if(!j||MF451.restoring||MF451.preparing)return false;
+ if(!force&&!mf451Ready(j))return false;
+ if(MF424.running||MF439.working||MF442.process)return false;
+ MF451.restoring=true;
+ try{
+  if(j.coverBackup){
+   const backup=await mf424Storage('get',mf451CoverKey());
+   if(!backup||backup.account!==mf424Account())throw Error('Original cover checkpoint unavailable');
+   if(MF424.job&&MF424.job.id!==backup.id)
+    await mf424Storage('put','mf451-last-priority-report:'+mf439Account(),MF424.job);
+   MF424.job={...backup,status:'paused',stopRequested:false,
+    pauseRequested:true,hardStop:false};
+   await mf424SaveJob();
+   await mf424Storage('delete',mf451CoverKey());
+  }
+  if(j.metadataBackup){
+   MF439.job={...j.metadataBackup,status:'paused',stopRequested:false};
+   mf439SaveJob();
+  }
+  if(j.kind==='both'){
+   mf447WriteCombo(j.combinedBackup?.stage!=='completed'?j.combinedBackup:null);
+  }
+  mf451Store(null);
+  const shouldResume=force?true:j.autoResume;
+  if(shouldResume&&j.coverWasRunning&&MF424.job&&
+     MF424.job.cursor<MF424.job.ids.length){
+   MF424.job.pauseRequested=false;
+   await mf424SaveJob();App.mf424Resume();
+  }else if(shouldResume&&j.metadataWasRunning&&MF439.job&&
+     MF439.job.cursor<MF439.job.ids.length){
+   App.mf439Resume();
+  }else if(shouldResume&&j.kind==='metadata'){
+   if(j.coverWasRunning&&MF424.job)App.mf424Resume();
+   else if(j.metadataWasRunning&&MF439.job)App.mf439Resume();
+  }
+  showToast('Priority recovery finished. Interrupted checkpoints restored'+(shouldResume?' and eligible work resumed.':'.'));
+  mf441Paint();return true;
+ }catch(err){console.warn('Priority recovery restore failed',err);
+  showToast('Priority completed, but restoring an interrupted checkpoint failed. Retry Resume Interrupted.');return false;
+ }finally{MF451.restoring=false;}
+}
+function mf451ScheduleRestore(){
+ if(MF451.checking||MF451.restoring||MF451.preparing)return;
+ const j=MF451.journal||mf451Read();
+ if(!j||!j.autoResume||!mf451Ready(j))return;
+ MF451.checking=true;
+ queueMicrotask(()=>{MF451.checking=false;void mf451Restore();});
+}
+async function mf451Stop(kind,{confirm=true}={}){
+ if(!['cover','metadata','all'].includes(kind))return;
+ const hasCover=(kind==='all'||kind==='cover')&&!!MF424.job,
+ hasMetadata=(kind==='all'||kind==='metadata')&&!!MF439.job;
+ if(!hasCover&&!hasMetadata&&!MF451.journal){showToast('No recovery jobs to stop.');return;}
+ if(confirm&&!await mf444Confirm(kind==='all'?'Stop all recoveries?':'Stop '+kind+' recovery?',
+  'Stop requesting new provider results, abort active requests when possible and preserve completed Library changes. Unprocessed titles will not restart automatically. Checkpoints remain available for manual resumption.',
+  kind==='all'?'Stop All':'Stop Recovery',true,0,kind==='metadata'?'metadata':'cover'))return;
+ // Disable automatic priority handoff before stopping: completing a job must
+ // never silently restart something after the user pressed Stop.
+ const j=MF451.journal||mf451Read();
+ if(j){j.autoResume=false;j.state='stopped';mf451Store(j);}
+ if(hasCover){
+  const job=MF424.job;job.stopRequested=true;job.pauseRequested=false;job.hardStop=true;
+  for(const controller of MF424.activeControllers||[])try{controller.abort();}catch(_){}
+  if(!MF424.running)job.status='stopped';
+  await mf424SaveJob();
+ }
+ if(hasMetadata){
+  MF439.cancel=true;MF439.controller?.abort();
+  MF439.job.stopRequested=true;
+  if(!MF439.working)MF439.job.status='stopped';
+  mf439SaveJob();
+ }
+ if(kind==='all'){
+  const combo=mf447Combo();
+  if(combo&&combo.stage!=='completed')mf447WriteCombo(null);
+ }
+ mf424Paint();mf439PaintJob();mf441Paint();
+ showToast('Recovery stopping. Finished work remains saved; pending work will not resume automatically.');
+}
+async function mf451ClearAll(){
+ if(!await mf444Confirm('Discard all unfinished recovery queues?',
+  'Stop current recovery and delete unfinished cover, metadata, combined and interrupted priority checkpoints. Previously saved Library artwork and metadata will remain unchanged.',
+  'Discard Queues',true,0,'cover'))return;
+ await mf451Stop('all',{confirm:false});
+ if(!await mf451Drain()){showToast('A provider request is still finishing. Clear queues once it stops.');return;}
+ MF424.job=null;MF439.job=null;MF451.intent=null;mf451Store(null);
+ try{await mf424Storage('delete',mf424Key());
+  await mf424Storage('delete',mf451CoverKey());}catch(e){console.warn('Unable to clear IndexedDB recovery queue',e);}
+ try{localStorage.removeItem(mf439StateKey());}catch(_){}
+ mf447WriteCombo(null);mf424Paint();mf439PaintJob();mf441Paint();
+ showToast('Pending recovery queues discarded. Already saved Library changes were preserved.');
+}
+const mf451BaseRunCover=mf424Run;
+mf424Run=async function(){
+ const result=await mf451BaseRunCover.apply(this,arguments);
+ mf451ScheduleRestore();return result;
+};
+const mf451BaseRunMetadata=mf439RunBatch;
+mf439RunBatch=async function(){
+ const result=await mf451BaseRunMetadata.apply(this,arguments);
+ mf451ScheduleRestore();return result;
+};
+const mf451BaseResumeMetadata=mf439Resume;
+mf439Resume=function(){
+ if(!MF439.job)MF439.job=mf439ReadJob();
+ if(MF439.job){MF439.job.stopRequested=false;mf439SaveJob();}
+ return mf451BaseResumeMetadata.apply(this,arguments);
+};
+App.mf439Resume=mf439Resume;
+const mf451BaseResumeCover=App.mf424Resume;
+App.mf424Resume=async function(){
+ if(MF424.job){MF424.job.hardStop=false;await mf424SaveJob();}
+ return mf451BaseResumeCover.apply(this,arguments);
+};
+const mf451BaseOpen=App.mf447Open;
+App.mf447Open=function(kind='cover',options={}){
+ const id=mf451SavedId(options?.id);
+ MF451.intent=id?{kind,id}:null;
+ return mf451BaseOpen.apply(this,arguments);
+};
+const mf451BaseStartCover=App.mf424Start;
+App.mf424Start=async function(){
+ const intent=MF451.intent,oneId=mf451SavedId(MF425?.oneId);
+ const priority=oneId&&intent?.id===oneId&&intent.kind!=='metadata';
+ const journal=MF451.journal||mf451Read();
+ if(priority&&!journal){
+  if(!await mf451Prepare(intent.kind==='both'?'both':'cover',oneId))return;
+ }
+ const active=MF451.journal||mf451Read(),before=MF424.job?.id||'';
+ const result=await mf451BaseStartCover.apply(this,arguments);
+ if(priority&&active&&MF424.job?.id&&MF424.job.id!==before){
+  active.priorityCoverId=MF424.job.id;active.state='cover';mf451Store(active);
+ }else if(priority&&active&&!MF424.job){
+  showToast('Priority cover job was not started. Resume Interrupted when ready.');
+ }
+ mf451ScheduleRestore();return result;
+};
+const mf451BaseCombined=App.mf447StartCombined;
+App.mf447StartCombined=async function(){
+ const ids=mf447ScopeSnapshot(),id=ids.length===1?mf451SavedId(ids[0]):'';
+ if(id){
+  MF451.intent={kind:'both',id};
+  if(!await mf451Prepare('both',id))return;
+ }
+ const result=mf451BaseCombined.apply(this,arguments);
+ mf441Paint();return result;
+};
+const mf451BaseStartWorkspace=App.mf445Start;
+App.mf445Start=async function(action){
+ if(action==='preview'){
+  const ids=mf446ScopeIds('metadata'),id=ids.length===1?mf451SavedId(ids[0]):'';
+  if(id){
+   MF451.intent={kind:'metadata',id};
+   if(!await mf451Prepare('metadata',id))return;
+   MF451.preview=true;
+  }
+ }
+ return mf451BaseStartWorkspace.apply(this,arguments);
+};
+const mf451BaseClosePreview=mf439Close;
+mf439Close=function(){
+ const result=mf451BaseClosePreview.apply(this,arguments);
+ if(MF451.preview){MF451.preview=false;mf451ScheduleRestore();}
+ return result;
+};
+App.mf439Close=mf439Close;
+const mf451BaseReviewSave=mf424ReviewSave;
+mf424ReviewSave=async function(){
+ const result=await mf451BaseReviewSave.apply(this,arguments);
+ mf451ScheduleRestore();return result;
+};
+const mf451BasePaintCover=mf424Paint;
+mf424Paint=function(){
+ const result=mf451BasePaintCover.apply(this,arguments);
+ mf451ScheduleRestore();return result;
+};
+const mf451BasePaintMetadata=mf439PaintJob;
+mf439PaintJob=function(){
+ const result=mf451BasePaintMetadata.apply(this,arguments);
+ mf451ScheduleRestore();return result;
+};
+const mf451BaseCoverRow=mf441CoverRow;
+mf441CoverRow=function(s){
+ const html=mf451BaseCoverRow.apply(this,arguments);
+ const j=s.cover;
+ if(!j||['complete','stopped'].includes(j.status))return html;
+ return html.replace('</div></article>','<button type="button" class="mf451-stop" onclick="App.mf451Stop(&#39;cover&#39;)">'+mf425Icon('square',15)+' Stop</button></div></article>');
+};
+const mf451BaseMetadataRow=mf441MetadataRow;
+mf441MetadataRow=function(s){
+ const html=mf451BaseMetadataRow.apply(this,arguments);
+ const j=s.metadata;
+ if(!j)return html;
+ if(j.status==='stopped')return html.replace('</div></article>','<button type="button" class="mf451-resume" onclick="App.mf439Resume()">'+mf425Icon('play',15)+' Resume</button></div></article>').replace('No active job','Stopped safely · pending titles preserved');
+ if(j.status==='completed')return html;
+ return html.replace('</div></article>','<button type="button" class="mf451-stop" onclick="App.mf451Stop(&#39;metadata&#39;)">'+mf425Icon('square',15)+' Stop</button></div></article>');
+};
+const mf451BaseWidget=mf441WidgetHtml;
+mf441WidgetHtml=function(prefs,state){
+ const html=mf451BaseWidget.apply(this,arguments);
+ const journal=MF451.journal||mf451Read();
+ const controls='<button type="button" class="mf451-stop" onclick="App.mf451Stop(&#39;all&#39;)">'+
+  mf425Icon('square',15)+' Stop All</button>'+
+  (journal?'<button type="button" class="mf451-resume" onclick="App.mf451ResumeInterrupted()">'+
+   mf425Icon('play',15)+' Resume Interrupted</button>':'')+
+  '<button type="button" class="mf451-discard" onclick="App.mf451ClearAll()">'+
+   mf425Icon('trash2',15)+' Discard Queues</button>';
+ return html.replace(/(<div class="mf441-widget-foot[^"]*">)/,'$1'+controls);
+};
+const mf451BaseWorkspace=mf441WorkspaceHtml;
+mf441WorkspaceHtml=function(){
+ const html=mf451BaseWorkspace.apply(this,arguments);
+ const j=MF451.journal||mf451Read();
+ const controls='<section class="mf451-workspace-controls">'+
+  '<strong>'+mf425Icon('listOrdered',17)+' Recovery queue control</strong>'+
+  '<p>Single-title Cover, Metadata and Recover Both operations take priority. Interrupted jobs keep their original checkpoints and can resume when priority work finishes.</p>'+
+  '<div><button type="button" class="btn btn-ghost mf451-stop" onclick="App.mf451Stop(&#39;all&#39;)">'+mf425Icon('square',15)+' Stop All Recoveries</button>'+
+  (j?'<button type="button" class="btn btn-ghost" onclick="App.mf451ResumeInterrupted()">'+mf425Icon('play',15)+' Resume Interrupted</button>':'')+
+  '<button type="button" class="btn btn-ghost mf451-discard" onclick="App.mf451ClearAll()">'+mf425Icon('trash2',15)+' Discard Queues</button></div>'+
+  (j?'<small>Priority title: '+mf424Escape(mf451SavedId(j.id)?mf439Item(j.id)?.title||'Saved title':'Unavailable title')+
+  ' · '+mf424Escape(j.kind)+' · interrupted checkpoints preserved</small>':'')+
+  '</section>';
+ const last=html.lastIndexOf('</section>');
+ return last<0?html:html.slice(0,last)+controls+html.slice(last);
+};
+async function mf451ResumeInterrupted(){
+ const j=MF451.journal||mf451Read();
+ if(!j){showToast('No interrupted recovery checkpoints to resume.');return;}
+ if(MF424.running||MF439.working||MF442.process){
+  showToast('Finish or stop the current priority process before resuming older jobs.');return;
+ }
+ if(!mf451Ready(j)){
+  if(!await mf444Confirm('End priority recovery and resume interrupted jobs?',
+   'The priority run has not finished yet. Its already saved title changes will remain, but unprocessed priority items will be cancelled to restore the older queue.',
+   'Resume Older Jobs',true,0,j.kind==='metadata'?'metadata':'cover'))return;
+  if(j.kind==='cover'||j.kind==='both')await mf451Stop('cover',{confirm:false});
+  if(j.kind==='metadata')MF439.controller?.abort();
+  if(!await mf451Drain()){showToast('Waiting for the current provider request to exit safely. Try Resume Interrupted again.');return;}
+ }
+ return mf451Restore({force:true});
+}
+Object.assign(App,{mf451Stop,mf451ClearAll,mf451ResumeInterrupted});
+window.MediaFlowV451=Object.freeze({
+ version:451,priority:()=>MF451.journal||mf451Read(),
+ stop:mf451Stop,prepare:mf451Prepare,restore:mf451Restore,
+ controls:()=>mf441WidgetHtml(mf441Prefs(),mf441State())
+});
+MF451.journal=mf451Read();
+/* MediaFlow v452 — recovery provider bulk controls, clean title editor actions,
+ * and complete semantic stopping actions in the Background Processes widget.
+ * Reuses all v424/v439/v442/v447/v451 checkpoint and provider safety systems. */
+const MF452_VERSION=452;
+const MF452_ICON_PATHS=Object.freeze({
+  selectAll:'<rect x="3" y="3" width="7" height="7" rx="1"/><path d="m4.5 6.5 1.3 1.3L8 5.3"/><rect x="14" y="3" width="7" height="7" rx="1"/><path d="m15.5 6.5 1.3 1.3L19 5.3"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="m4.5 17.5 1.3 1.3L8 16.3"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="m15.5 17.5 1.3 1.3L19 16.3"/>',
+  deselectAll:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M5 6.5h3M16 6.5h3M5 17.5h3M16 17.5h3"/>',
+  stop:'<rect x="5" y="5" width="14" height="14" rx="2"/>',
+  stopTitle:'<rect x="3" y="4" width="11" height="16" rx="2"/><path d="M6 9h5M6 13h5"/><rect x="17" y="9" width="5" height="6" rx="1"/>',
+  stopPart:'<rect x="3" y="4" width="10" height="7" rx="1"/><rect x="3" y="14" width="10" height="7" rx="1"/><rect x="17" y="9" width="5" height="6" rx="1"/>',
+  stopAll:'<rect x="2" y="5" width="8" height="14" rx="1"/><rect x="14" y="5" width="8" height="14" rx="1"/>',
+  discard:'<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v6M14 11v6"/>'
+});
+function mf452Icon(type,size=16){
+ const paths=MF452_ICON_PATHS[type]||MF452_ICON_PATHS.stop;
+ return '<svg class="mf452-icon mf452-icon-'+type+'" viewBox="0 0 24 24" width="'+size+'" height="'+size+
+  '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';
+}
+function mf452Button(action,label,icon,cls='',title=''){
+ return '<button type="button" data-v225-iconified="1" class="mf452-control '+cls+
+  '" onclick="'+mf424Escape(action)+'"'+(title?' title="'+mf424Escape(title)+'"':'')+
+  '>'+mf452Icon(icon,15)+' <span>'+mf424Escape(label)+'</span></button>';
+}
+function mf452ProviderToolbar(mode){
+ const kind=mode==='metadata'?'metadata':'cover',q=JSON.stringify(kind);
+ return '<div class="mf446-provider-tools mf452-provider-tools" role="group" aria-label="'+
+  (kind==='cover'?'Cover':'Metadata')+' provider bulk selection">'+
+  mf452Button('App.mf446ProviderAll('+q+',true)','Select All','selectAll','mf452-provider-select','Enable every available '+kind+' provider')+
+  mf452Button('App.mf446ProviderAll('+q+',false)','Deselect All','deselectAll','mf452-provider-deselect','Disable every '+kind+' provider')+'</div>';
+}
+// The "Both" tab uses mf446SourceHtml twice; keep the intended panel when
+// selecting cover providers OR metadata providers.
+const mf452BaseSource=mf446SourceHtml;
+mf446SourceHtml=function(mode){
+ const html=String(mf452BaseSource.apply(this,arguments)||'');
+ return html.replace(/<div class="mf446-provider-tools">[\s\S]*?<\/div>/,
+  mf452ProviderToolbar(mode));
+};
+function mf452SaveProviders(mode,enabled){
+ if(!['cover','metadata'].includes(mode))return false;
+ S.settings=S.settings||{};
+ const prop=mode==='cover'?'v424Covers':'v439Metadata';
+ S.settings[prop]={...(S.settings[prop]||{}),enabled};
+ Promise.resolve(saveState()).catch(e=>console.warn('Provider preference persistence failed',e));
+ const current=document.getElementById('mf445-workspace');
+ if(current){
+  const active=MF447?.active==='both'||current.querySelector('[data-mf445-tab="both"][aria-selected="true"]')?'both':(MF445.mode||mode);
+  mf445Panel(active);
+ }
+ return true;
+}
+mf446ProviderAll=function(mode,on){
+ if(!['cover','metadata'].includes(mode))return;
+ const candidates=mf445Providers(mode).filter(row=>row.available);
+ const enabled=on?candidates.map(row=>row.id):[];
+ mf452SaveProviders(mode,enabled);
+};
+mf446ToggleProvider=function(mode,id,on){
+ if(!['cover','metadata'].includes(mode))return;
+ const rows=mf445Providers(mode),candidate=rows.find(row=>row.id===id);
+ if(!candidate||!candidate.available){
+  showToast('This provider is unavailable. Configure its credentials in API Setup.');return;
+ }
+ const existing=new Set((mode==='cover'?mf424Defaults():mf439Preferences()).enabled);
+ if(on)existing.add(id);else existing.delete(id);
+ mf452SaveProviders(mode,[...existing]);
+};
+App.mf446ProviderAll=mf446ProviderAll;
+App.mf446ToggleProvider=mf446ToggleProvider;
+// Eliminate the redundant one-off Fix Metadata action, but never hide the
+// functional Metadata Recovery (and Recover Both) actions.
+function mf452CleanTitleRecovery(raw){
+ if(!String(raw).includes('Fix Metadata'))return raw;
+ try{
+  const host=document.createElement('div');host.innerHTML=raw;
+  const buttons=host.querySelectorAll(
+   '.mf449-editor-recovery-toolbar button,.mf449-editor-draft-actions button,'+
+   '.mf439-editor-action button,.v181-detail-actions button');
+  for(const button of buttons){
+   const isFix=/^\s*Fix Metadata\s*$/i.test(button.textContent.trim());
+   const rawClick=button.getAttribute('onclick')||'';
+   if(isFix&&(!rawClick||rawClick.includes('mf439Open')))button.remove();
+  }
+  host.querySelectorAll('.mf439-editor-action').forEach(el=>{
+   if(!el.querySelector('button,input,select,textarea'))el.remove();
+  });
+  return host.innerHTML;
+ }catch(e){console.warn('v452 title recovery cleanup skipped',e);return raw;}
+}
+const mf452BaseEditor=libraryModalHtml;
+libraryModalHtml=function(){return mf452CleanTitleRecovery(String(mf452BaseEditor.apply(this,arguments)||''));};
+const mf452BaseDetails=v181TitleDetailsHtml;
+v181TitleDetailsHtml=function(){return mf452CleanTitleRecovery(String(mf452BaseDetails.apply(this,arguments)||''));};
+// The draft title has no stable ID. It should display exactly the three
+// existing recovery routes, disabled until the title is saved.
+const mf452BaseDraft=mf449DraftButtons;
+mf449DraftButtons=function(){
+ return mf452CleanTitleRecovery(mf452BaseDraft.apply(this,arguments));
+};
+// Metadata jobs use their EXISTING configured batchSize (normally 25) to
+// define one part. The durable stop boundary is saved with the job.
+function mf452StopBoundary(job){
+ if(!job||!job.stopRequested&&!(job.stopAfterTitle||job.stopAtCursor))return false;
+ if(!job.stopRequested&&(job.stopAfterTitle||
+   Number(job.stopAtCursor)>0&&job.cursor>=Number(job.stopAtCursor))){
+  job.stopRequested=true;
+  job.stopAfterTitle=false;job.stopAtCursor=0;
+  mf439SaveJob();
+ }
+ return Boolean(job.stopRequested);
+}
+async function mf452CoverStopAfter(kind){
+ const j=MF424.job;
+ if(!j||['complete','stopped'].includes(j.status))return;
+ if(!MF424.running){
+  j.stopRequested=true;j.status='stopped';
+ }else if(kind==='title'){
+  j.stopAfterTitle=true;j.stopAfterPart=false;
+ }else{
+  j.stopAfterPart=true;j.stopAfterTitle=false;
+ }
+ await mf424SaveJob();mf424Paint();mf441Paint();
+ showToast(MF424.running?'Cover Recovery will stop after the current '+(kind==='title'?'title.':'part.'):'Cover Recovery stopped; checkpoint preserved.');
+}
+function mf452MetadataStopAfter(kind){
+ const j=MF439.job;
+ if(!j||['completed','stopped'].includes(j.status))return;
+ if(!MF439.working){
+  j.stopRequested=true;j.status='stopped';
+ }else if(kind==='title'){
+  j.stopAfterTitle=true;j.stopAtCursor=0;
+ }else{
+  const partSize=mf439Preferences().batchSize;
+  j.stopAfterTitle=false;j.stopAtCursor=Math.min(j.ids.length,(Math.floor(j.cursor/partSize)+1)*partSize);
+  j.stopPartSize=partSize;
+ }
+ mf439SaveJob();mf439PaintJob();mf441Paint();
+ showToast(MF439.working?'Metadata Recovery will stop after the current '+(kind==='title'?'title.':'part.'):'Metadata Recovery stopped; checkpoint preserved.');
+}
+const mf452BaseResumeCover=App.mf424Resume;
+App.mf424Resume=async function(){
+ if(MF424.job){
+  MF424.job.stopAfterTitle=false;
+  MF424.job.stopAfterPart=false;
+  MF424.job.stopRequested=false;
+  MF424.job.hardStop=false;
+  await mf424SaveJob();
+ }
+ return mf452BaseResumeCover.apply(this,arguments);
+};
+const mf452BaseResumeMeta=App.mf439Resume;
+App.mf439Resume=function(){
+ if(MF439.job){
+  MF439.job.stopAfterTitle=false;MF439.job.stopAtCursor=0;
+  MF439.job.stopRequested=false;mf439SaveJob();
+ }
+ return mf452BaseResumeMeta.apply(this,arguments);
+};
+function mf452StopRow(raw,kind,j){
+ const html=String(raw||''),active=kind==='cover'?Boolean(MF424.running):Boolean(MF439.working&&j?.status==='running');
+ // v451 uses a missing 'square' icon alias (renders as Images): rebuild the
+ // Stop button with a dedicated square, and add explicit stop boundaries.
+ const clean=html.replace(/<button\b[^>]*class="mf451-stop"[\s\S]*?<\/button>/g,'');
+ if(!j||['complete','completed','stopped'].includes(j.status))return clean;
+ const stop=mf452Button("App.mf451Stop('"+kind+"')",'Stop Now','stop','mf451-stop mf452-stop-now');
+ const title=active?mf452Button("App.mf452StopAfter('"+kind+"','title')",
+  'Stop After Title','stopTitle','mf452-after-title'):'';
+ const part=active?mf452Button("App.mf452StopAfter('"+kind+"','part')",
+  'Stop After Part','stopPart','mf452-after-part',
+  kind==='metadata'?'Finish the current '+mf439Preferences().batchSize+'-title metadata part before stopping':'Finish the current cover part before stopping'):'';
+ return clean.replace('</div></article>',stop+title+part+'</div></article>');
+}
+const mf452BaseCoverRow=mf441CoverRow;
+mf441CoverRow=function(s){return mf452StopRow(mf452BaseCoverRow.apply(this,arguments),'cover',s.cover);};
+const mf452BaseMetaRow=mf441MetadataRow;
+mf441MetadataRow=function(s){return mf452StopRow(mf452BaseMetaRow.apply(this,arguments),'metadata',s.metadata);};
+// Both fixed 'square' and 'trash2' failed in the v425 icon map. Replace the
+// entire icon inside these controls, in both floating and Settings workspaces.
+function mf452ReplaceStopIcons(raw){
+ const host=document.createElement('div');host.innerHTML=raw;
+ host.querySelectorAll('button.mf451-stop,button.mf451-discard').forEach(button=>{
+  const click=button.getAttribute('onclick')||'';
+  const stopAll=click.includes("mf451Stop('all')")||click.includes('mf451Stop(&#39;all&#39;)');
+  const discard=click.includes('mf451ClearAll()');
+  if(!stopAll&&!discard)return;
+  const label=(button.textContent||'').trim();
+  button.dataset.v225Iconified='1';
+  button.querySelectorAll('svg.mf425-icon,.v225-btn-icon').forEach(icon=>icon.remove());
+  button.insertAdjacentHTML('afterbegin',mf452Icon(discard?'discard':'stopAll',15));
+  button.setAttribute('aria-label',label);
+ });
+ return host.innerHTML;
+}
+const mf452BaseWidget=mf441WidgetHtml;
+mf441WidgetHtml=function(){return mf452ReplaceStopIcons(mf452BaseWidget.apply(this,arguments));};
+const mf452BaseWorkspace=mf441WorkspaceHtml;
+mf441WorkspaceHtml=function(){return mf452ReplaceStopIcons(mf452BaseWorkspace.apply(this,arguments));};
+App.mf452StopAfter=function(kind,which){
+ if(!['cover','metadata'].includes(kind)||!['title','part'].includes(which))return;
+ return kind==='cover'?mf452CoverStopAfter(which):mf452MetadataStopAfter(which);
+};
+window.MediaFlowV452=Object.freeze({
+ version:452,sourceHtml:mf446SourceHtml,toolbar:mf452ProviderToolbar,icon:mf452Icon,
+ clean:mf452CleanTitleRecovery,boundary:mf452StopBoundary,
+ stopAfter:App.mf452StopAfter,coverRow:mf441CoverRow,metadataRow:mf441MetadataRow,
+ widget:mf441WidgetHtml
+});
+/* MediaFlow v453 — category recovery presets + provider controls.
+ * Enabled-but-pending never becomes falsely "configured". */
+const MF453_VERSION=453;
+const MF453={category:'',quick:null,session:0,scanning:false,refreshing:false};
+const mf453Esc=x=>mf424Escape(String(x??''));
+function mf453Category(id){return(S.categories||[]).find(c=>String(c?.id)===String(id))||null;}
+function mf453Presets(){return S.settings?.v453RecoveryPresets||{};}
+function mf453ProvidersFor(mode,category){
+ const ids=mf453Presets()[String(category)]?.[mode];
+ return Array.isArray(ids)?[...new Set(ids.filter(x=>typeof x==='string'))]:
+ (mode==='cover'?mf424Defaults():mf439Preferences()).enabled.slice();
+}
+function mf453SavePreset(cat,mode,providers){
+ if(!mf453Category(cat)||!['cover','metadata'].includes(mode))return;
+ const registered=new Set(mf445Providers(mode).map(p=>p.id));
+ const preset={...mf453Presets()},row={...(preset[cat]||{})};
+ if(providers===null)delete row[mode];
+ else row[mode]=[...new Set(providers.filter(p=>registered.has(p)))];
+ if(Object.keys(row).length)preset[cat]=row;else delete preset[cat];
+ S.settings=S.settings||{};S.settings.v453RecoveryPresets=preset;
+ Promise.resolve(saveState()).catch(e=>console.warn('Recovery preset save failed',e));
+}
+function mf453PresetToggle(cat,mode,id,enabled){
+ if(!mf453Category(cat)||!mf445Providers(mode).some(p=>p.id===id))return;
+ const ids=new Set(mf453ProvidersFor(mode,cat));
+ if(enabled)ids.add(id);else ids.delete(id);
+ mf453SavePreset(cat,mode,[...ids]);mf453PaintPresets();
+}
+function mf453PresetBulk(cat,mode,choice){
+ if(!mf453Category(cat)||!['cover','metadata'].includes(mode))return;
+ const values=choice==='available'?mf445Providers(mode).filter(p=>p.available).map(p=>p.id):
+  choice==='none'?[]:null;
+ mf453SavePreset(cat,mode,values);mf453PaintPresets();
+}
+function mf453PresetFields(cat,mode){
+ const keys=new Set(mf453ProvidersFor(mode,cat));
+ const personal=Array.isArray(mf453Presets()[cat]?.[mode]);
+ const arg=x=>mf453Esc(JSON.stringify(x));
+ return '<section class="mf453-preset-group"><header><strong>'+mf425Icon(mode==='cover'?'images':'database',18)+
+  (mode==='cover'?' Cover providers':' Metadata providers')+'</strong><small>'+
+  (personal?'Custom preset':'Global defaults')+' · '+keys.size+' selected</small></header>'+
+ '<div class="mf453-preset-tools">'+[
+ ['available','Select available',mf452Icon('selectAll',15)],
+ ['none','Deselect all',mf452Icon('deselectAll',15)],
+ ['global','Use global',mf425Icon('settings',15)]
+ ].map(([v,label,icon])=>'<button type="button" data-v225-iconified="1" onclick="App.mf453PresetBulk('+
+ arg(String(cat))+','+arg(mode)+','+arg(v)+')">'+icon+' '+label+'</button>').join('')+'</div>'+
+ '<div class="mf453-preset-list">'+mf445Providers(mode).map(p=>'<label class="mf453-preset-provider"><input type="checkbox" '+
+ (keys.has(p.id)?'checked ':'')+'onchange="App.mf453PresetToggle('+arg(String(cat))+','+arg(mode)+','+arg(p.id)+
+ ',this.checked)"><span><strong>'+mf453Esc(p.name)+'</strong><small>'+
+ (p.available?'Ready':'Pending setup / adapter')+'</small></span></label>').join('')+'</div></section>';
+}
+function mf453PresetHtml(){
+ const cats=(S.categories||[]).filter(c=>c?.id!=null);
+ if(!cats.some(c=>String(c.id)===String(MF453.category)))MF453.category=String(cats[0]?.id||'');
+ const cat=mf453Category(MF453.category);
+ return '<section class="mf453-presets" data-mf-setting-id="recovery-presets"><header><h3>'+
+ mf425Icon('settings',20)+' Recovery Presets</h3><p>Assign Cover and Metadata providers to each category. Quick title recovery will automatically use these selections.</p></header>'+
+ (cat?'<label class="mf453-category-select">Category<select onchange="App.mf453ChooseCategory(this.value)">'+
+ cats.map(c=>'<option value="'+mf453Esc(c.id)+'" '+(String(c.id)===MF453.category?'selected':'')+'>'+
+ mf453Esc(c.name||c.title||c.id)+'</option>').join('')+'</select></label>'+
+ '<div class="mf453-category-title">'+mf445CategoryIcon(cat)+' <strong>'+mf453Esc(cat.name||cat.title||cat.id)+
+ '</strong></div><div class="mf453-preset-columns">'+
+ mf453PresetFields(String(cat.id),'cover')+mf453PresetFields(String(cat.id),'metadata')+'</div>':
+ '<p>Add Library categories first to configure their presets.</p>')+
+ '<p class="mf453-note">Selecting an unconfigured provider saves your preference but never bypasses missing credentials, licensing or an unimplemented adapter. Configured providers do not need manual testing.</p></section>';
+}
+function mf453PaintPresets(){
+ const old=document.querySelector('[data-mf-setting-id="recovery-presets"]');if(!old)return;
+ const wrap=document.createElement('div');wrap.innerHTML=mf453PresetHtml();
+ old.replaceWith(wrap.firstElementChild);
+}
+function mf453ChooseCategory(id){MF453.category=String(id);mf453PaintPresets();}
+function mf453MountSettings(){
+ if(String(S.view||'')!=='settings'||!window.MediaFlowSettingsCenter?.mountSection||
+ document.querySelector('.mf365-section[data-mf365-section="v221-settings-recovery-presets"]'))return;
+ const body=document.createElement('div');body.innerHTML=mf453PresetHtml();
+ window.MediaFlowSettingsRegistry?.registerSetting?.({
+ id:'recovery-presets',section:'v221-settings-recovery-presets',
+ selector:'[data-mf-setting-id="recovery-presets"]',label:'Recovery Presets',
+ keywords:['recovery','presets','category','cover','metadata','providers']});
+ window.MediaFlowSettingsCenter.mountSection({
+ id:'v221-settings-recovery-presets',title:'RECOVERY PRESETS',
+ category:'library',subgroup:'Library maintenance',
+ keywords:['category recovery presets','covers','metadata','quick title'],
+ nodes:[body]});
+}
+MediaFlowRuntime.registerPageEnhancer('settings',mf453MountSettings);
+const mf453OldWorkspace=mf441WorkspaceHtml;
+mf441WorkspaceHtml=function(){
+ const html=String(mf453OldWorkspace.apply(this,arguments)||'');
+ const link='<button type="button" onclick="App.mf441Settings(&#39;v221-settings-recovery-presets&#39;)">'+
+ mf425Icon('settings',19)+' <span><strong>Recovery Presets</strong><small>Category-specific cover and metadata providers</small></span>'+
+ mf425Icon('chevronRight',16)+'</button>';
+ return html.replace('</div><fieldset class="mf441-widget-preferences">',link+'</div><fieldset class="mf441-widget-preferences">');
+};
+// v452 bulk buttons were fixed in-place (escaped handlers), and the v446
+// individual checkbox handler is also escaped. Preserve selections for pending
+// connections but only actual working adapters may execute recovery calls.
+const mf453OldSource=mf446SourceHtml;
+mf446SourceHtml=function(mode){
+ const wrap=document.createElement('div');
+ wrap.innerHTML=String(mf453OldSource.apply(this,arguments)||'');
+ const states=new Map(mf445Providers(mode).map(p=>[p.id,p]));
+ for(const row of wrap.querySelectorAll('[data-mf446-provider]')){
+  const provider=states.get(row.dataset.mf446Provider);
+  const input=row.querySelector('input[data-mf446-toggle]');
+  if(!provider||!input)continue;
+  input.disabled=false;input.checked=provider.enabled;
+  if(!provider.available){
+   row.dataset.status=provider.enabled?'pending':'unavailable';
+   const status=row.querySelector('.mf445-provider-status');
+   if(status)status.textContent=provider.enabled?'Selected · needs setup':'Needs setup';
+  }
+ }
+ const section=wrap.querySelector('.mf446-providers');
+ if(section){
+  const button=document.createElement('button');button.type='button';
+  button.className='btn btn-ghost mf453-refresh-providers';button.dataset.v225Iconified='1';
+  button.setAttribute('onclick','App.mf453RefreshProviders()');
+  button.innerHTML=mf425Icon('retry',15)+' Refresh API access';
+  section.querySelector('header')?.appendChild(button);
+  const note=section.querySelector('.mf445-provider-note');
+  if(note)note.textContent='You can preselect an unconfigured provider. It is never used until a real adapter, credentials and permissions are ready. Refresh access here without closing your recovery setup.';
+ }
+ return wrap.innerHTML;
+};
+mf446ToggleProvider=function(mode,id,on){
+ if(!['cover','metadata'].includes(mode)||!mf445Providers(mode).some(p=>p.id===id))return;
+ const prefs=mode==='cover'?mf424Defaults():mf439Preferences();
+ const ids=new Set(prefs.enabled);
+ if(on)ids.add(id);else ids.delete(id);
+ mf452SaveProviders(mode,[...ids]);
+};
+App.mf446ToggleProvider=mf446ToggleProvider;
+async function mf453RefreshProviders(){
+ if(MF453.refreshing)return;MF453.refreshing=true;
+ document.querySelectorAll('.mf453-refresh-providers').forEach(b=>{b.disabled=true;b.textContent='Checking…';});
+ try{if(typeof mf443EnsureGateway==='function')await mf443EnsureGateway(true);
+  showToast('API readiness refreshed. Your provider selections were kept.');
+ }finally{
+  MF453.refreshing=false;
+  if(document.getElementById('mf445-workspace'))
+   mf445Panel(MF447.active==='both'?'both':MF445.mode);
+ }
+}
+function mf453Ready(mode,item){
+ const selected=new Set(mf453ProvidersFor(mode,item?.categoryId||''));
+ return mf445Providers(mode).filter(p=>p.available&&selected.has(p.id)).map(p=>p.id);
+}
+Object.assign(App,{mf453ChooseCategory,mf453PresetToggle,mf453PresetBulk,mf453RefreshProviders});
+window.MediaFlowV453Presets=Object.freeze({
+ version:453,configured:mf453ProvidersFor,save:mf453SavePreset,
+ html:mf453PresetHtml,ready:mf453Ready
+});
+/* MediaFlow v453 — quick, non-batch per-title recovery preview.
+ * API reads only until explicit Apply; uses existing provider verification and
+ * v439 field-level safe merge. Original bulk recovery is not replaced. */
+const MF453Quick={current:null,serial:0,loading:false,account:''};
+function mf453QuickRoot(){return document.getElementById('mf453-title-quick');}
+function mf453QuickHtml(){
+ const q=MF453Quick.current;if(!q)return '';
+ const title=mf439Item(q.id)?.title||'Library title';
+ const cover=q.kind!=='metadata',meta=q.kind!=='cover',preview=q.metadata?.preview;
+ const old=mf439Item(q.id)?.coverUrl||'';
+ const coverPart=cover?'<section class="mf453-quick-group"><h3>'+mf425Icon('images',18)+' New covers</h3>'+
+ (q.coverLoading?'<p>Searching configured cover providers…</p>':
+ q.covers.length?'<div class="mf453-quick-covers">'+q.covers.map((c,i)=>
+  '<button type="button" class="mf453-quick-cover '+(i===q.coverIndex?'selected':'')+
+  '" onclick="App.mf453PickCover('+i+')" aria-pressed="'+(i===q.coverIndex)+'">'+
+  '<img src="'+mf453Esc(c.url)+'" alt="'+mf453Esc(c.title||title)+'" loading="lazy">'+
+  '<strong>'+mf453Esc(c.title||title)+'</strong><small>'+mf453Esc(c.provider)+
+  ' · '+Math.round(c.confidence*100)+'% match</small></button>').join('')+'</div>':
+ '<p>No verified cover matches from ready providers. Your existing cover stays untouched.</p>')+
+ (old?'<p class="mf453-current-cover">Current cover: <img src="'+mf453Esc(old)+'" alt="Current cover" loading="lazy"> Replacement requires your confirmation.</p>':'')+
+ '</section>':'';
+ const metaPart=meta?'<section class="mf453-quick-group"><h3>'+mf425Icon('database',18)+' New metadata</h3>'+
+ (q.metaLoading?'<p>Searching verified metadata…</p>':
+ preview?'<p>'+preview.results+' matching source records · '+preview.proposals.length+' proposed fields.</p>'+
+ '<div class="mf453-quick-fields">'+preview.proposals.map((p,i)=>{
+  const option=p.options[p.choice]||p.options[0],locked=p.hasOriginal||p.protected||p.same;
+  return '<article class="mf453-quick-field"><label><input type="checkbox" '+
+   (p.selected?'checked ':'')+(locked?'disabled ':'')+
+   'onchange="App.mf453PickMetadata('+i+',this.checked)"><strong>'+mf453Esc(p.label)+'</strong></label>'+
+   '<small>Current: '+mf453Esc(mf439DescribeValue(p.token,p.original)).slice(0,170)+
+   ' · '+mf453Esc(p.status)+'</small><div>'+mf453Esc(mf439DescribeValue(p.token,option?.value)).slice(0,260)+
+   '</div><small>Source: '+mf453Esc(option?.sources?.map(s=>s.provider+' · '+s.evidence).join(' / ')||'Unavailable')+'</small>'+
+   (p.options.length>1?'<select onchange="App.mf453MetadataSource('+i+',this.value)" aria-label="Source for '+
+    mf453Esc(p.label)+'">'+p.options.map((o,j)=>'<option value="'+j+'" '+(j===p.choice?'selected':'')+'>'+
+    mf453Esc(o.sources.map(s=>s.provider).join(' + '))+'</option>').join('')+'</select>':'')+
+  '</article>';
+ }).join('')+'</div>':'<p>No verified suggestions available from ready providers.</p>')+
+ '</section>':'';
+ const busy=q.coverLoading||q.metaLoading||q.applying;
+ const selected=q.coverIndex>=0||!!preview?.proposals?.some(p=>p.selected);
+ const cat=mf453Category(mf439Item(q.id)?.categoryId);
+ return '<div class="mf453-quick-inner"><div class="mf453-quick-header"><strong>'+mf453Esc(title)+'</strong>'+
+ '<small>Providers: '+mf453Esc(cat?.name||'Global defaults')+' preset · Nothing saved until confirmed</small></div>'+
+ (q.pending.length?'<p class="mf453-pending">'+mf425Icon('shield',16)+' Pending access: '+
+  mf453Esc(q.pending.join(', '))+'. Selected for later, but not treated as configured.</p>':'')+
+ '<div class="mf453-quick-grid">'+coverPart+metaPart+'</div>'+
+ (q.errors.length?'<details><summary>'+q.errors.length+' provider error(s)</summary>'+
+  q.errors.map(e=>'<p>'+mf453Esc(e)+'</p>').join('')+'</details>':'')+
+ '<div class="mf453-quick-actions"><button type="button" class="btn btn-ghost" onclick="App.mf453CloseQuick()">'+
+ mf425Icon('x',16)+' Cancel</button>'+
+ '<button type="button" class="btn btn-primary" onclick="App.mf453ApplyQuick()" '+(!selected||busy?'disabled':'')+'>'+
+ mf425Icon('check',16)+' Confirm selected changes</button></div></div>';
+}
+function mf453PaintQuick(){
+ const node=mf453QuickRoot()?.querySelector('[data-mf453-quick-content]');
+ if(node)node.innerHTML=mf453QuickHtml();
+}
+function mf453PickCover(index){
+ const q=MF453Quick.current;if(!q?.covers[Number(index)])return;
+ q.coverIndex=q.coverIndex===Number(index)?-1:Number(index);mf453PaintQuick();
+}
+function mf453PickMetadata(index,on){
+ const p=MF453Quick.current?.metadata?.preview?.proposals?.[Number(index)];
+ if(!p||p.hasOriginal||p.protected||p.same)return;
+ p.selected=Boolean(on);mf453PaintQuick();
+}
+function mf453MetadataSource(index,value){
+ const p=MF453Quick.current?.metadata?.preview?.proposals?.[Number(index)];
+ const n=Number(value);if(!p||!Number.isInteger(n)||n<0||n>=p.options.length)return;
+ p.choice=n;p.selected=!p.hasOriginal&&!p.protected&&!p.same;mf453PaintQuick();
+}
+async function mf453ScanQuick(session){
+ const q=MF453Quick.current;if(!q||session!==MF453Quick.serial)return;
+ const item=mf439Item(q.id);MF453Quick.loading=true;
+ try{
+  if(q.kind!=='metadata'){
+   const known=new Set();
+   for(const source of q.coverProviders){
+    if(session!==MF453Quick.serial||q.controller.signal.aborted)break;
+    try{
+     const rows=await mf424Discover(item,source);
+     for(const candidate of rows||[]){
+      if(session!==MF453Quick.serial||q.controller.signal.aborted)break;
+      if(!candidate?.url||!/^https:\/\//.test(candidate.url)||candidate.confidence<.65||known.has(candidate.url))continue;
+      known.add(candidate.url);
+      if(await mf424Image(candidate.url,candidate.provider))q.covers.push(candidate);
+      if(q.covers.length>=12)break;
+     }
+    }catch(e){q.errors.push(source+': '+String(e?.message||e).slice(0,140));}
+    mf453PaintQuick();if(q.covers.length>=12)break;
+   }
+   q.coverLoading=false;mf453PaintQuick();
+  }
+  if(q.kind!=='cover'&&session===MF453Quick.serial&&!q.controller.signal.aborted){
+   q.metadata=await mf439Discover(item,q.metaProviders,()=>{},q.controller.signal);
+   q.metaLoading=false;mf453PaintQuick();
+  }
+ }catch(e){q.errors.push(String(e?.message||e).slice(0,180));}
+ finally{
+  if(session===MF453Quick.serial){
+   q.coverLoading=false;q.metaLoading=false;MF453Quick.loading=false;mf453PaintQuick();
+  }else MF453Quick.loading=false;
+ }
+}
+async function mf453OpenQuick(kind,id){
+ kind=['cover','metadata','both'].includes(kind)?kind:'cover';id=String(id||'');
+ const item=mf439Item(id);
+ if(!item||MF453Quick.current){showToast('Save the title and close any existing quick recovery first.');return;}
+ const owner=typeof mf442ProcessLease==='function'?mf442ProcessLease():null;
+ if(owner&&owner.token!==MF442.owner){showToast('Another tab owns recovery; stop it before launching quick recovery.');return;}
+ let priority=false;
+ if(MF424.running||MF439.working||MF442.process){
+  if(!await mf451Prepare(kind,id))return;priority=true;
+ }
+ if(typeof mf443EnsureGateway==='function')await mf443EnsureGateway();
+ const allowed={cover:kind==='metadata'?[]:mf453Ready('cover',item),
+ metadata:kind==='cover'?[]:mf453Ready('metadata',item)};
+ const pending=[];
+ for(const mode of ['cover','metadata']){
+  if(mode==='cover'&&kind==='metadata'||mode==='metadata'&&kind==='cover')continue;
+  const chosen=new Set(mf453ProvidersFor(mode,item.categoryId||''));
+  for(const p of mf445Providers(mode))if(chosen.has(p.id)&&!p.available)pending.push(p.name);
+ }
+ MF453Quick.account=mf439Account();
+ const session=++MF453Quick.serial;
+ MF453Quick.current={id,kind,covers:[],coverIndex:-1,metadata:null,
+  coverProviders:allowed.cover,metaProviders:allowed.metadata,
+  coverLoading:kind!=='metadata',metaLoading:kind!=='cover',
+  pending:[...new Set(pending)],errors:[],applying:false,priority,
+  controller:new AbortController()};
+ const root=document.createElement('div');root.id='mf453-title-quick';
+ root.className='mf424-modal mf425-themed mf453-quick-modal';
+ root.innerHTML='<div class="mf424-shade" onclick="App.mf453CloseQuick()"></div>'+
+ '<section class="mf424-dialog mf453-quick-dialog" role="dialog" aria-modal="true" aria-label="Quick title recovery">'+
+ '<header class="mf453-quick-top"><div><small>QUICK TITLE RECOVERY</small><h2>'+mf425Icon('layers',22)+' '+
+ mf453Esc(kind==='both'?'Cover + Metadata':kind==='cover'?'Cover Recovery':'Metadata Recovery')+
+ '</h2></div><button type="button" class="btn btn-ghost" onclick="App.mf453CloseQuick()">'+
+ mf425Icon('x',16)+' Close</button></header><div data-mf453-quick-content></div></section>';
+ document.body.append(root);mf453PaintQuick();
+ void mf453ScanQuick(session);
+}
+async function mf453CloseQuick(){
+ const q=MF453Quick.current;if(!q)return;
+ q.controller.abort();MF453Quick.serial++;MF453Quick.current=null;mf453QuickRoot()?.remove();
+ if(q.priority){
+  // Existing background jobs were checkpointed before entering quick mode.
+  for(let i=0;i<90&&MF453Quick.loading;i++)await new Promise(resolve=>setTimeout(resolve,100));
+  try{await mf451Restore({force:true});}
+  catch(e){console.warn('Original recovery checkpoint kept for manual resume',e);}
+ }
+}
+async function mf453ApplyQuick(){
+ const q=MF453Quick.current;if(!q||(typeof mf458CanConfirmQuick==='function'? !mf458CanConfirmQuick(q): (q.applying||q.coverLoading||q.metaLoading)))return;
+ const item=mf439Item(q.id),cover=q.covers[q.coverIndex],preview=q.metadata?.preview;
+ if(!item||MF453Quick.account!==mf439Account()){showToast('Title or account changed. Reopen preview.');return;}
+ if(!cover&&!preview?.proposals?.some(p=>p.selected)){showToast('Choose a cover or eligible missing metadata first.');return;}
+ q.applying=true;
+ const selectedMetadata=!!preview?.proposals?.some(p=>p.selected);
+ mf456QuickProgress(q,'Waiting for your confirmation…',false,(cover?2:0)+(selectedMetadata?2:0)+1);
+ try{
+  if(cover&&item.coverUrl&&String(item.coverUrl)!==String(cover.url)&&
+   !await mf444Confirm('Replace this title’s existing cover?',
+    'Apply the selected verified cover? Your old cover will be kept if you cancel.',
+    'Replace Cover',false,1,'cover')){q.applying=false;mf453PaintQuick();return;}
+  // Stop unnecessary artwork discovery after confirmation: saving a selected
+  // verified cover does not require waiting for slow unrelated providers.
+  if(q.coverLoading&&q.controller&&!q.controller.signal.aborted)q.controller.abort();
+  // Persist the cover independently; a metadata mapping failure must never
+  // roll back an artwork replacement the user explicitly confirmed.
+  let coverCount=0,metadataCount=0,metadataError='';
+  const oldCover={coverUrl:item.coverUrl,coverSource:item.coverSource,modifiedAt:item.modifiedAt,
+   externalIds:structuredClone(item.externalIds||{}),v377ManualExternalIds:structuredClone(item.v377ManualExternalIds||{})};
+  if(cover&&String(item.coverUrl||'')!==String(cover.url)){
+   mf456QuickProgress(q,'Verifying selected artwork and provider record…');
+   if(!/^https:\/\//i.test(String(cover.url||''))||!await mf424Image(cover.url,cover.provider))
+    throw new Error('Selected cover URL failed final image validation');
+   mf456QuickProgress(q,'Artwork validation complete.',true);
+   item.coverUrl=String(cover.url);
+   item.coverSource='manual:quick:'+String(cover.provider||'verified');
+   // Link only the actual provider record ID, and never overwrite an existing
+   // external ID. The chosen card previews this exact key/value first.
+   const link=mf456CandidateLink(item,cover);
+   if(link.canLink){
+    item.externalIds={...(item.externalIds||{}),[link.key]:link.id};
+    item.v377ManualExternalIds={...(item.v377ManualExternalIds||{}),[link.key]:link.id};
+   }
+   item.modifiedAt=Date.now();
+   mf456QuickProgress(q,'Saving selected cover URL and safe provider ID…');
+   try{
+    if(typeof persistLibrary==='function')await Promise.resolve(persistLibrary());
+    await saveState();
+    // Verify the Library’s canonical title (not a detached preview object)
+    // retains the chosen URL before reporting success or dismissing the modal.
+    const canonical=(S.library||[]).find(row=>String(row?.id)===String(q.id));
+    if(!canonical||String(canonical.coverUrl)!==String(cover.url))
+     throw Error('Selected cover did not persist in the Library');
+    coverCount=1;
+    mf456QuickProgress(q,'Selected cover and provider ID saved.',true);
+   }catch(e){
+    item.coverUrl=oldCover.coverUrl;item.coverSource=oldCover.coverSource;
+    item.modifiedAt=oldCover.modifiedAt;
+    item.externalIds=oldCover.externalIds;
+    item.v377ManualExternalIds=oldCover.v377ManualExternalIds;
+    throw e;
+   }
+  }
+  if(preview?.proposals?.some(p=>p.selected)){
+   const beforeMetadata=structuredClone(item);
+   try{
+    mf456QuickProgress(q,'Merging confirmed missing metadata…');
+    MF439.account=mf439Account();
+    const result=mf439Apply(item,preview,'review');
+    metadataCount=result.changed||0;
+    mf456QuickProgress(q,'Metadata field merge completed.',true);
+    if(metadataCount){
+     mf456QuickProgress(q,'Saving confirmed metadata fields to Library and cloud…');
+     if(typeof persistLibrary==='function')await Promise.resolve(persistLibrary());
+     await saveState();
+    }
+    mf456QuickProgress(q,'Verified metadata save complete.',true);
+   }catch(e){
+    // Keep the already committed cover. Only restore metadata fields that
+    // failed their merge/write path.
+    Object.assign(item,beforeMetadata);
+    metadataError=String(e?.message||e);
+    console.warn('Quick metadata merge failed, confirmed cover preserved',e);
+   }
+  }
+  if(!coverCount&&!metadataCount){
+   q.applying=false;mf453PaintQuick();
+   showToast(metadataError?'Metadata recovery failed: '+metadataError.slice(0,110):'Nothing eligible to save.');
+   return;
+  }
+  mf456QuickProgress(q,'Refreshing the active title editor…');
+  mf456NotifyRecoverySaved(q,item,coverCount,metadataCount);
+  try{v53InvalidateLibraryCache();}catch(_){}
+  mf456QuickProgress(q,'Confirmed changes saved.',true);
+  showToast('Saved '+coverCount+' cover and '+metadataCount+' verified metadata values.'+
+   (metadataError?' Metadata warnings: '+metadataError.slice(0,80):''));
+  await mf453CloseQuick();render();
+  // The editor is often a persistent modal outside render()'s main content.
+  mf456RefreshEditor(q.id);
+ }catch(e){
+  console.warn('Quick recovery save failed',e);showToast('Could not save quick recovery: '+String(e?.message||e).slice(0,90));
+  if(MF453Quick.current){q.applying=false;mf453PaintQuick();}
+ }
+}
+// Title-editor and title-details actions use quick review; bulk and selected
+// multi-title launches retain the original v447/v451 resuming workflow.
+const mf453OldOpen=App.mf447Open;
+App.mf447Open=function(kind='cover',options={}){
+ if(options?.id&&!Array.isArray(options.ids))return mf453OpenQuick(kind,options.id);
+ return mf453OldOpen.apply(this,arguments);
+};
+Object.assign(App,{mf453PickCover,mf453PickMetadata,mf453MetadataSource,
+ mf453OpenQuick,mf453CloseQuick,mf453ApplyQuick});
+window.MediaFlowV453=Object.freeze({version:453,open:mf453OpenQuick,
+ quick:()=>MF453Quick.current,presets:mf453ProvidersFor,ready:mf453Ready});
+/* MediaFlow v454 — safe quick recovery lifecycle and compact, scroll-stable presets.
+ * All three quick modes share the same scan, confirmation, and cleanup path.
+ * Provider access is never fabricated; only registered ready adapters execute.
+ */
+const MF454_VERSION=454;
+const MF454={query:'',providerQuery:{cover:'',metadata:''},focus:null,quickOpening:false,restoreTask:null};
+function mf454Icon(cat){
+ return '<span class="mf454-category-art" aria-hidden="true">'+mf445CategoryIcon(cat)+'</span>';
+}
+function mf454Arg(x){return mf453Esc(JSON.stringify(String(x)));}
+function mf454PresetCounter(cat,mode){
+ const selected=new Set(mf453ProvidersFor(mode,cat));
+ const ready=mf445Providers(mode).filter(p=>p.available&&selected.has(p.id)).length;
+ return {selected:selected.size,ready};
+}
+function mf454ProviderRows(cat,mode){
+ const selected=new Set(mf453ProvidersFor(mode,cat));
+ return mf445Providers(mode).map(p=>{
+  const id=mf454Arg(p.id),code=mf454Arg(cat),type=mf454Arg(mode);
+  return '<label class="mf454-provider-row" data-mf454-provider-name="'+mf453Esc(p.name.toLowerCase())+'">'+
+   '<input type="checkbox" '+(selected.has(p.id)?'checked ':'')+
+   'onchange="App.mf453PresetToggle('+code+','+type+','+id+',this.checked)">'+
+   '<span class="mf454-provider-label"><strong>'+mf453Esc(p.name)+'</strong>'+
+   '<small class="'+(p.available?'mf454-ready':'mf454-pending')+'">'+
+   (p.available?'Ready':'Needs setup or a live adapter')+'</small></span></label>';
+ }).join('');
+}
+function mf454PresetGroup(cat,mode){
+ const count=mf454PresetCounter(cat,mode);
+ const own=Array.isArray(mf453Presets()[cat]?.[mode]);
+ const catArg=mf454Arg(cat),modeArg=mf454Arg(mode);
+ const kind=mode==='cover'?'Cover':'Metadata';
+ const controls=[['available','Select available','selectAll'],['none','Deselect all','deselectAll'],
+  ['global','Use global','stopPart']].map(([value,label,icon])=>
+  '<button type="button" data-v225-iconified="1" onclick="App.mf453PresetBulk('+catArg+','+modeArg+','+
+  mf454Arg(value)+')">'+mf452Icon(icon,15)+' '+label+'</button>').join('');
+ return '<section class="mf454-provider-group" data-mf454-group="'+mode+'">'+
+  '<div class="mf454-group-top"><span>'+mf425Icon(mode==='cover'?'images':'database',18)+
+  '<strong>'+kind+' providers</strong></span><small data-mf454-count>'+
+  count.selected+' selected · '+count.ready+' ready</small></div>'+
+  '<div class="mf454-provider-tools">'+controls+'</div>'+
+  '<label class="mf454-provider-search">'+mf425Icon('search',14)+
+  '<input type="search" placeholder="Find '+kind.toLowerCase()+' provider..." aria-label="Filter '+kind+
+  ' providers" value="'+mf453Esc(MF454.providerQuery[mode]||'')+'" oninput="App.mf454FindProviders(this,'+
+   modeArg+')"></label>'+
+  '<div class="mf454-provider-list" data-mf454-list>'+mf454ProviderRows(cat,mode)+'</div>'+
+  '<small data-mf454-inherit>'+(own?'Custom category preset':'Inherits global settings')+'</small></section>';
+}
+function mf454CategoryList(){
+ const categories=(S.categories||[]).filter(c=>c?.id!=null);
+ const needle=MF454.query.trim().toLowerCase();
+ return categories.filter(c=>String(c.name||c.title||c.id).toLowerCase().includes(needle)).map(cat=>
+  '<button type="button" class="mf454-category-button '+(String(cat.id)===MF453.category?'active':'')+
+  '" data-mf454-category="'+mf453Esc(cat.id)+'" data-v225-iconified="1" aria-pressed="'+
+  (String(cat.id)===MF453.category)+'" onclick="App.mf453ChooseCategory('+mf454Arg(cat.id)+')">'+
+  mf454Icon(cat)+'<span>'+mf453Esc(cat.name||cat.title||cat.id)+'</span></button>').join('')||
+  '<small class="mf454-no-matches">No categories match this search.</small>';
+}
+function mf454CategoryPanel(){
+ const cat=mf453Category(MF453.category);
+ if(!cat)return '<p>Add Library categories to configure presets.</p>';
+ const options=(S.categories||[]).filter(c=>c?.id!=null&&String(c.id)!==String(cat.id));
+ return '<div class="mf454-category-head">'+mf454Icon(cat)+'<span><strong>'+mf453Esc(cat.name||cat.title||cat.id)+
+  '</strong><small>Independently assign Cover and Metadata providers</small></span></div>'+
+  '<div class="mf454-provider-columns">'+mf454PresetGroup(String(cat.id),'cover')+
+  mf454PresetGroup(String(cat.id),'metadata')+'</div>'+
+  '<div class="mf454-copy-preset"><label>Copy these presets to another category<select id="mf454-copy-target" aria-label="Category to copy preset to">'+
+  '<option value="">Choose destination…</option>'+options.map(c=>'<option value="'+mf453Esc(c.id)+'">'+
+  mf453Esc(c.name||c.title||c.id)+'</option>').join('')+'</select></label>'+
+  '<button type="button" data-v225-iconified="1" onclick="App.mf454CopyPreset()">'+mf425Icon('check',15)+
+  ' Copy cover + metadata selections</button></div>';
+}
+function mf454PresetsHtml(){
+ const list=(S.categories||[]).filter(c=>c?.id!=null);
+ if(!list.some(c=>String(c.id)===String(MF453.category)))MF453.category=String(list[0]?.id||'');
+ return '<section class="mf453-presets mf454-presets" data-mf-setting-id="recovery-presets">'+
+  '<header class="mf454-presets-head"><span>'+mf425Icon('settings',19)+'</span><div>'+
+  '<h3>Recovery Presets</h3><p>Set up Cover and Metadata provider groups once per category. Selections are saved immediately and reused during quick title recovery.</p></div></header>'+
+  '<div class="mf454-presets-layout">'+
+  '<aside class="mf454-category-rail"><label>'+mf425Icon('search',14)+
+   '<input type="search" value="'+mf453Esc(MF454.query)+'" placeholder="Search categories" aria-label="Search recovery categories" '+
+   'oninput="App.mf454FindCategories(this)"></label>'+
+  '<div class="mf454-category-list" data-mf454-category-list>'+mf454CategoryList()+'</div></aside>'+
+  '<div class="mf454-presets-main" data-mf454-current-panel>'+mf454CategoryPanel()+'</div></div>'+
+  '<p class="mf453-note">Pending selections are saved but never run without a real available adapter and valid credentials. Configured providers do not need a separate manual test.</p></section>';
+}
+function mf454FindCategories(input){
+ MF454.query=String(input.value||'');
+ const rail=input.closest('.mf454-category-rail');
+ const list=rail?.querySelector('[data-mf454-category-list]');
+ if(list){const scroll=list.scrollTop;list.innerHTML=mf454CategoryList();list.scrollTop=scroll;}
+}
+function mf454FindProviders(input,mode){
+ MF454.providerQuery[mode]=String(input.value||'');
+ const group=input.closest('[data-mf454-group]');
+ const needle=MF454.providerQuery[mode].trim().toLowerCase();
+ for(const row of group?.querySelectorAll('[data-mf454-provider-name]')||[]){
+  row.hidden=!String(row.dataset.mf454ProviderName||'').includes(needle);
+ }
+}
+function mf454RefreshGroup(mode){
+ const group=document.querySelector('[data-mf454-current-panel] [data-mf454-group="'+mode+'"]');
+ if(!group)return;
+ const cat=MF453.category,selected=new Set(mf453ProvidersFor(mode,cat));
+ for(const p of group.querySelectorAll('input[type="checkbox"]')){
+  const source=p.closest('[data-mf454-provider-name]');
+  // Rows are in exactly the registered order; reading the checked state is
+  // cheaper than a full workspace rerender and never changes scroll.
+  if(!source)continue;
+ }
+ const count=mf454PresetCounter(cat,mode);
+ const label=group.querySelector('[data-mf454-count]');
+ if(label)label.textContent=count.selected+' selected · '+count.ready+' ready';
+ const inherited=group.querySelector('[data-mf454-inherit]');
+ if(inherited)inherited.textContent=Array.isArray(mf453Presets()[cat]?.[mode])?
+  'Custom category preset':'Inherits global settings';
+}
+mf453PresetHtml=mf454PresetsHtml;
+mf453PresetToggle=function(cat,mode,id,checked){
+ if(!mf453Category(cat)||!mf445Providers(mode).some(p=>p.id===id))return;
+ const ids=new Set(mf453ProvidersFor(mode,cat));
+ if(checked)ids.add(id);else ids.delete(id);
+ mf453SavePreset(cat,mode,[...ids]);mf454RefreshGroup(mode);
+};
+mf453PresetBulk=function(cat,mode,choice){
+ if(!mf453Category(cat))return;
+ const available=mf445Providers(mode);
+ const ids=choice==='available'?available.filter(p=>p.available).map(p=>p.id):
+  choice==='none'?[]:null;
+ mf453SavePreset(cat,mode,ids);
+ const group=document.querySelector('[data-mf454-group="'+mode+'"]');
+ if(group){
+  const selected=new Set(mf453ProvidersFor(mode,cat));
+  [...group.querySelectorAll('[data-mf454-provider-name]')].forEach((row,i)=>{
+   const cb=row.querySelector('input');if(cb)cb.checked=selected.has(available[i]?.id);
+  });
+ }
+ mf454RefreshGroup(mode);
+};
+mf453ChooseCategory=function(id){
+ if(!mf453Category(id))return;
+ MF453.category=String(id);
+ const pane=document.querySelector('[data-mf454-current-panel]');
+ if(pane){pane.innerHTML=mf454CategoryPanel();
+  document.querySelectorAll('[data-mf454-category]').forEach(button=>{
+   const active=String(button.dataset.mf454Category)===MF453.category;
+   button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+  });
+ }else mf453PaintPresets();
+};
+function mf454CopyPreset(){
+ const other=document.getElementById('mf454-copy-target')?.value;
+ if(!mf453Category(other)||other===String(MF453.category))return;
+ for(const mode of ['cover','metadata'])mf453SavePreset(other,mode,mf453ProvidersFor(mode,MF453.category));
+ showToast('Copied both provider groups. Existing global provider preferences were not changed.');
+}
+Object.assign(App,{mf453PresetToggle,mf453PresetBulk,mf453ChooseCategory,
+ mf454CopyPreset,mf454FindCategories,mf454FindProviders});
+window.MediaFlowV454Presets=Object.freeze({version:454,html:mf454PresetsHtml,copy:mf454CopyPreset});
+/* MediaFlow v454 — Quick Title Recovery lifecycle hardening.
+ * One cancellable modal, priority checkpoint handoff, and verified alternatives.
+ * All three modes use the same safe preview and apply path. */
+const MF454Quick={closing:null,keydown:null,returnFocus:null,completedAt:0};
+function mf454QuickLive(q){return MF453Quick.current===q&&!q.closed&&q.serial===MF453Quick.serial;}
+function mf454QuickRemoveDom(){
+ // An earlier asynchronous open could append an orphaned element with the
+ // same ID. Remove EVERY matching node, even if the current state is null.
+ document.querySelectorAll('[id="mf453-title-quick"]').forEach(node=>node.remove());
+}
+function mf454QuickBadge(candidate){
+ const confidence=Number(candidate.confidence)||0;
+ const exact=candidate.idMatch===true&&confidence>=.9;
+ return exact?'Verified external-ID match':confidence>=.65?'Title match · review':'Unverified match · review carefully';
+}
+function mf454QuickLoading(q){return q.stage==='pausing'||q.stage==='connecting';}
+function mf454QuickView(example=null){
+ const q=example||MF453Quick.current;
+ if(!q||q.closed)return '';
+ const item=mf439Item(q.id),cover=q.kind!=='metadata',metadata=q.kind!=='cover';
+ const panel=q.metadata?.preview;
+ const busy=typeof mf458CanConfirmQuick==='function' ? !mf458CanConfirmQuick(q) :
+  (mf454QuickLoading(q)||q.coverLoading||q.metaLoading||q.applying);
+ const selected=q.coverIndex>=0||Boolean(panel?.proposals?.some(p=>p.selected&&!p.protected&&!p.hasOriginal&&!p.same));
+ const intro='<div class="mf454-intro"><div class="mf454-intro-title"><strong>'+
+ mf453Esc(item?.title||'Saved title')+'</strong><span class="mf454-mode-badge">'+
+ mf453Esc(q.kind==='both'?'Cover + Metadata':q.kind==='cover'?'Cover':'Metadata')+
+ '</span></div><small>Category preset · '+mf453Esc(mf453Category(item?.categoryId)?.name||'Global defaults')+
+ ' · No Library changes before confirmation</small></div>';
+ const stage=mf454QuickLoading(q)?'<div class="mf454-quick-loading" role="status">'+mf425Icon('shield',20)+
+ '<div><strong>'+mf453Esc(q.stage==='pausing'?'Safely pausing background recovery':'Checking provider access')+
+ '</strong><p>'+mf453Esc(q.stage==='pausing'?'Finishing the current title checkpoint. Your active queue will resume after this quick recovery closes.':'Validating configured provider adapters while keeping your saved category choices.')+
+ '</p></div></div>':'';
+ const pending=q.pending?.length?'<details class="mf454-notice"><summary>'+
+ mf425Icon('shield',15)+' '+q.pending.length+' selected source(s) need setup</summary>'+
+ '<p>'+mf453Esc(q.pending.join(', '))+'. These cannot run without a working adapter and permission.</p></details>':'';
+ const coverChoices=cover?'<section class="mf454-results-panel" aria-label="Cover alternatives">'+
+ '<div class="mf454-results-head"><span>'+mf425Icon('images',18)+' <strong>Cover choices</strong></span>'+
+ '<small>'+q.covers.length+' available'+(q.coverLoading?' · searching':'')+'</small></div>'+
+ (q.coverLoading&&q.covers.length===0?'<p class="mf454-wait">Searching actual artwork providers…</p>':'')+
+ (q.covers.length?'<div class="mf454-cover-gallery" role="group" aria-label="Choose artwork">'+
+  q.covers.map((c,i)=>'<button type="button" data-v225-iconified="1" class="mf454-cover-option '+(q.coverIndex===i?'selected':'')+
+   '" aria-pressed="'+(q.coverIndex===i)+'" onclick="App.mf453PickCover('+i+')">'+
+   '<span class="mf454-cover-image"><img src="'+mf453Esc(c.url)+'" loading="lazy" decoding="async" alt="'+
+   mf453Esc(c.title||'Cover candidate')+'"></span>'+
+   '<span class="mf454-cover-meta"><strong>'+mf453Esc(c.title||item?.title||'Cover')+'</strong>'+
+   '<small>'+mf453Esc(c.provider||'Source')+'</small>'+
+   '<em class="'+(Number(c.confidence)>=.65?'is-verified':'is-review')+'">'+
+   mf453Esc(mf454QuickBadge(c))+'</em></span></button>').join('')+'</div>':
+  (!q.coverLoading?'<p class="mf454-empty">No loadable artwork was returned by the selected ready providers. You can search additional ready sources without changing your preset.</p>':''))+
+ (item?.coverUrl?'<div class="mf454-current-art"><img src="'+mf453Esc(item.coverUrl)+
+ '" alt="Current cover" loading="lazy"><span><strong>Existing cover</strong>'+
+ '<small>Will be preserved unless you explicitly select a new image and confirm replacement.</small></span></div>':'')+
+ '</section>':'';
+ const metaChoices=metadata?'<section class="mf454-results-panel" aria-label="Metadata alternatives">'+
+ '<div class="mf454-results-head"><span>'+mf425Icon('database',18)+' <strong>Metadata suggestions</strong></span>'+
+ '<small>'+Number(panel?.proposals?.length||0)+' fields'+(q.metaLoading?' · searching':'')+'</small></div>'+
+ (q.metaLoading&&!panel?'<p class="mf454-wait">Finding and comparing verified metadata records…</p>':'')+
+ (panel?'<p class="mf454-result-context">'+Number(panel.results||0)+' matched records · Existing and protected fields are never overwritten.</p>'+
+  '<div class="mf454-metadata-list">'+panel.proposals.map((p,i)=>{
+   const option=p.options?.[p.choice]||p.options?.[0];
+   const locked=p.protected||p.hasOriginal||p.same;
+   const variants=p.options?.length||0;
+   return '<article class="mf454-meta-option" data-mf454-token="'+mf453Esc(p.token||'')+'">'+
+   '<div class="mf454-meta-option-head"><label><input type="checkbox" '+(p.selected?'checked ':'')+
+   (locked?'disabled ':'')+'onchange="App.mf453PickMetadata('+i+',this.checked)">'+
+   '<strong>'+mf453Esc(p.label||p.token||'Field')+'</strong></label>'+
+   '<span>'+mf453Esc(p.status||'review')+'</span></div>'+
+   '<small class="mf454-current-value">Current: '+mf453Esc(mf439DescribeValue(p.token,p.original)).slice(0,240)+'</small>'+
+   '<div class="mf454-proposed-value">'+mf453Esc(mf439DescribeValue(p.token,option?.value)).slice(0,540)+'</div>'+
+   '<small class="mf454-evidence">Source: '+mf453Esc(option?.sources?.map(s=>s.provider+
+   (s.evidence?' · '+s.evidence:'')).join(' / ')||'Unconfirmed')+'</small>'+
+   (variants>1?'<label class="mf454-source-label"><span>'+variants+' source alternatives — choose one</span>'+
+    '<select onchange="App.mf453MetadataSource('+i+',this.value)" aria-label="Choose source for '+
+    mf453Esc(p.label||p.token)+'">'+p.options.map((v,j)=>
+    '<option value="'+j+'" '+(j===p.choice?'selected':'')+'>'+mf453Esc(v.sources?.map(s=>s.provider).join(' + ')||'Provider')+
+    ' · '+mf453Esc(mf439DescribeValue(p.token,v.value)).slice(0,72)+'</option>').join('')+'</select></label>':'')+
+   '</article>';
+  }).join('')+'</div>':
+  (!q.metaLoading?'<p class="mf454-empty">No verified new fields were returned. Check provider access or search other available sources.</p>':''))+
+ '</section>':'';
+ const full=!mf454QuickLoading(q);
+ const again=full?'<button type="button" class="btn btn-ghost mf454-search-more" data-v225-iconified="1"'+
+ (busy?' disabled':'')+' onclick="App.mf454SearchAll()">'+mf425Icon('search',16)+
+ ' Search all ready providers</button>':'';
+ const errors=q.errors?.length?'<details class="mf454-provider-errors"><summary>'+
+ q.errors.length+' provider issue(s) — details</summary>'+
+ q.errors.map(err=>'<p>'+mf453Esc(err)+'</p>').join('')+'</details>':'';
+ const actions='<footer class="mf454-quick-footer">'+again+
+ '<div class="mf454-footer-actions"><button type="button" class="btn btn-ghost" data-v225-iconified="1" onclick="App.mf453CloseQuick()">'+
+ mf425Icon('x',16)+' Cancel</button>'+
+ '<button type="button" class="btn btn-primary" data-v225-iconified="1" onclick="App.mf453ApplyQuick()"'+
+ ((!selected||busy)?' disabled':'')+'>'+mf425Icon('check',16)+' Confirm selected changes</button></div></footer>';
+ return '<div class="mf454-quick-layout">'+intro+pending+stage+
+ (full?'<div class="mf454-quick-results '+(q.kind==='both'?'is-both':'is-single')+'">'+coverChoices+metaChoices+'</div>':'')+
+ errors+actions+'</div>';
+}
+mf453QuickHtml=mf454QuickView;
+const mf454PaintBase=mf453PaintQuick;
+mf453PaintQuick=function(){
+ const root=mf453QuickRoot(),container=root?.querySelector('[data-mf453-quick-content]');
+ if(!container)return;
+ const dialog=root.querySelector('.mf453-quick-dialog'),gallery=container.querySelector('.mf454-cover-gallery'),
+ list=container.querySelector('.mf454-metadata-list');
+ const top=dialog?.scrollTop||0,coverY=gallery?.scrollTop||0,metaY=list?.scrollTop||0;
+ try{container.innerHTML=mf454QuickView();}
+ catch(err){console.warn('v454 quick view render failed',err);container.innerHTML=
+ '<div class="mf454-error"><p>Recovery preview could not render. You can always close this dialog safely.</p>'+
+ '<button type="button" onclick="App.mf453CloseQuick()">Close recovery</button></div>';}
+ if(dialog)dialog.scrollTop=top;
+ const nextGallery=container.querySelector('.mf454-cover-gallery');
+ if(nextGallery)nextGallery.scrollTop=coverY;
+ const nextList=container.querySelector('.mf454-metadata-list');
+ if(nextList)nextList.scrollTop=metaY;
+};
+function mf454QuickValidateCover(item,source){
+ // Already validated by mf424Image() in scan; at Apply time the existing
+ // mf444Confirm step still handles replacement. Less-certain title matches
+ // receive a separate review warning first.
+ return !!source&&/^https:\/\//i.test(String(source.url||''))&&
+ Number(source.confidence)>=0;
+}
+const mf454OriginalApply=mf453ApplyQuick;
+mf453ApplyQuick=async function(){
+ const q=MF453Quick.current;
+ if(!q||(typeof mf458CanConfirmQuick==='function'? !mf458CanConfirmQuick(q) : (q.closed||q.applying||q.coverLoading||q.metaLoading)))return;
+ const chosen=q.covers?.[q.coverIndex],item=mf439Item(q.id);
+ if(chosen&&!mf454QuickValidateCover(item,chosen)){
+  showToast('The selected artwork did not meet minimum validation. Choose another verified-loading image.');return;
+ }
+ if(chosen&&(Number(chosen.confidence)<.65||chosen.idMatch!==true)){
+  if(!await mf444Confirm('Review lower-confidence cover match?',
+   'This artwork loaded successfully, but the provider title match is uncertain. Make sure it belongs to the correct title and edition before applying.',
+   'Use Reviewed Cover',false,1,'cover'))return;
+ }
+ return mf454OriginalApply.apply(this,arguments);
+};
+App.mf453ApplyQuick=mf453ApplyQuick;
+function mf454QuickKeyboard(event){
+ if(event.key!=='Escape'||!mf453QuickRoot()||document.getElementById('mf444-confirm'))return;
+ event.preventDefault();event.stopImmediatePropagation();
+ void mf453CloseQuick();
+}
+async function mf454QuickFinish(q){
+ if(q.finishPromise)return q.finishPromise;
+ q.finishPromise=(async()=>{
+  try{
+   if(q.preparePromise)await q.preparePromise.catch(()=>{});
+   if(q.scanPromise)await q.scanPromise.catch(()=>{});
+   if(q.priority&&MF451.journal){
+    const restored=await mf451Restore({force:true});
+    if(!restored)showToast('Original recovery checkpoint is safe; use Resume Interrupted in Background Processes.');
+   }
+  }catch(e){console.warn('v454 restoring background recovery',e);
+   showToast('Background checkpoint is preserved. Resume it from Background Processes when ready.');
+  }
+ })();
+ return q.finishPromise;
+}
+mf453CloseQuick=async function(){
+ const q=MF453Quick.current;
+ if(q){q.closed=true;q.controller?.abort();MF453Quick.serial++;MF453Quick.current=null;}
+ // Never depend on q being initialized to dismiss a modal. This fixes
+ // orphan headers and double-open overlays from earlier async attempts.
+ mf454QuickRemoveDom();
+ if(MF454Quick.keydown){document.removeEventListener('keydown',MF454Quick.keydown,true);MF454Quick.keydown=null;}
+ const previous=MF454Quick.returnFocus;MF454Quick.returnFocus=null;
+ if(previous?.isConnected)try{previous.focus({preventScroll:true});}catch(_){}
+ if(q)void mf454QuickFinish(q);
+};
+App.mf453CloseQuick=mf453CloseQuick;
+async function mf454FetchQuick(session){
+ const q=MF453Quick.current;
+ if(!q||!mf454QuickLive(q))return;
+ const item=mf439Item(q.id),cover=q.kind!=='metadata',meta=q.kind!=='cover';
+ const tasks=[];
+ if(cover)tasks.push((async()=>{
+  const found=new Set();
+  try{
+   for(const provider of q.coverProviders){
+    if(!mf454QuickLive(q)||q.controller.signal.aborted)break;
+    try{
+     const rows=await mf424Discover(item,provider);
+     for(const candidate of rows||[]){
+      if(!mf454QuickLive(q)||q.controller.signal.aborted)break;
+      const url=String(candidate?.url||'');
+      if(!url.startsWith('https://')||found.has(url))continue;
+      found.add(url);
+      if(await mf424Image(url,candidate.provider)){
+       if(!mf454QuickLive(q))break;
+       q.covers.push(candidate);mf453PaintQuick();
+      }
+      if(q.covers.length>=24)break;
+     }
+    }catch(err){if(mf454QuickLive(q))q.errors.push(provider+': '+String(err?.message||err).slice(0,160));}
+    if(q.covers.length>=24)break;
+   }
+  }finally{q.coverLoading=false;if(mf454QuickLive(q))mf453PaintQuick();}
+ })());
+ if(meta)tasks.push((async()=>{
+  try{
+   if(!q.controller.signal.aborted){
+    const result=await mf439Discover(item,q.metaProviders,()=>{},q.controller.signal);
+    if(mf454QuickLive(q))q.metadata=result;
+   }
+  }catch(err){if(mf454QuickLive(q))q.errors.push('Metadata: '+String(err?.message||err).slice(0,160));}
+  finally{q.metaLoading=false;if(mf454QuickLive(q))mf453PaintQuick();}
+ })());
+ await Promise.allSettled(tasks);
+ if(mf454QuickLive(q)){q.stage='ready';mf453PaintQuick();}
+}
+async function mf454SearchAll(){
+ const q=MF453Quick.current;
+ if(!q||q.closed||q.coverLoading||q.metaLoading||q.stage!=='ready'||q.applying)return;
+ q.coverProviders=q.kind==='metadata'?[]:mf445Providers('cover').filter(p=>p.available).map(p=>p.id);
+ q.metaProviders=q.kind==='cover'?[]:mf445Providers('metadata').filter(p=>p.available).map(p=>p.id);
+ q.covers=[];q.coverIndex=-1;q.metadata=null;q.errors=[];
+ q.coverLoading=q.kind!=='metadata';q.metaLoading=q.kind!=='cover';q.stage='scanning';
+ mf453PaintQuick();
+ q.scanPromise=mf454FetchQuick(q.serial);
+}
+App.mf454SearchAll=mf454SearchAll;
+mf453OpenQuick=async function(kind,id){
+ kind=['cover','metadata','both'].includes(kind)?kind:'cover';
+ id=String(id||'');
+ const item=mf439Item(id);
+ if(!item){showToast('Save the title before using quick recovery.');return;}
+ if(MF453Quick.current||MF454Quick.quickOpening){
+  // Bring the existing dialog to the foreground, never create a duplicate.
+  mf453QuickRoot()?.querySelector('.mf453-quick-dialog')?.focus({preventScroll:true});
+  return;
+ }
+ MF454Quick.quickOpening=true;
+ MF454Quick.returnFocus=document.activeElement;
+ const serial=++MF453Quick.serial;
+ const q={id,kind,serial,stage:'pausing',closed:false,priority:false,
+  coverProviders:[],metaProviders:[],covers:[],coverIndex:-1,metadata:null,
+  coverLoading:kind!=='metadata',metaLoading:kind!=='cover',
+  pending:[],errors:[],applying:false,controller:new AbortController(),scanPromise:null};
+ MF453Quick.current=q;
+ MF453Quick.account=mf439Account();
+ mf454QuickRemoveDom();
+ const root=document.createElement('div');root.id='mf453-title-quick';
+ root.className='mf424-modal mf425-themed mf453-quick-modal mf454-quick-modal';
+ root.innerHTML='<div class="mf424-shade" onclick="App.mf453CloseQuick()" aria-hidden="true"></div>'+
+ '<section class="mf424-dialog mf453-quick-dialog mf454-quick-dialog" role="dialog" aria-modal="true" aria-label="Quick title recovery" tabindex="-1">'+
+ '<header class="mf453-quick-top"><div><small>QUICK TITLE RECOVERY</small><h2>'+mf425Icon('layers',22)+' '+
+ mf453Esc(kind==='both'?'Cover + Metadata':kind==='cover'?'Cover Recovery':'Metadata Recovery')+
+ '</h2></div><button type="button" class="btn btn-ghost" data-v225-iconified="1" onclick="App.mf453CloseQuick()">'+
+ mf425Icon('x',16)+' Close</button></header><div data-mf453-quick-content></div></section>';
+ document.body.append(root);
+ MF454Quick.keydown=mf454QuickKeyboard;
+ document.addEventListener('keydown',MF454Quick.keydown,true);
+ mf453PaintQuick();
+ root.querySelector('.mf453-quick-dialog')?.focus({preventScroll:true});
+ try{
+  const owner=typeof mf442ProcessLease==='function'?mf442ProcessLease():null;
+  if(owner&&owner.token!==MF442.owner)
+   throw Error('Another browser tab owns recovery. Pause that tab before quick recovery.');
+  if(MF424.running||MF439.working||MF442.process){
+   // Both is intentional even for cover-only or metadata-only quick views:
+   // the v451 journal must checkpoint BOTH preexisting processes before any
+   // provider call. Otherwise old processes can race with our quick scan.
+   q.preparePromise=mf451Prepare('both',id);
+   if(!await q.preparePromise)
+    throw Error('Could not safely pause existing recovery. Check Background Processes.');
+   q.priority=true;
+   // The old combined engine may already report completed. Do not let its
+   // regular scheduler restart older jobs while this quick preview is open.
+   const checkpoint=MF451.journal||mf451Read();
+   if(checkpoint){checkpoint.autoResume=false;checkpoint.state='quick-preview';mf451Store(checkpoint);}
+  }
+  if(!mf454QuickLive(q))return;
+  q.stage='connecting';mf453PaintQuick();
+  if(typeof mf443EnsureGateway==='function')await mf443EnsureGateway();
+  if(!mf454QuickLive(q))return;
+  const fresh=mf439Item(id);
+  if(!fresh||MF453Quick.account!==mf439Account())throw Error('Title or account changed while preparing recovery.');
+  q.coverProviders=kind==='metadata'?[]:mf453Ready('cover',fresh);
+  q.metaProviders=kind==='cover'?[]:mf453Ready('metadata',fresh);
+  for(const mode of ['cover','metadata']){
+   if(kind==='cover'&&mode==='metadata'||kind==='metadata'&&mode==='cover')continue;
+   const chosen=new Set(mf453ProvidersFor(mode,fresh.categoryId||''));
+   for(const provider of mf445Providers(mode))
+    if(chosen.has(provider.id)&&!provider.available)q.pending.push(provider.name);
+  }
+  q.pending=[...new Set(q.pending)];
+  q.stage='scanning';mf453PaintQuick();
+  q.scanPromise=mf454FetchQuick(serial);
+  await q.scanPromise;
+ }catch(err){
+  console.warn('v454 quick recovery startup',err);
+  if(mf454QuickLive(q)){
+   q.errors.push(String(err?.message||err));
+   q.stage='error';q.coverLoading=false;q.metaLoading=false;
+   mf453PaintQuick();
+  }
+ }finally{
+  MF454Quick.quickOpening=false;
+  if(q.closed)void mf454QuickFinish(q);
+ }
+};
+App.mf453OpenQuick=mf453OpenQuick;
+window.MediaFlowV454=Object.freeze({version:454,open:mf453OpenQuick,close:mf453CloseQuick,
+ html:mf454QuickView,searchAll:mf454SearchAll,active:()=>MF453Quick.current,
+ clearOrphans:mf454QuickRemoveDom,coverStatus:mf454QuickBadge});
+/* MediaFlow v455 — one-click, settings-backed Unified Recovery execution.
+ * Stays on original v424/v442 engines: verified requests, durable checkpoints,
+ * leases, safety merges, cooldowns, and provider maximums are enforced there.
+ */
+const MF455_VERSION=455;
+const MF455={search:{cover:'',metadata:'',both:'',categories:''},selected:{cover:null,metadata:null},
+ scopeSignature:'',launching:false,afterStart:0};
+function mf455Settings(kind){
+ const raw=S.settings?.v455RecoveryProcessing?.[kind]||{};
+ const mode=raw.mode==='one'?'one':'parts';
+ const continuation=['automatic','manual'].includes(raw.continuation)?raw.continuation:'automatic';
+ const partMode=['continuation','automatic','manual'].includes(raw.partMode)?raw.partMode:'automatic';
+ const size=Math.max(1,Math.min(10000,Number(raw.partSize)||100));
+ const selection=['hybrid','smart','priority','manual'].includes(raw.selection)?raw.selection:'hybrid';
+ const protection=['safe','balanced','custom'].includes(raw.protection)?raw.protection:'safe';
+ return {mode,partMode,partSize:size,continuation,selection,protection,
+  autoResume:raw.autoResume!==false};
+}
+function mf455SaveSettings(kind,key,value){
+ if(!['cover','metadata','both'].includes(kind)||!['mode','partMode','partSize','continuation','selection','protection','autoResume'].includes(key))return;
+ S.settings=S.settings||{};
+ const all={...(S.settings.v455RecoveryProcessing||{})};
+ const current=mf455Settings(kind);
+ let clean=value;
+ if(key==='autoResume')clean=Boolean(value);
+ else if(key==='partSize')clean=Math.max(1,Math.min(10000,Number(value)||100));
+ else if(key==='mode')clean=value==='one'?'one':'parts';
+ else if(key==='partMode')clean=['automatic','manual','continuation'].includes(value)?value:'automatic';
+ else if(key==='continuation')clean=value==='manual'?'manual':'automatic';
+ else if(key==='selection')clean=['hybrid','smart','priority','manual'].includes(value)?value:'hybrid';
+ else if(key==='protection')clean=['safe','balanced','custom'].includes(value)?value:'safe';
+ all[kind]={...current,[key]:clean};
+ S.settings.v455RecoveryProcessing=all;
+ Promise.resolve(saveState()).catch(err=>console.warn('Recovery processing settings not saved',err));
+ const root=document.getElementById('mf445-workspace');
+ if(root){
+  const part=root.querySelector('[data-mf455-part]');
+  if(part)part.hidden=mf455Settings(MF447.active==='both'?'both':MF445.mode).mode==='one';
+ }
+}
+function mf455SelectHtml(kind,name,value,options){
+ return '<label class="mf455-setting"><span>'+mf424Escape(name)+'</span><select onchange="App.mf455SaveSettings('+
+ mf424Escape(JSON.stringify(kind))+','+mf424Escape(JSON.stringify(value))+',this.value)">'+
+ options.map(([key,label])=>'<option value="'+key+'" '+(mf455Settings(kind)[value]===key?'selected':'')+'>'+
+ mf424Escape(label)+'</option>').join('')+'</select></label>';
+}
+function mf455ProcessingHtml(kind){
+ const s=mf455Settings(kind);
+ return '<section class="mf455-processing" data-mf455-processing="'+kind+'">'+
+ '<header><strong>'+mf425Icon('sliders',17)+' Processing & matching</strong><small>Saved per recovery mode</small></header>'+
+ '<div class="mf455-settings-grid">'+
+ mf455SelectHtml(kind,'Recovery mode','mode',[['parts','Part-by-Part'],['one','One-Go']])+
+ mf455SelectHtml(kind,'Titles per part','partMode',[['continuation','Continuation'],['automatic','Automatic'],['manual','Manual']])+
+ '<label class="mf455-setting" data-mf455-part '+(s.mode==='one'?'hidden':'')+'><span>Titles in each part</span><input type="number" min="1" max="10000" step="1" value="'+s.partSize+
+ '" onchange="App.mf455SaveSettings('+mf424Escape(JSON.stringify(kind))+',&#39;partSize&#39;,this.value)"></label>'+
+ mf455SelectHtml(kind,'Continue between parts','continuation',[['automatic','Automatic'],['manual','Manual confirmation']])+
+ mf455SelectHtml(kind,kind==='cover'?'Cover selection':kind==='metadata'?'Metadata selection':'Selection policy','selection',
+ [['hybrid','Hybrid'],['smart','Smart Automatic'],['priority','Provider Priority'],['manual','Manual Selection']])+
+ mf455SelectHtml(kind,'Rate-limit protection','protection',[['safe','Safe'],['balanced','Balanced'],['custom','Custom (provider maximums enforced)']])+
+ '<label class="mf455-setting mf455-resume"><input type="checkbox" '+(s.autoResume?'checked ':'')+
+ 'onchange="App.mf455SaveSettings('+mf424Escape(JSON.stringify(kind))+',&#39;autoResume&#39;,this.checked)">'+
+ '<span>Resume when app reopens</span></label></div>'+
+ '<p class="mf455-safe-note">Provider quotas and manual safety confirmations always override processing speed. Existing Library fields remain protected.</p></section>';
+}
+function mf455ScopeCategories(mode){
+ if(MF445.oneId||MF445.metadataId){
+  const one=mf439Item(MF445.oneId||MF445.metadataId);
+  return one?.categoryId==null?[]:[String(one.categoryId)];
+ }
+ const scope=mf446State(mode==='both'?'cover':mode);
+ if(['category','categoryStatus'].includes(scope.mode))return scope.categories.slice();
+ const ids=mode==='both'?mf447ScopeSnapshot():mf446ScopeIds(mode);
+ if(!ids.length)return [];
+ const seen=new Set(),wanted=new Set(ids);
+ for(const item of S.library||[])if(wanted.has(String(item.id)))seen.add(String(item.categoryId||''));
+ return [...seen].filter(Boolean);
+}
+function mf455ApplyCategoryPreset(mode){
+ const categories=mf455ScopeCategories(mode);
+ const sig=mode+'|'+(mf446State(mode==='both'?'cover':mode)?.mode||'')+'|'+categories.join('|');
+ if(MF455.scopeSignature===sig)return;
+ MF455.scopeSignature=sig;
+ for(const kind of mode==='both'?['cover','metadata']:[mode]){
+  const cat=categories.length===1?categories[0]:null;
+  MF455.selected[kind]=cat&&Array.isArray(mf453Presets()[cat]?.[kind])?
+   mf453ProvidersFor(kind,cat).slice():null;
+ }
+}
+const mf455BaseProviders=mf445Providers;
+mf445Providers=function(mode){
+ const items=mf455BaseProviders.apply(this,arguments);
+ const root=document.getElementById('mf445-workspace');
+ if(!root||!Array.isArray(MF455.selected[mode]))return items;
+ const enabled=new Set(MF455.selected[mode]);
+ return items.map(p=>({...p,enabled:enabled.has(p.id)}));
+};
+function mf455Enabled(mode){
+ const configured=MF455.selected[mode];
+ const rows=mf455BaseProviders(mode);
+ return Array.isArray(configured)?configured.filter(id=>rows.some(p=>p.id===id&&p.available)):
+  rows.filter(p=>p.enabled&&p.available).map(p=>p.id);
+}
+function mf455StoreSelection(kind,onOrId,enabled){
+ const all=mf455BaseProviders(kind);
+ const current=new Set(Array.isArray(MF455.selected[kind])?MF455.selected[kind]:
+  all.filter(p=>p.enabled).map(p=>p.id));
+ if(onOrId==='__all__'){if(enabled)all.filter(p=>p.available).forEach(p=>current.add(p.id));
+  else current.clear();}
+ else if(all.some(p=>p.id===onOrId)){if(enabled)current.add(onOrId);else current.delete(onOrId);}
+ MF455.selected[kind]=[...current];
+ mf455UpdateProviderUI(kind);
+}
+function mf455UpdateProviderUI(kind){
+ const root=document.getElementById('mf445-workspace');if(!root)return;
+ const area=[...root.querySelectorAll('.mf446-providers')].find(x=>
+  x.querySelector('[data-mf455-kind="'+kind+'"]')||x.getAttribute('data-mf455-kind')===kind);
+ if(!area)return;
+ const set=new Set(MF455.selected[kind]||[]);
+ for(const row of area.querySelectorAll('[data-mf446-provider]')){
+  const id=row.dataset.mf446Provider,checkbox=row.querySelector('input[type="checkbox"]');
+  if(checkbox)checkbox.checked=set.has(id);
+  row.dataset.status=set.has(id)?'enabled':'disabled';
+  const label=row.querySelector('.mf445-provider-status');
+  if(label)label.textContent=set.has(id)?'Selected':'Disabled';
+ }
+ const count=area.querySelector('[data-mf446-provider-count]');
+ if(count)count.textContent=mf455Enabled(kind).length+' ready selected · '+mf455BaseProviders(kind).length+' registered';
+ const start=root.querySelectorAll('.mf445-actions button.btn-primary');
+ const cover=mf455Enabled('cover').length,metadata=mf455Enabled('metadata').length;
+ for(const button of start){
+  const mode=MF447.active==='both'?'both':MF445.mode;
+  const ids=mode==='both'?mf447ScopeSnapshot():mf446ScopeIds(mode);
+  button.disabled=!ids.length||(mode==='both'?!(cover&&metadata):mode==='cover'?!cover:!metadata);
+ }
+}
+const mf455OldToggle=App.mf446ToggleProvider,mf455OldAll=App.mf446ProviderAll;
+App.mf446ToggleProvider=function(kind,id,on){
+ if(document.getElementById('mf445-workspace'))return mf455StoreSelection(kind,id,on);
+ return mf455OldToggle.apply(this,arguments);
+};
+App.mf446ProviderAll=function(kind,on){
+ if(document.getElementById('mf445-workspace'))return mf455StoreSelection(kind,'__all__',on);
+ return mf455OldAll.apply(this,arguments);
+};
+function mf455SearchWorkspace(el,kind){
+ const needle=String(el.value||'').trim().toLowerCase();
+ MF455.search[kind]=needle;
+ const root=el.closest('.mf446-providers')||el.closest('.mf446-categories');
+ for(const row of root?.querySelectorAll('[data-mf446-provider],.mf446-category')||[]){
+  row.hidden=!String(row.textContent||'').toLowerCase().includes(needle);
+ }
+}
+function mf455SearchFields(){
+ return '<label class="mf455-search">'+mf425Icon('search',16)+
+ '<input type="search" placeholder="Search categories..." aria-label="Search recovery categories" oninput="App.mf455SearchWorkspace(this,&#39;categories&#39;)"></label>';
+}
+function mf455EnhanceWorkspace(){
+ const root=document.getElementById('mf445-workspace');if(!root)return;
+ const mode=MF447.active==='both'?'both':MF445.mode;
+ const pane=root.querySelector('[data-mf445-panel]');if(!pane)return;
+ for(const kind of mode==='both'?['cover','metadata']:[mode]){
+  const section=[...pane.querySelectorAll('.mf446-providers')].find(x=>
+   !x.dataset.mf455Kind||x.dataset.mf455Kind===kind);
+  if(!section||section.dataset.mf455Kind&&section.dataset.mf455Kind!==kind)continue;
+  section.dataset.mf455Kind=kind;
+  const heading=section.querySelector('header');
+  if(heading&&!section.querySelector('.mf455-search'))heading.insertAdjacentHTML('afterend',
+   '<label class="mf455-search">'+mf425Icon('search',15)+
+   '<input type="search" placeholder="Search '+kind+' providers..." aria-label="Search '+kind+' providers" oninput="App.mf455SearchWorkspace(this,'+mf424Escape(JSON.stringify(kind))+')"></label>');
+  mf455UpdateProviderUI(kind);
+ }
+ const cat=pane.querySelector('.mf446-categories');
+ if(cat&&!cat.querySelector('.mf455-search'))cat.querySelector('summary')?.insertAdjacentHTML('afterend',mf455SearchFields());
+ const scope=pane.querySelector('.mf446-scope');
+ if(scope&&!pane.querySelector('[data-mf455-processing]'))scope.insertAdjacentHTML('afterend',mf455ProcessingHtml(mode));
+ // Consistent launch entry; the old cover setup is never opened from here.
+ const actions=pane.querySelector('.mf445-actions');
+ if(actions){
+  for(const button of actions.querySelectorAll('button.btn-primary')){
+   const handler=button.getAttribute('onclick')||'';
+   if(handler.includes('mf445Start')||handler.includes('mf447StartCombined')){
+    button.textContent='Recover selected titles';
+    button.dataset.v225Iconified='1';
+    button.insertAdjacentHTML('afterbegin',mf425Icon('play',16)+' ');
+    button.setAttribute('onclick','App.mf455Launch('+mf424Escape(JSON.stringify(mode))+')');
+   }
+  }
+ }
+}
+const mf455OldPanel=mf445Panel;
+mf445Panel=function(mode){
+ // v447 redraws everything; derive provider preset BEFORE opening the pane.
+ mf455ApplyCategoryPreset(mode);
+ const result=mf455OldPanel.apply(this,arguments);
+ mf455EnhanceWorkspace();return result;
+};
+App.mf445Panel=mf445Panel;
+function mf455ReadyForNewJob(){
+ const owner=typeof mf442ProcessLease==='function'?mf442ProcessLease():null;
+ return !owner||owner.token===MF442.owner;
+}
+async function mf455ReplaceQueuedJobs(){
+ if(typeof MF451!=='undefined'&&(MF451.journal||mf451Read()))
+  throw Error('Finish the priority title before replacing its suspended queue.');
+ if(!mf455ReadyForNewJob())throw Error('Another tab owns a recovery process.');
+ if(MF424.running||MF439.working||MF442.process){
+  if(!await mf451PauseActive())throw Error('The old process could not safely stop.');
+ }
+ if(MF424.running||MF439.working||MF442.process)throw Error('Wait for the current title checkpoint.');
+ if(MF424.job){MF424.job.stopRequested=true;MF424.job.pauseRequested=true;await mf424SaveJob();}
+ if(MF439.job){MF439.job.stopRequested=true;MF439.cancel=true;mf439SaveJob();}
+ if(typeof mf447WriteCombo==='function')mf447WriteCombo(null);
+
+}
+function mf455JobProviders(kind){
+ const selected=mf455Enabled(kind);
+ if(!selected.length)throw Error('Select at least one available '+kind+' provider.');
+ return selected;
+}
+const mf455BaseCoverDefaults=mf424Defaults,mf455BaseMetaDefaults=mf439Preferences;
+mf424Defaults=function(){
+ const prefs=mf455BaseCoverDefaults.apply(this,arguments);
+ const job=MF424.job;
+ if(job?.v455Providers&&job.account===mf424Account())
+  return {...prefs,enabled:job.v455Providers,
+   selection:job.v455Selection||prefs.selection,protection:job.v455Protection||prefs.protection};
+ return prefs;
+};
+mf439Preferences=function(){
+ const prefs=mf455BaseMetaDefaults.apply(this,arguments);
+ const job=MF439.job;
+ if(job?.v455Providers&&job.account===mf439Account())
+  return {...prefs,enabled:job.v455Providers};
+ return prefs;
+};
+function mf455CoverJob(ids,providers,mode,options){
+ const found=new Set((S.library||[]).filter(item=>item?.id!=null&&mf424Missing(item)).map(t=>String(t.id)));
+ const targets=ids.filter(id=>found.has(id));
+ if(!targets.length)return null;
+ const partSize=options.partMode==='automatic'?Math.max(1,Math.min(1000,Math.ceil(targets.length/10))):
+  Math.max(1,options.partSize);
+ return {id:'mf455-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),account:mf424Account(),created:Date.now(),updated:Date.now(),ended:0,
+  ids:targets,cursor:0,scope:{mode:'selected',ids:targets},mode:options.mode==='one'?'one':'parts',
+  partSize,continuation:options.continuation,status:'ready',fixed:0,unresolved:0,skipped:0,
+  failed:0,pending:0,processed:0,dirty:0,requestCount:0,cooldownEvents:0,rate:{},
+  unresolvedIds:[],results:[],reviews:[],stopRequested:false,pauseRequested:false,
+  stopAfterPart:false,v455Providers:providers,v455Selection:options.selection==='manual'?'manual':
+   options.selection==='priority'?'hybrid':options.selection==='smart'?'smart': 'hybrid',
+  v455Protection:options.protection,autoResume:options.autoResume};
+}
+async function mf455Launch(kind){
+ if(MF455.launching)return;
+ kind=['cover','metadata','both'].includes(kind)?kind:'cover';
+ mf456LaunchStage('validating','Checking selected titles and available providers…',kind);
+ const ids=(kind==='both'?mf447ScopeSnapshot():mf446ScopeIds(kind)).map(String);
+ const valid=new Set((S.library||[]).map(item=>String(item?.id||'')));
+ const chosen=[...new Set(ids.filter(id=>valid.has(id)))];
+ if(!chosen.length){mf456LaunchStage('error','No titles in scope. Choose All, Library, a category, or check Library titles.',kind);showToast('Choose saved Library titles before starting recovery.');return;}
+ if(!AUTH_USER){mf456LaunchStage('error','Sign in to start recovery.',kind);showToast('Sign in before recovering.');return;}
+ if((kind==='cover'||kind==='both')&&!MF424.ready){mf456LaunchStage('error','Cover storage is still initializing; retry after readiness.',kind);showToast('Cover Recovery is initializing.');return;}
+ MF455.launching=true;
+ try{
+  const coverIds=kind==='metadata'?[]:mf455JobProviders('cover');
+  const metaIds=kind==='cover'?[]:mf455JobProviders('metadata');
+  const allowed=Math.max(1,Math.min(250,Number(mf439Preferences().maxBatch)||250));
+  const bounded=kind==='cover'?chosen:chosen.slice(0,allowed);
+  const prefs=mf455Settings(kind);
+  const cover=kind==='metadata'?null:mf455CoverJob(bounded,coverIds,kind,prefs);
+  if(kind==='cover'&&!cover){mf456LaunchStage('error','No missing covers in scope. To replace existing artwork, open Quick Cover Recovery for the title.',kind);showToast('Selected titles already have covers. Use a title’s Quick Cover Recovery to replace existing artwork.');return;}
+  mf456LaunchStage('confirming','Review the new recovery queue and confirm to start.',kind);
+  if(!await mf444Confirm('Start '+(kind==='both'?'Cover + Metadata':kind==='cover'?'Cover':'Metadata')+' Recovery?',
+    bounded.length+' titles in scope. This replaces any previous unfinished queue after its current title is safely checkpointed. Completed Library changes remain saved.',
+    'Replace Queue & Start',false,bounded.length,kind==='cover'?'cover':'metadata')){
+   mf456LaunchStage('cancelled','Recovery launch cancelled; existing queues unchanged.',kind);return;
+  }
+  mf456LaunchStage('stopping','Stopping previous jobs at safe checkpoints before replacement…',kind);
+  await mf455ReplaceQueuedJobs();
+  mf456LaunchStage('queue','Creating a durable new job and provider snapshot…',kind);
+  // Jobs own immutable source selection and settings snapshots, so later
+  // changes in Settings never mutate a running job’s API list.
+  if(cover){
+   MF424.job=cover;MF424.account=mf424Account();
+   await mf424SaveJob();
+  }else if(kind!=='metadata')MF424.job=null;
+  if(kind==='both'){
+   mf447WriteCombo({schema:1,account:mf439Account(),ids:bounded,
+    created:Date.now(),stage:cover?'cover':'ready-metadata',coverId:cover?.id||null,
+    v455Direct:true,v455MetaProviders:metaIds});
+  }
+  if(kind==='metadata'){
+   MF439.job=mf455MetadataOptions('metadata',bounded,metaIds);
+   mf439SaveJob();
+  }
+  mf445Close();
+  mf456LaunchStage('starting','Queue saved. Waiting for provider lease and first title…',kind);
+  MF455.afterStart=Date.now();mf441Paint();
+  if(cover)void mf424Run(); // Existing lease safety, cooldown and progress.
+  else if(kind==='metadata')void mf439RunBatch();
+  else if(kind==='both')void mf447ContinueCombined();
+  mf456LaunchStage('queued','New queue saved for '+bounded.length+' title(s). Waiting for first engine checkpoint.',kind);
+  mf456WatchRecovery(kind);
+  showToast('New '+kind+' recovery queue created: '+bounded.length+' title(s). Check Background Processes.');
+ }catch(err){console.warn('v455 unified recovery start failed',err);
+  mf456LaunchStage('error','Recovery not started: '+String(err?.message||err).slice(0,170),kind);
+  showToast('Recovery not started: '+String(err?.message||err).slice(0,170));}
+ finally{MF455.launching=false;}
+}
+App.mf455Launch=mf455Launch;
+App.mf455SaveSettings=mf455SaveSettings;
+App.mf455SearchWorkspace=mf455SearchWorkspace;
+window.MediaFlowV455=Object.freeze({version:455,settings:mf455Settings,processing:mf455ProcessingHtml,
+ search:mf455SearchWorkspace,scope:mf455ScopeCategories,launch:mf455Launch,
+ selected:()=>MF455.selected,ready:mf455Enabled});
+/* MediaFlow v455 — completion handoff, settings and visible job progress. */
+const MF455_STAGE={lastKind:'',metadataIds:[]};
+const mf455OldWorkspaceSettings=mf441WorkspaceHtml;
+mf441WorkspaceHtml=function(){
+ const html=String(mf455OldWorkspaceSettings.apply(this,arguments)||'');
+ if(html.includes('data-mf455-settings'))return html;
+ const settings='<section class="mf455-recovery-settings" data-mf455-settings>'+
+ '<header><strong>'+mf425Icon('sliders',19)+' Universal Recovery Processing</strong>'+
+ '<p>Independent processing and provider configurations for Cover, Metadata and Recover Both. All engine limits remain enforced.</p></header>'+
+ ['cover','metadata','both'].map(mode=>'<details class="mf455-settings-mode"><summary>'+
+ mf425Icon(mode==='cover'?'images':mode==='metadata'?'database':'layers',17)+
+ ' '+(mode==='cover'?'Cover Recovery':mode==='metadata'?'Metadata Recovery':'Recover Both')+
+ ' processing options</summary>'+mf455ProcessingHtml(mode)+
+ '<div class="mf455-settings-providers"><strong>Enabled '+(mode==='metadata'?'metadata':mode==='both'?'cover & metadata':'cover')+' providers</strong>'+
+ (mode==='both'?'<p>Cover and Metadata providers can be enabled independently through the unified workspace.</p>':'')+
+ '<button type="button" class="btn btn-ghost" onclick="App.mf447Open('+mf424Escape(JSON.stringify(mode))+',{entry:&#39;settings&#39;})">'+
+ mf425Icon('sliders',15)+' Open provider selection</button></div></details>').join('')+'</section>';
+ return html+settings;
+};
+
+const mf455OriginalCoverSettings=mf425SettingsMarkup;
+mf425SettingsMarkup=function(){
+ const html=String(mf455OriginalCoverSettings.apply(this,arguments)||'');
+ return html.replace('<div class="mf425-settings-actions">',
+  '<details class="mf455-native-processing"><summary>Advanced Cover Processing & Matching</summary>'+
+  mf455ProcessingHtml('cover')+'</details><div class="mf425-settings-actions">');
+};
+const mf455OriginalMetaSettings=mf439SettingsHtml;
+mf439SettingsHtml=function(){
+ const html=String(mf455OriginalMetaSettings.apply(this,arguments)||'');
+ return html.replace('<div class="mf439-settings-actions">',
+  '<details class="mf455-native-processing"><summary>Advanced Metadata Processing & Matching</summary>'+
+  mf455ProcessingHtml('metadata')+'</details><div class="mf439-settings-actions">');
+};
+const mf455OrigCoverPrefs=mf424Defaults;
+mf424Defaults=function(){
+ const x=mf455OrigCoverPrefs.apply(this,arguments),j=MF424.job;
+ if(!j?.v455Providers)return x;
+ return {...x,autoResume:j.autoResume,protection:j.v455Protection||x.protection};
+};
+const mf455OldRunMetadata=mf439RunBatch;
+mf439RunBatch=async function(){
+ const job=MF439.job;
+ if(job?.v455Providers&&job.v455Selection==='manual'&&job.manualReviewId){
+  showToast('Review or skip the pending metadata title before resuming this job.');return;
+ }
+ return mf455OldRunMetadata.apply(this,arguments);
+};
+function mf455MetadataOptions(kind,ids,providers,source='direct'){
+ const p=mf455Settings(kind);
+ const partSize=p.partMode==='automatic'?Math.max(1,Math.min(250,Math.ceil(ids.length/10))):Math.max(1,Math.min(250,p.partSize));
+ return {schema:1,account:mf439Account(),ids,cursor:0,changed:0,completed:0,
+  errors:[],startedAt:Date.now(),status:'running',mode:p.mode,partSize,
+  continuation:p.continuation,stopRequested:false,autoResume:p.autoResume,
+  v455Providers:providers,v455Selection:p.selection,
+  v455Protection:p.protection,v455Source:source};
+}
+const mf455OriginalContinue=mf447ContinueCombined;
+mf447ContinueCombined=async function(){
+ const combo=mf447Combo();
+ if(!combo?.v455Direct)return mf455OriginalContinue.apply(this,arguments);
+ if(combo.stage!=='ready-metadata')return;
+ if(MF439.working||MF424.running)return;
+ if(combo.coverId&&(MF424.job?.id!==combo.coverId||MF424.job.status!=='complete'))return;
+ const ids=mf447AllowedIds(combo.ids).slice(0,mf439Preferences().maxBatch);
+ if(!ids.length){showToast('Combined recovery has no eligible titles for metadata.');return;}
+ const available=mf455BaseProviders('metadata').filter(p=>p.available).map(p=>p.id);
+ const providers=(combo.v455MetaProviders||[]).filter(id=>available.includes(id));
+ if(!providers.length){showToast('Metadata stage needs a working provider; configure access before continuing.');return;}
+ try{
+  MF439.job=mf455MetadataOptions('both',ids,providers,'combined');
+  mf439SaveJob();
+  mf447WriteCombo({...combo,stage:'metadata',metadataAt:MF439.job.startedAt});
+  mf441Paint();
+  await mf439RunBatch();
+ }catch(e){
+  showToast('Metadata continuation failed; cover checkpoint is safe: '+String(e?.message||e).slice(0,110));
+ }
+};
+App.mf447ContinueCombined=mf447ContinueCombined;
+// Progress labels report actual cursor and active process stage. Never show a
+// fictitious percentage just to make a stalled API call look successful.
+function mf455ProcessStatus(kind,state){
+ const j=kind==='cover'?state.cover:state.metadata;
+ if(!j||!j.ids?.length)return '';
+ const running=kind==='cover'?MF424.running:MF439.working;
+ const finished=Math.max(0,Math.min(j.ids.length,Number(j.cursor)||0));
+ const step=running?Math.min(j.ids.length,finished+1):finished;
+ const msg=running?'Processing title '+step.toLocaleString()+' of '+j.ids.length.toLocaleString():
+  j.status==='waiting-part'?'Waiting for next part':j.status==='paused'?'Paused with saved checkpoint':
+  j.status==='complete'||j.status==='completed'?'All titles processed':'Ready';
+ return '<p class="mf455-live-progress" role="status" aria-live="polite">'+
+ (running?mf425Icon('activity',15):mf425Icon('layers',15))+' '+mf424Escape(msg)+
+ ' · '+finished.toLocaleString()+' completed</p>';
+}
+const mf455OldCoverRow=mf441CoverRow;
+mf441CoverRow=function(s){
+ let html=String(mf455OldCoverRow.apply(this,arguments)||'');
+ return html.replace('</article>',mf455ProcessStatus('cover',s)+'</article>');
+};
+const mf455OldMetadataRow=mf441MetadataRow;
+mf441MetadataRow=function(s){
+ let html=String(mf455OldMetadataRow.apply(this,arguments)||'');
+ return html.replace('</article>',mf455ProcessStatus('metadata',s)+'</article>');
+};
+const mf455OldWidget=mf441WidgetHtml;
+mf441WidgetHtml=function(){
+ const html=String(mf455OldWidget.apply(this,arguments)||'');
+ return html.replace('class="mf441-widget ', 'class="mf441-widget mf455-readable-widget ');
+};
+
+function mf455ReviewPendingMetadata(){
+ const job=MF439.job||mf439ReadJob();
+ if(!job?.manualReviewId||MF439.working)return;
+ return App.mf453OpenQuick('metadata',String(job.manualReviewId));
+}
+async function mf455FinishManualTitle(action='skip',id=''){
+ const job=MF439.job;
+ if(!job?.manualReviewId||MF439.working)return false;
+ if(id&&String(job.manualReviewId)!==String(id))return false;
+ if(action==='skip'&&!await mf444Confirm('Skip this metadata title?',
+  'Skip the pending manual review and continue from the next saved title. Already saved metadata will not change.',
+  'Skip Title',false,1,'metadata'))return false;
+ const current=String(job.ids[job.cursor]||'');
+ if(current!==String(job.manualReviewId))return false;
+ job.manualReviewId='';
+ job.cursor++;job.completed=job.cursor;job.status=job.cursor>=job.ids.length?'completed':'paused';
+ mf439SaveJob();mf439PaintJob();mf441Paint();
+ showToast(job.status==='completed'?'Metadata manual recovery complete.':'Manual review checkpoint saved. Resume for the next title.');
+ return true;
+}
+const mf455OldQuickApply=App.mf453ApplyQuick;
+App.mf453ApplyQuick=async function(){
+ const quick=window.MediaFlowV454?.active?.(),id=quick?.id;
+ const title=quick&&mf439Item(id);
+ const before=title&&JSON.stringify(title);
+ const result=await mf455OldQuickApply.apply(this,arguments);
+ if(id&&MF439.job?.manualReviewId===String(id)&&!window.MediaFlowV454?.active?.()&&
+  title&&JSON.stringify(title)!==before)await mf455FinishManualTitle('saved',id);
+ return result;
+};
+const mf455OldMetadataRowReview=mf441MetadataRow;
+mf441MetadataRow=function(state){
+ let html=String(mf455OldMetadataRowReview.apply(this,arguments)||'');
+ const job=state.metadata;
+ if(job?.manualReviewId){
+  const controls='<div class="mf455-manual-review"><strong>'+
+   mf425Icon('search',15)+' Manual metadata selection</strong>'+
+   '<small>Title '+(Number(job.cursor)+1)+' / '+job.ids.length+
+   ' needs confirmation before progressing.</small>'+
+   '<button type="button" data-v225-iconified="1" onclick="App.mf455ReviewPendingMetadata()">'+
+   mf425Icon('database',15)+' Review title</button>'+
+   '<button type="button" data-v225-iconified="1" onclick="App.mf455FinishManualTitle(&#39;skip&#39;)">'+
+   mf425Icon('x',15)+' Skip title</button></div>';
+  return html.replace('</article>',controls+'</article>');
+ }
+ return html;
+};
+App.mf455ReviewPendingMetadata=mf455ReviewPendingMetadata;
+App.mf455FinishManualTitle=mf455FinishManualTitle;
+window.MediaFlowV455Stages=Object.freeze({version:455,metadata:mf455MetadataOptions,
+ progress:mf455ProcessStatus,continue:mf447ContinueCombined,settings:()=>mf441WorkspaceHtml()});
+/* MediaFlow v456 — detailed, reliable quick-cover selection + live editor.
+ * Candidate IDs are always shown before selection. Only conflict-free actual
+ * provider record IDs can be linked on confirmation; never synthesize an ID.
+ */
+const MF456_VERSION=456;
+const MF456={save:null,launch:null,lastSaved:null};
+const mf456Escape=x=>mf424Escape(String(x??''));
+function mf456CandidateLink(item,candidate){
+ const link=typeof mf424LinkableCoverId==='function'?
+  mf424LinkableCoverId(item||{},candidate):null;
+ const key=String(link?.key||candidate?.externalIdKey||'').trim();
+ const id=String(link?.value||candidate?.externalIdValue||candidate?.recordId||'').trim();
+ const conflict=Boolean(link?.conflict);
+ return {key,id,conflict,canLink:Boolean(link&&!conflict&&!link.existing&&id)};
+}
+function mf456CoverGallery(q,item){
+ return '<div class="mf454-cover-gallery mf456-cover-gallery" role="list" aria-label="Cover choices — choose exactly one">'+
+ q.covers.map((c,i)=>{
+  const id=mf456CandidateLink(item,c);
+  const match=Number.isFinite(Number(c?.confidence))?
+   Math.round(Math.max(0,Math.min(1,Number(c.confidence)))*100)+'%':'Unknown';
+  const selected=q.coverIndex===i;
+  const safeUrl=/^https:\/\//i.test(String(c?.url||''));
+  return '<article role="listitem" class="mf456-cover-card '+(selected?'is-selected':'')+'" data-mf456-cover-index="'+i+'">'+
+   '<div class="mf456-cover-art"><img src="'+mf456Escape(c.url)+'" alt="'+mf456Escape(c.title||'Cover candidate')+'" loading="lazy" decoding="async"></div>'+
+   '<div class="mf456-cover-content">'+
+   '<strong class="mf456-cover-title">'+mf456Escape(c.title||item?.title||'Untitled match')+'</strong>'+
+   '<div class="mf456-cover-facts"><span>'+mf425Icon('database',13)+' '+mf456Escape(c.provider||'Unknown provider')+'</span>'+
+   '<span>'+mf425Icon('check',13)+' '+mf456Escape(match)+' match</span></div>'+
+   '<small class="mf456-cover-trust">'+mf425Icon('shield',14)+
+   ' '+mf456Escape(c.idMatch?'Provider external-ID match':'Title candidate — verify edition')+'</small>'+
+   '<div class="mf456-cover-record"><span>Provider record ID</span><code>'+mf456Escape(id.id||'Not supplied')+'</code>'+
+   '<span>ID saved as</span><code>'+mf456Escape(id.key||'Cover URL only')+'</code></div>'+
+   (id.conflict?'<small class="mf456-cover-conflict">Existing external ID differs — it will not be overwritten.</small>':
+    id.canLink?'<small class="mf456-cover-link">Valid provider ID will be linked on confirmation.</small>':
+    '<small class="mf456-cover-note">Existing IDs are protected; cover URL can still be selected.</small>')+
+   '<button type="button" class="btn '+(selected?'btn-primary':'btn-ghost')+' mf456-cover-select" data-v225-iconified="1" '+
+   (safeUrl?'':'disabled ')+'onclick="App.mf456SelectCover('+i+')" aria-pressed="'+selected+'">'+
+   mf425Icon(selected?'check':'images',15)+' '+(selected?'Selected cover':'Select this cover')+'</button></div></article>';
+ }).join('')+'</div>';
+}
+const mf456PreviousView=mf454QuickView;
+mf454QuickView=function(example=null){
+ const q=example||MF453Quick.current;
+ const original=mf456PreviousView.apply(this,arguments);
+ if(!q||!q.covers?.length||q.kind==='metadata'||!original)return mf456WithSaveProgress(original,q);
+ // Use the browser's HTML parser rather than error-prone string truncation.
+ const host=document.createElement('div');host.innerHTML=original;
+ const gallery=host.querySelector('.mf454-cover-gallery');
+ if(gallery)gallery.outerHTML=mf456CoverGallery(q,mf439Item(q.id));
+ return mf456WithSaveProgress(host.innerHTML,q);
+};
+function mf456WithSaveProgress(html,q){
+ if(!html||!q?.applying)return html;
+ const complete=Math.max(0,Number(q.saveCompleted)||0),total=Math.max(1,Number(q.saveTotal)||1);
+ const done=Math.min(complete,total);
+ const progress='<section class="mf456-saving" role="status" aria-live="polite">'+
+  '<header><strong>'+mf425Icon('save',16)+' Saving recovery changes</strong>'+
+  '<small>Step '+done+' / '+total+'</small></header>'+
+  '<progress max="'+total+'" value="'+done+'" aria-label="Recovery save stages complete"></progress>'+
+  '<p>'+mf456Escape(q.savePhase||'Preparing confirmed changes…')+'</p>'+
+  '<small>Progress shows completed save operations, not estimated network time. Do not refresh until it completes.</small></section>';
+ return html.replace('<footer class="mf454-quick-footer">',progress+'<footer class="mf454-quick-footer">');
+}
+function mf456SelectCover(i){
+ const q=MF453Quick.current,index=Number(i);
+ if(!q||q.applying||!Number.isInteger(index)||index<0||index>=q.covers.length)return;
+ q.coverIndex=index;
+ mf453PaintQuick();
+ const chosen=mf453QuickRoot()?.querySelector('[data-mf456-cover-index="'+index+'"]');
+ chosen?.scrollIntoView?.({block:'nearest',inline:'nearest',behavior:'instant'});
+}
+App.mf456SelectCover=mf456SelectCover;
+function mf456QuickProgress(q,phase,advance=false,total=null){
+ if(!q)return;
+ if(Number.isFinite(total)&&total>0){q.saveTotal=total;q.saveCompleted=0;}
+ if(advance)q.saveCompleted=Math.min(q.saveTotal||1,(q.saveCompleted||0)+1);
+ q.savePhase=String(phase||'Saving confirmed fields…');
+ if(MF453Quick.current===q)mf453PaintQuick();
+}
+function mf456EditorMatches(item){
+ const editor=document.querySelector('.v240-library-editor,.v238-library-editor');
+ if(!editor||!item?.id)return null;
+ const title=editor.querySelector('#l-title');
+ const name=String(title?.value||'').trim();
+ // Never update another title or stomp an editor with an unsaved new title.
+ if(!name||name!==String(item.title||'').trim())return null;
+ return editor;
+}
+function mf456SyncEditorField(editor,ids,value,overwrite=false){
+ if(value==null)return false;
+ for(const id of ids){
+  const input=editor.querySelector('#'+id);
+  if(!input||!('value' in input))continue;
+  if(!overwrite&&String(input.value||'').trim())continue;
+  const next=Array.isArray(value)?value.join(', '):typeof value==='object'?JSON.stringify(value):String(value);
+  if(input.value===next)return true;
+  input.value=next;
+  input.setAttribute('value',next);
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  return true;
+ }
+ return false;
+}
+function mf456RefreshEditor(id){
+ const item=mf439Item(id),editor=mf456EditorMatches(item);
+ if(!editor)return false;
+ const cover=String(item.coverUrl||'');
+ if(cover)mf456SyncEditorField(editor,['l-cover'],cover,true);
+ // Only fill empty optional fields: do not erase unsaved edits in the form.
+ mf456SyncEditorField(editor,['l-desc','l-description','l-synopsis'],item.synopsis||item.description);
+ mf456SyncEditorField(editor,['l-genres','l-genre'],item.genres);
+ mf456SyncEditorField(editor,['l-tags'],item.tags);
+ let note=editor.querySelector('.mf456-editor-synced');
+ if(!note){note=document.createElement('p');note.className='mf456-editor-synced';
+  note.setAttribute('role','status');
+  const input=editor.querySelector('#l-cover');
+  (input?.closest('.field')||editor).append(note);}
+ note.textContent='Recovered cover and metadata updated in this open editor.';
+ const preview=editor.querySelector('.mf456-editor-cover-preview');
+ if(preview){preview.src=cover;preview.hidden=!cover;}
+ else if(cover&&/^https:\/\//.test(cover)){
+  const img=document.createElement('img');img.className='mf456-editor-cover-preview';
+  img.alt='Confirmed title cover';img.src=cover;img.loading='lazy';
+  (editor.querySelector('#l-cover')?.closest('.field')||editor).append(img);
+ }
+ return true;
+}
+function mf456NotifyRecoverySaved(q,item,coverCount,metadataCount){
+ if(!item)return;
+ MF456.lastSaved={id:String(item.id),at:Date.now(),coverCount,metadataCount,
+  coverUrl:String(item.coverUrl||'')};
+ mf456RefreshEditor(item.id);
+ try{document.dispatchEvent(new CustomEvent('mediaflow:title-recovered',
+  {detail:{id:String(item.id),coverUrl:String(item.coverUrl||''),coverCount,metadataCount}}));}catch(_){}
+}
+window.MediaFlowV456Quick=Object.freeze({version:456,candidateLink:mf456CandidateLink,
+ view:mf454QuickView,select:mf456SelectCover,progress:mf456QuickProgress,
+ editor:mf456RefreshEditor,lastSaved:()=>MF456.lastSaved});
+/* MediaFlow v456 — honest recovery startup and checkpoint feedback.
+ * A visible stage bar is not an invented provider ETA: it reflects completed
+ * validation/confirmation/checkpoint steps. Actual title progress belongs to
+ * the saved v424/v442 jobs and Background Processes.
+ */
+const MF456Launch={stage:'idle',kind:'cover',detail:'',checkedAt:0,startedAt:0,watch:null};
+const MF456_LAUNCH_STAGES={idle:0,validating:1,confirming:2,stopping:3,queue:4,
+ starting:5,queued:5,running:5,paused:5,error:0,cancelled:0};
+function mf456LaunchMarkup(){
+ const x=MF456Launch;
+ const total=5,done=MF456_LAUNCH_STAGES[x.stage]||0;
+ const busy=['validating','confirming','stopping','queue','starting','queued'].includes(x.stage);
+ return '<aside class="mf456-launch-status '+(x.stage==='error'?'has-error':'')+
+ '" id="mf456-launch-status" role="status" aria-live="polite" aria-label="Recovery launch status">'+
+ '<div class="mf456-launch-heading"><strong>'+mf425Icon(x.stage==='error'?'shield':busy?'layers':'check',16)+
+ ' '+(x.stage==='error'?'Could not start recovery':x.stage==='cancelled'?'Recovery cancelled':
+  x.stage==='running'?'Recovery running':x.stage==='paused'?'Recovery paused':'Starting '+(x.kind==='both'?'Cover + Metadata':x.kind==='cover'?'Cover':'Metadata')+' Recovery')+
+ '</strong><button type="button" data-v225-iconified="1" onclick="App.mf456DismissLaunch()" aria-label="Dismiss recovery status">'+
+ mf425Icon('x',15)+'</button></div>'+
+ '<progress value="'+done+'" max="'+total+'" aria-label="Recovery launch steps complete"></progress>'+
+ '<div class="mf456-launch-info"><span>'+mf456Escape(x.detail)+'</span><small>'+
+ (x.stage==='running'?'Title progress is shown in Background Processes.':busy?'Startup step '+done+' / '+total:
+ x.stage==='error'?'Check scope, provider access and the current job lease.':'')+'</small></div></aside>';
+}
+function mf456LaunchStage(stage,detail,kind='cover'){
+ MF456Launch.stage=stage;
+ MF456Launch.kind=kind;
+ MF456Launch.detail=String(detail||'');
+ MF456Launch.checkedAt=Date.now();
+ if(stage==='validating'){MF456Launch.startedAt=Date.now();if(MF456Launch.watch)clearInterval(MF456Launch.watch);MF456Launch.watch=null;}
+ let node=document.getElementById('mf456-launch-status');
+ if(!node){
+  node=document.createElement('div');
+  node.id='mf456-launch-status-host';
+  node.className='mf456-launch-status-host';
+  document.body?.append(node);
+ }
+ const host=document.getElementById('mf456-launch-status-host')||node;
+ host.innerHTML=mf456LaunchMarkup();
+ // Keep the progress visible in the workspace itself while the dialog is
+ // still open, but use the floating status once launching closes it.
+ const pane=document.querySelector('#mf445-workspace [data-mf456-launch-hint]');
+ if(pane)pane.textContent=MF456Launch.detail;
+}
+function mf456DismissLaunch(){
+ if(MF456Launch.watch){clearInterval(MF456Launch.watch);MF456Launch.watch=null;}
+ document.getElementById('mf456-launch-status-host')?.remove();
+ MF456Launch.stage='idle';
+}
+function mf456WatchRecovery(kind){
+ if(MF456Launch.watch)clearInterval(MF456Launch.watch);
+ let ticks=0;
+ MF456Launch.watch=setInterval(()=>{
+  ticks++;
+  const cover=MF424.job,metadata=MF439.job;
+  const job=kind==='metadata'?metadata:cover;
+  const working=kind==='metadata'?MF439.working:MF424.running;
+  const state=String(job?.status||'');
+  const count=Number(job?.cursor)||0,total=Number(job?.ids?.length)||0;
+  if(working&&state==='running'||kind==='both'&&!cover&&MF439.working){
+   const active=kind==='both'&&!cover?metadata:job;
+   mf456LaunchStage('running','Provider processing started. '+Number(active?.cursor||0)+
+    ' / '+Number(active?.ids?.length||0)+' titles committed.',kind);
+   clearInterval(MF456Launch.watch);MF456Launch.watch=null;
+  }else if(['paused','stopped','other-tab','waiting-part'].includes(state)){
+   mf456LaunchStage('paused','New queue is '+state+' at '+count+' / '+total+
+    ' titles. Review Background Processes for recovery/resume.',kind);
+   clearInterval(MF456Launch.watch);MF456Launch.watch=null;
+  }else if(ticks>=36){
+   mf456LaunchStage('paused','Queue is saved, but no active processing was confirmed after startup. Status: '+
+    (state||'waiting')+'. Open Background Processes to resume or inspect locks.',kind);
+   clearInterval(MF456Launch.watch);MF456Launch.watch=null;
+  }else if(ticks%3===0){
+   mf456LaunchStage('queued','Saved checkpoint. Current state: '+(state||'initializing')+
+    '; '+count+' / '+total+' titles. Waiting for actual provider execution.',kind);
+  }
+ },500);
+}
+function mf456ExplainScope(kind){
+ const root=document.getElementById('mf445-workspace');
+ if(!root)return;
+ const pane=root.querySelector('[data-mf445-panel]'),mode=kind==='both'?'both':kind;
+ const ids=mode==='both'?mf447ScopeSnapshot():mf446ScopeIds(mode);
+ const cover=mf455Enabled('cover').length,metadata=mf455Enabled('metadata').length;
+ const ready=mode==='both'?cover>0&&metadata>0:mode==='metadata'?metadata>0:cover>0;
+ const msg=!ids.length?'No titles in scope — choose a scope or check titles in Library.':
+ !ready?'No usable providers selected — enable at least one configured '+(mode==='both'?'provider for each stage':'provider')+'.':
+ ids.length+' title(s) in scope · '+(mode==='both'?cover+' cover + '+metadata+' metadata':(mode==='cover'?cover:metadata)+' ready provider(s)')+
+ ' · Ready to request confirmation.';
+ let line=pane?.querySelector('[data-mf456-launch-hint]');
+ if(!line){line=document.createElement('p');line.className='mf456-launch-hint';
+  line.setAttribute('data-mf456-launch-hint','');
+  pane?.querySelector('.mf445-actions')?.before(line);}
+ if(line)line.textContent=msg;
+ const actions=pane?.querySelectorAll('.mf445-actions button.btn-primary')||[];
+ // The engine will perform validation on click. Never leave an inert
+ // disabled button that fails silently with no reason or progress.
+ actions.forEach((button,i)=>{
+  if(i)button.hidden=true;
+  else{button.disabled=false;button.title=msg;button.textContent='';button.insertAdjacentHTML('afterbegin',
+    mf425Icon('play',17)+' Recover selected titles');
+   button.setAttribute('onclick','App.mf455Launch('+mf456Escape(JSON.stringify(mode))+')');
+   button.setAttribute('data-v225-iconified','1');}
+ });
+}
+const mf456OldPanel=mf445Panel;
+mf445Panel=function(kind){
+ const result=mf456OldPanel.apply(this,arguments);
+ mf456ExplainScope(MF447.active==='both'?'both':MF445.mode);
+ return result;
+};
+App.mf445Panel=mf445Panel;
+App.mf456DismissLaunch=mf456DismissLaunch;
+window.MediaFlowV456Launch=Object.freeze({version:456,stage:mf456LaunchStage,
+ watch:mf456WatchRecovery,state:()=>({...MF456Launch}),explain:mf456ExplainScope});
+/* MediaFlow v457 — recovery controls, scroll continuity, and editor dismissal.
+ * Does not alter provider adapters, recovery checkpoints, or cloud writes.
+ */
+const MF457_VERSION=457;
+const MF457={lastError:'',calls:0};
+
+/* Confirmed Quick Recovery is the only action allowed to dismiss Edit Title.
+ * A manual Close/Cancel does not emit title-recovered and keeps the editor open.
+ */
+document.addEventListener('mediaflow:title-recovered',event=>{
+  const q=MF453Quick.current,detail=event?.detail;
+  if(q&&!q.closed&&detail&&String(detail.id)===String(q.id)&&
+    (Number(detail.coverCount||0)>0||Number(detail.metadataCount||0)>0)){
+    q.v457ConfirmedSaved=true;
+  }
+});
+const mf457CloseQuickBase=mf453CloseQuick;
+mf453CloseQuick=async function(){
+  const q=MF453Quick.current;
+  const id=q?.id==null?'':String(q.id);
+  const shouldDismiss=!!(q?.v457ConfirmedSaved&&S.modal?.type==='library'&&
+    String(S.modal.data?.id??'')===id);
+  const result=await mf457CloseQuickBase.apply(this,arguments);
+  // Only after the Quick Recovery modal finishes closing. Never close Add Title
+  // or a different saved title's edit dialog.
+  if(shouldDismiss&&S.modal?.type==='library'&&String(S.modal.data?.id??'')===id)
+    App.closeModal();
+  return result;
+};
+App.mf453CloseQuick=mf453CloseQuick;
+
+/* Rebuilds caused by category/scope/status changes used to reset the scrollable
+ * dialog to its start and destroy the selected checkbox's focus. Reuse the
+ * existing scroll container's position without scrolling the background page.
+ */
+const mf457PanelBase=mf445Panel;
+function mf457ScrollSnapshot(){
+  const root=document.getElementById('mf445-workspace');
+  if(!root)return null;
+  const pane=root.querySelector('[data-mf445-panel]'),dialog=root.querySelector('.mf445-dialog');
+  const active=document.activeElement;
+  return {root,pane,dialog,mode:MF447.active==='both'?'both':MF445.mode,
+    paneY:pane?.scrollTop||0,dialogY:dialog?.scrollTop||0,
+    winX:window.scrollX||0,winY:window.scrollY||0,
+    category:active?.getAttribute?.('data-mf446-category')||null,
+    scope:active?.matches?.('[data-mf446-scope]')||false,
+    statusCategory:active?.closest?.('.mf446-category')?.querySelector?.('[data-mf446-category]')?.getAttribute('data-mf446-category')||null};
+}
+function mf457RestoreScroll(s){
+  if(!s||!s.root.isConnected)return;
+  const pane=s.root.querySelector('[data-mf445-panel]'),dialog=s.root.querySelector('.mf445-dialog');
+  if(pane)pane.scrollTop=s.paneY;
+  if(dialog)dialog.scrollTop=s.dialogY;
+  let field=null;
+  if(s.category)field=[...s.root.querySelectorAll('[data-mf446-category]')].find(el=>el.getAttribute('data-mf446-category')===s.category);
+  else if(s.scope)field=s.root.querySelector('[data-mf446-scope]');
+  else if(s.statusCategory)field=[...s.root.querySelectorAll('[data-mf446-category]')].find(el=>el.getAttribute('data-mf446-category')===s.statusCategory);
+  if(field?.isConnected)try{field.focus({preventScroll:true});}catch(_){}
+  if((window.scrollY||0)!==s.winY&&typeof window.scrollTo==='function')
+    window.scrollTo(s.winX,s.winY);
+}
+mf445Panel=function(kind){
+  const s=mf457ScrollSnapshot();
+  const result=mf457PanelBase.apply(this,arguments);
+  // A deliberate tab switch may reset scroll; category and filter changes may not.
+  if(s&&(MF447.active==='both'?'both':MF445.mode)===s.mode){
+    mf457RestoreScroll(s);
+    if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>{
+      if(document.getElementById('mf445-workspace')===s.root&&
+         (MF447.active==='both'?'both':MF445.mode)===s.mode)mf457RestoreScroll(s);
+    });
+  }
+  mf457WireLaunch();
+  return result;
+};
+App.mf445Panel=mf445Panel;
+
+/* A single, real button for all modes. The old metadata "Preview one title"
+ * primary action is removed, not just hidden with a CSS-overridable attribute.
+ * Use an actual click listener instead of dynamically concatenated inline JS.
+ */
+function mf457WireLaunch(){
+  const root=document.getElementById('mf445-workspace'),actions=root?.querySelector('[data-mf445-panel] .mf445-actions');
+  if(!actions)return;
+  const kind=MF447.active==='both'?'both':MF445.mode;
+  const candidates=[...actions.querySelectorAll('button.btn-primary')];
+  let button=candidates[0];
+  if(!button){
+    button=document.createElement('button');button.type='button';button.className='btn btn-primary';
+    actions.prepend(button);
+  }
+  for(const extra of candidates.slice(1))extra.remove();
+  // Remove any old inline handler (including preview), and use the real v455
+  // safe queue launch, which owns confirmation, checkpoints, and provider calls.
+  button.removeAttribute('onclick');
+  button.disabled=false;
+  button.dataset.mf457LaunchKind=kind;
+  button.dataset.v225Iconified='1';
+  button.setAttribute('aria-label','Recover selected titles — '+kind);
+  button.innerHTML=mf425Icon('play',17)+' Recover selected titles';
+  if(button.dataset.mf457ClickBound==='1')return;
+  button.dataset.mf457ClickBound='1';
+  button.addEventListener('click',()=>{
+    MF457.calls++;
+    if(MF455.launching){
+      mf456LaunchStage('queued','Recovery startup is already in progress. Check the confirmation dialog or Background Processes.',kind);
+      return;
+    }
+    try{
+      mf456LaunchStage('validating','Launch requested. Checking scope and provider readiness…',kind);
+      Promise.resolve(App.mf455Launch(kind)).catch(err=>mf457LaunchError(err,kind));
+    }catch(err){mf457LaunchError(err,kind);}
+  });
+}
+function mf457LaunchError(err,kind){
+  const detail=String(err?.message||err||'Unknown recovery startup failure').slice(0,200);
+  MF457.lastError=detail;
+  console.error('v457 recovery launch failure',err);
+  try{mf456LaunchStage('error','Recovery could not start: '+detail,kind);}catch(e){console.error(e);}
+  showToast('Recovery could not start: '+detail.slice(0,125));
+}
+/* Source toggle handlers can re-disable the single action after a provider
+ * selection. Leave it actionable so it can explain the exact validation error.
+ */
+const mf457ProviderUiBase=mf455UpdateProviderUI;
+mf455UpdateProviderUI=function(kind){
+  const result=mf457ProviderUiBase.apply(this,arguments);
+  mf457WireLaunch();
+  return result;
+};
+function mf457OpenWorkspace(kind='cover',options={}){
+  const result=App.mf447Open(kind,options);
+  mf457WireLaunch();
+  return result;
+}
+window.MediaFlowV457=Object.freeze({
+  version:457,wire:mf457WireLaunch,open:mf457OpenWorkspace,
+  launch:kind=>App.mf455Launch(kind),calls:()=>MF457.calls,
+  lastError:()=>MF457.lastError
+});
+/* MediaFlow v458 — confirmation layering, metadata bulk selection, early cover commits.
+ * Existing safe writers, queued jobs, metadata verification and provider locks
+ * remain authoritative. Only UX/readiness and selection state change here.
+ */
+const MF458_VERSION=458;
+function mf458SelectableMetadata(q){
+ const proposals=q?.metadata?.preview?.proposals;
+ return Array.isArray(proposals)?proposals.filter(p=>
+  p&&!p.protected&&!p.hasOriginal&&!p.same&&Array.isArray(p.options)&&p.options.length>0):[];
+}
+function mf458CanConfirmQuick(q){
+ if(!q||q.closed||q.applying||['pausing','connecting','error'].includes(q.stage)||q.metaLoading)return false;
+ // Cover discovery is asynchronous and must NOT block committing an already
+ // validated/selected cover. Combined mode still waits for ALL metadata sources.
+ const cover=q.kind!=='metadata'&&Number.isInteger(q.coverIndex)&&q.coverIndex>=0&&
+  !!q.covers?.[q.coverIndex]&&/^https:\/\//i.test(String(q.covers[q.coverIndex].url||''));
+ const metadata=q.kind!=='cover'&&mf458SelectableMetadata(q).some(p=>p.selected===true);
+ return Boolean(cover||metadata);
+}
+function mf458SelectMetadataAll(on){
+ const q=MF453Quick.current;
+ if(!q||q.closed||q.applying||q.metaLoading||q.kind==='cover')return;
+ const eligible=mf458SelectableMetadata(q);
+ for(const p of eligible)p.selected=Boolean(on);
+ mf453PaintQuick();
+}
+App.mf458SelectMetadataAll=mf458SelectMetadataAll;
+
+const mf458OriginalQuickView=mf454QuickView;
+mf454QuickView=function(example=null){
+ const q=example||MF453Quick.current;
+ const html=mf458OriginalQuickView.apply(this,arguments);
+ if(!html||!q||q.kind==='cover'||q.metaLoading||!q.metadata?.preview)return html;
+ const eligible=mf458SelectableMetadata(q),selected=eligible.filter(p=>p.selected).length;
+ const wrapper=document.createElement('div');
+ wrapper.innerHTML=html;
+ const section=wrapper.querySelector('.mf454-results-panel[aria-label="Metadata alternatives"]');
+ const head=section?.querySelector('.mf454-results-head');
+ if(!head)return html;
+ const controls='<div class="mf458-metadata-tools" role="group" aria-label="Select eligible metadata suggestions">'+
+  '<div class="mf458-metadata-count" role="status">'+selected+' / '+eligible.length+' eligible suggestions selected</div>'+
+  '<div class="mf458-metadata-buttons">'+
+  '<button type="button" class="btn btn-ghost" data-v225-iconified="1" onclick="App.mf458SelectMetadataAll(true)"'+
+   ((!eligible.length||q.applying||selected===eligible.length)?' disabled':'')+'>'+
+   mf425Icon('check',15)+' Select All</button>'+
+  '<button type="button" class="btn btn-ghost" data-v225-iconified="1" onclick="App.mf458SelectMetadataAll(false)"'+
+   ((!eligible.length||q.applying||!selected)?' disabled':'')+'>'+
+   mf425Icon('x',15)+' Deselect All</button></div></div>';
+ head.insertAdjacentHTML('afterend',controls);
+ return wrapper.innerHTML;
+};
+
+/* Every streamed cover candidate currently redraws the entire inner dialog.
+ * Keep the user's position while metadata suggestions and covers are updated.
+ */
+const mf458OriginalQuickPaint=mf453PaintQuick;
+mf453PaintQuick=function(){
+ const root=mf453QuickRoot(),content=root?.querySelector('[data-mf453-quick-content]');
+ const currentScroll=content?.scrollTop||0;
+ const meta=content?.querySelector('.mf454-metadata-list'),covers=content?.querySelector('.mf456-cover-gallery,.mf454-cover-gallery');
+ const metadataScroll=meta?.scrollTop||0,coverScroll=covers?.scrollTop||0;
+ const result=mf458OriginalQuickPaint.apply(this,arguments);
+ const next=root?.querySelector('[data-mf453-quick-content]');
+ if(next){next.scrollTop=currentScroll;
+  const list=next.querySelector('.mf454-metadata-list'),gallery=next.querySelector('.mf456-cover-gallery,.mf454-cover-gallery');
+  if(list)list.scrollTop=metadataScroll;
+  if(gallery)gallery.scrollTop=coverScroll;
+ }
+ return result;
+};
+
+/* The confirmation is created synchronously inside mf444Confirm. Tag only the
+ * newly opened dialog; do not mutate other pending recovery confirmations.
+ */
+const mf458OriginalConfirm=mf444Confirm;
+mf444Confirm=function(title,detail,action='Continue',destructive=false,count=0,kind='metadata'){
+ const result=mf458OriginalConfirm.apply(this,arguments);
+ const root=document.getElementById('mf444-confirm');
+ const label=root?.querySelector('#mf444-title')?.textContent;
+ if(root&&String(label||'')===String(title||'')){
+  root.classList.add('mf458-confirm');
+  if(kind==='both'||/Cover\s*\+\s*Metadata/i.test(String(title))){
+   const tag=root.querySelector('.mf444-heading small');
+   if(tag)tag.textContent='COVER + METADATA RECOVERY';
+   const symbol=root.querySelector('.mf444-symbol');
+   if(symbol)symbol.innerHTML=mf425Icon('layers',24);
+  }
+  const approve=root.querySelector('[data-mf444-approve]');
+  if(approve){approve.setAttribute('aria-label',String(action));approve.disabled=false;}
+ }
+ return result;
+};
+window.MediaFlowV458=Object.freeze({version:458,eligible:mf458SelectableMetadata,canConfirm:mf458CanConfirmQuick,
+ selectMetadataAll:mf458SelectMetadataAll,confirm:mf444Confirm,quickHtml:mf454QuickView});
+/* MediaFlow v459 — permanently retire the redundant v424 Cover Recovery
+ * floating pill and controls. Do not alter the v424 recovery engine or saved
+ * checkpoints; the unified v441 Background Processes UI is the sole widget.
+ */
+const MF459_VERSION=459;
+function mf459RemoveLegacyCoverWidget(){
+  // Covers a stale indicator from a previous bundle or an early paint that
+  // happened before this final extension initialized.
+  document.querySelectorAll('#mf424-indicator').forEach(node=>node.remove());
+}
+MF424.expanded=false;
+mf459RemoveLegacyCoverWidget();
+// The v424-v427 paint chain only builds/decorates the retired widget; do not
+// invoke it. The v441 process display uses the SAME recovery state and is
+// updated independently after each cover engine state change.
+mf424Paint=function(){
+  mf459RemoveLegacyCoverWidget();
+  if(typeof mf441Paint==='function')mf441Paint();
+  mf459RemoveLegacyCoverWidget();
+};
+// A historic action may still call this public method from cached markup.
+// Do not recreate the old pill or change the process state.
+mf424Toggle=function(){
+  MF424.expanded=false;
+  mf459RemoveLegacyCoverWidget();
+  if(typeof mf441Paint==='function')mf441Paint();
+};
+App.mf424Toggle=mf424Toggle;
+window.MediaFlowV459=Object.freeze({
+  version:459,
+  cleanup:mf459RemoveLegacyCoverWidget,
+  paint:()=>mf424Paint(),
+  legacyVisible:()=>!!document.getElementById('mf424-indicator')
+});
+/* MediaFlow v460 — one Metadata Recovery shortcut, direct Background Processes visibility.
+ * Presentation and persisted widget preferences only: never change any recovery job.
+ */
+const MF460_VERSION=460;
+function mf460WidgetVisible(){
+ const prefs=mf441Prefs(),state=mf441State();
+ return Boolean(mf441Show(prefs,state));
+}
+function mf460EyeIcon(isShowing){
+ // A crossed-out eye describes "hide"; an open eye describes "show".
+ const eye='<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>';
+ return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+   (isShowing?eye+'<path d="M3 3l18 18"/>':eye)+'</svg>';
+}
+function mf460WidgetLabels(){
+ const shown=mf460WidgetVisible();
+ return {shown,title:shown?'Hide Background Processes':'Show Background Processes',
+  subtitle:shown?'Hide the widget · recovery jobs keep running':'Display recovery progress and controls'};
+}
+const mf460PreviousQuickMarkup=mf397Markup;
+mf397Markup=function(){
+ let html=String(mf460PreviousQuickMarkup.apply(this,arguments)||'');
+ // v441 and v447 both inserted the same metadataRecovery action. Preserve
+ // the newest (unified-workspace) entry, with one fallback if v447 is disabled.
+ const metadataButton=/<button\b[^>]*\bdata-action="metadataRecovery"[^>]*>[\s\S]*?<\/button>\s*/g;
+ const matches=[...html.matchAll(metadataButton)];
+ if(matches.length>1){
+  let current=0;
+  html=html.replace(metadataButton,part=>(++current===matches.length?part:''));
+ }
+ const anchor='      </div>\n      <button type="button" id="mf397-fab"';
+ if(!html.includes(anchor))return html;
+ const label=mf460WidgetLabels();
+ const button='        <button type="button" class="mf397-fan-action mf447-float-action mf460-widget-action" data-action="backgroundProcessesVisibility" aria-label="'+label.title+'">'+
+  '<span class="mf397-action-symbol">'+mf460EyeIcon(label.shown)+'</span>'+
+  '<span><strong>'+label.title+'</strong><small>'+label.subtitle+'</small></span><em>07</em></button>\n';
+ return html.replace(anchor,button+anchor);
+};
+function mf460RefreshWidgetAction(){
+ const fan=document.getElementById('mf397-fan');
+ const btn=fan?.querySelector('[data-action="backgroundProcessesVisibility"]');
+ if(!btn)return;
+ const label=mf460WidgetLabels();
+ const name=btn.querySelector('strong'),detail=btn.querySelector('small'),symbol=btn.querySelector('.mf397-action-symbol');
+ if(name)name.textContent=label.title;
+ if(detail)detail.textContent=label.subtitle;
+ if(symbol)symbol.innerHTML=mf460EyeIcon(label.shown);
+ btn.setAttribute('aria-label',label.title);
+}
+const mf460PreviousSetMenu=mf397SetMenu;
+mf397SetMenu=function(open){
+ mf460RefreshWidgetAction();
+ return mf460PreviousSetMenu.apply(this,arguments);
+};
+function mf460ToggleWidget(){
+ const shouldShow=!mf460WidgetVisible();
+ // Reuse the existing v441 cloud-backed preference and paint pipeline.
+ // Explicit Show must display immediately, even with zero active processes.
+ mf441SaveSetting('visibility',shouldShow?'always':'hidden');
+ mf460RefreshWidgetAction();
+ mf397SetMenu(false);
+ showToast(shouldShow?'Background Processes shown.':'Background Processes hidden; recovery jobs continue.');
+}
+const mf460PreviousAction=mf397Action;
+mf397Action=function(action){
+ if(action==='backgroundProcessesVisibility')return mf460ToggleWidget();
+ return mf460PreviousAction.apply(this,arguments);
+};
+window.MediaFlowV460=Object.freeze({
+ version:MF460_VERSION,menuMarkup:()=>mf397Markup(),widgetVisible:mf460WidgetVisible,
+ toggleWidget:mf460ToggleWidget,refresh:mf460RefreshWidgetAction
+});
+MediaFlowRuntime.version=MF460_VERSION;
+/* MediaFlow v461 — honor the background widget shortcut's own eye artwork.
+ * v226's semantic pass otherwise injects a second "Show/Hide" eye before it,
+ * squeezing the label in the compact action sheet. All jobs remain untouched.
+ */
+const MF461_VERSION=461;
+const mf461PreviousButtonIconName=v225ButtonIconName;
+v225ButtonIconName=function(el){
+ if(el?.matches?.('.mf460-widget-action'))return null;
+ return mf461PreviousButtonIconName.apply(this,arguments);
+};
+window.MediaFlowV461=Object.freeze({version:MF461_VERSION,shortcutSelector:'.mf460-widget-action'});
+MediaFlowRuntime.version=MF461_VERSION;
 
 })();
