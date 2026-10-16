@@ -179,5 +179,14 @@
   "components/322-v442-recovery-hardening.js",
   "components/323-v443-automatic-provider-availability.js",
   "components/324-v444-recovery-ui-corrections.js",
-  "components/325-v445-unified-recovery-workspace.js"
+  "components/325-v445-unified-recovery-workspace.js",
+  "components/326-v446-recovery-scope-controls.js",
+  "components/327-v447-universal-recovery-actions.js",
+  "components/328-v448-smart-autofill-recovery.js",
+  "components/329-v449-editor-recovery-actions-layout.js",
+  "components/330-v450-universal-metadata-expansion.js",
+  "components/331-v451-recovery-stop-priority.js",
+  "components/332-v452-recovery-control-polish.js",
+  "components/333-v453-recovery-presets.js",
+  "components/334-v453-quick-title-recovery.js"
 ]
