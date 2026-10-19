@@ -164,7 +164,9 @@ function v181TitleDetailsHtml(item){
         ${cover}
 
         <div class="v181-title-hero-copy">
-          <h2>${escapeHtml(cleanTitle(item.title))}</h2><div class="v181-title-hero-meta">
+          <h2>${escapeHtml(cleanTitle(item.title))}</h2>
+
+    <div class="v181-title-hero-meta">
             <span class="pill">${v144CategoryIconHtml(cat)} ${escapeHtml(cat.name)}</span>
             <span class="pill">${escapeHtml(v199StatusLabel(item.status))}</span>
             <span class="pill">${escapeHtml(item.priority||'medium')} priority</span>
