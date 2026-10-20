@@ -11,8 +11,8 @@
 
    ============================================================ */
 
-const SUPABASE_URL='https://puaqaobplyrdrujapznp.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_nbfeKXdimfBv7lsbiJCBAw_54HIEr0G';
+const SUPABASE_URL='https://wgeijxfdpgehesxialxm.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_d2P0qZlvGZOSqcUzEg3BNg_3wQsHY_M';
 const SUPABASE_CONFIGURED=SUPABASE_URL.startsWith('https://')&&!SUPABASE_URL.includes('YOUR_')&&!!SUPABASE_PUBLISHABLE_KEY&&!SUPABASE_PUBLISHABLE_KEY.includes('YOUR_');
 let supabase=null,AUTH_USER=null,AUTH_READY=false,AUTH_MODE='login';
 if(SUPABASE_CONFIGURED&&window.supabase?.createClient)supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -25,28 +25,7 @@ function renderAuthScreen(mode='login',message='',isError=false){
 function friendlyAuthError(err){return String(err?.message||err||'Authentication failed.').replace('Invalid login credentials','Incorrect email or password.').replace('User already registered','That email is already registered. Try logging in.');}
 async function authSubmit(e){e.preventDefault();const email=document.getElementById('auth-email')?.value.trim(),password=document.getElementById('auth-password')?.value||'';if(AUTH_MODE==='signup'&&password!==document.getElementById('auth-confirm')?.value){renderAuthScreen('signup','Passwords do not match.',true);return false;}try{if(AUTH_MODE==='signup'){const {data,error}=await supabase.auth.signUp({email,password,options:{emailRedirectTo:(location.protocol==='http:'||location.protocol==='https:')?location.href:undefined}});if(error)throw error;if(data.session){AUTH_USER=data.user;await startAuthenticatedApp();}else renderAuthScreen('login','Account created. Check your email to confirm your account, then log in.');}else{const {data,error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error;AUTH_USER=data.user;await startAuthenticatedApp();}}catch(err){renderAuthScreen(AUTH_MODE,friendlyAuthError(err),true);}return false;}
 async function resetPassword(){const email=prompt('Enter your MediaFlow account email:');if(!email)return;try{const {error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:(location.protocol==='http:'||location.protocol==='https:')?location.href:undefined});if(error)throw error;renderAuthScreen('login','Password reset email sent. Check your inbox.');}catch(err){renderAuthScreen('login',friendlyAuthError(err),true);}}
-async function signOut(){
-  if(!supabase)return;
-  // An actual click on Log out is different from Supabase's transient
-  // SIGNED_OUT event during token renewal and cold PWA reload.
-  if(typeof V475_AUTH!=='undefined'){
-    V475_AUTH.logoutRequested=true;
-    V475_AUTH.explicitLogout=true;
-  }
-  try{
-    const {error}=await supabase.auth.signOut();
-    if(error)throw error;
-    if(typeof v506CompleteExplicitLogout==='function')v506CompleteExplicitLogout();
-    else{AUTH_USER=null;AUTH_READY=false;renderAuthScreen('login','You have been logged out.');}
-  }catch(error){
-    if(typeof V475_AUTH!=='undefined'){
-      V475_AUTH.logoutRequested=false;
-      V475_AUTH.explicitLogout=false;
-    }
-    console.error('MediaFlow: sign out was not completed',error);
-    if(typeof showToast==='function')showToast('Could not sign out. Check your connection and try again.');
-  }
-}
+async function signOut(){if(AUTH_USER&&supabase)await supabase.auth.signOut();AUTH_USER=null;AUTH_READY=false;renderAuthScreen('login','You have been logged out.');}
 function getDisplayName(){const name=String(AUTH_USER?.user_metadata?.display_name||'').trim();return name||String(AUTH_USER?.email||'').trim()||'Account';}
 function profileInitials(){const display=getDisplayName();const parts=display.split(/\s+/).filter(Boolean);if(parts.length>1)return (parts[0][0]+parts[parts.length-1][0]).toUpperCase();return display.slice(0,1).toUpperCase()||'?';}
 function getAvatarUrl(){return String(S.profilePicture||AUTH_USER?.user_metadata?.avatar_url||'').trim();}
@@ -185,17 +164,6 @@ const UNITS = {
   movies:   {label:'movies', singular:'movie'},
 
   issues:   {label:'issues', singular:'issue'},
-  sessions: {label:'sessions', singular:'session'},
-  videos:   {label:'videos', singular:'video'},
-  pages:    {label:'pages', singular:'page'},
-  volumes:  {label:'volumes', singular:'volume'},
-  tracks:   {label:'tracks', singular:'track'},
-  albums:   {label:'albums', singular:'album'},
-  levels:   {label:'levels', singular:'level'},
-  missions: {label:'missions', singular:'mission'},
-  matches:  {label:'matches', singular:'match'},
-  lessons:  {label:'lessons', singular:'lesson'},
-  items:    {label:'items', singular:'item'},
 
 };
 
@@ -300,7 +268,7 @@ const DEFAULT_SETTINGS = {
   leveling: {
     enabled: true,
     minuteXP: 1,
-    unitXP: {episodes:10, chapters:3, issues:6, movies:30, sessions:12, videos:9, pages:1, volumes:14, tracks:2, albums:18, levels:10, missions:10, matches:12, lessons:8, items:5},
+    unitXP: {episodes:10, chapters:3, issues:6, movies:30},
     rotationMultiplier: {neglected:10, due:8, healthy:5, overused:2},
     libraryAdditionXP: 25,
     completionXP: 50
@@ -544,8 +512,6 @@ function v115RenderSafetyScreen(ctx){
   app.innerHTML=`<div class="auth-screen"><div class="auth-card" style="width:min(560px,100%)"><div class="auth-brand"><div class="brand-mark"></div><div><div class="auth-brand-name">MediaFlow</div><div class="brand-sub">Cloud data protection</div></div></div><div class="auth-title">${title}</div><div class="auth-sub">${message}</div>${localSummary}<div style="margin-top:16px">${actions}</div><div class="auth-foot">Safety rule: a missing, failed, or suspicious cloud read can never automatically overwrite your MediaFlow account.</div></div></div>`;
 }
 async function v115StartWithData(data){
-  const userId=String(AUTH_USER?.id||'');
-  if(!userId)return false;
   V115_STARTUP_GUARD=true;
   V115_BOOTSTRAP_DATA=data;
   V115_BOOTSTRAP_OVERRIDE=true;
@@ -553,25 +519,14 @@ async function v115StartWithData(data){
     await loadAll();
   }finally{
     V115_BOOTSTRAP_OVERRIDE=false;
-    V115_BOOTSTRAP_DATA=undefined;
-  }
-  // A refresh/sign-out from another tab can invalidate auth while loadAll()
-  // is still running. Never render the previous account's data or enable
-  // uploads under a different/no longer authenticated user.
-  if(String(AUTH_USER?.id||'')!==userId||V475_AUTH.logoutRequested){
-    V115_STARTUP_GUARD=true;
-    return false;
   }
   V115_STARTUP_GUARD=false;
   // Cache the exact source snapshot, not a newly timestamped snapshot. This keeps
   // savedAt meaningful so a normal app launch is never mistaken for an unsynced edit.
   try{if(data&&typeof data==='object')v115WriteRecoveryCache(data);}catch(_){}
   renderShell();
-  return true;
 }
 async function v115SafeBootstrap(){
-  const userId=String(AUTH_USER?.id||'');
-  if(!userId)return false;
   V115_STARTUP_GUARD=true;
   let cache=null;
   try{cache=await v115ReadRecoveryCache();}catch(_){}
@@ -579,10 +534,9 @@ async function v115SafeBootstrap(){
   try{
     cloud=await v115FetchCloudState();
   }catch(error){
-    if(String(AUTH_USER?.id||'')===userId)v115RenderSafetyScreen({kind:'cloud-error',error,cache});
+    v115RenderSafetyScreen({kind:'cloud-error',error,cache});
     return false;
   }
-  if(String(AUTH_USER?.id||'')!==userId||V475_AUTH.logoutRequested)return false;
   const localState=cache?.state;
   const localStats=v115StateStats(localState);
   const cloudStats=v115StateStats(cloud.state);
@@ -593,7 +547,8 @@ async function v115SafeBootstrap(){
       v115RenderSafetyScreen({kind:'missing',cloud,cache});
       return false;
     }
-    return await v115StartWithData(undefined)===true;
+    await v115StartWithData(undefined);
+    return true;
   }
 
   // If cloud is effectively empty but this account has a populated local cache,
@@ -613,7 +568,8 @@ async function v115SafeBootstrap(){
   }
 
   try{if(cloud.state&&typeof cloud.state==='object')v115WriteRecoveryCache(cloud.state);}catch(_){}
-  return await v115StartWithData(cloud.state)===true;
+  await v115StartWithData(cloud.state);
+  return true;
 }
 window.MediaFlowRecovery={
   async retry(){
@@ -693,13 +649,6 @@ async function rawGet(key){
 
 async function rawSet(key,value){
   if(!AUTH_USER||!supabase)throw new Error('MediaFlow cloud session is unavailable.');
-  // v535: fence the entire async upload to the account that requested it.
-  // A delayed retry must never switch its destination after a login/logout.
-  const uploadAccountId=String(AUTH_USER.id);
-  const assertUploadAccount=()=>{
-    if(String(AUTH_USER?.id||'')!==uploadAccountId)
-      throw new Error('Cloud account changed while saving. Upload cancelled; local recovery copy retained.');
-  };
 
   // v134: one full JSON serialization feeds cloud compression and both protected
   // recovery caches. v133 could stringify the same very large state three times.
@@ -716,9 +665,7 @@ async function rawSet(key,value){
   for(let attempt=0;attempt<delays.length;attempt++){
     if(delays[attempt]) await new Promise(r=>setTimeout(r,delays[attempt]));
     try{
-      assertUploadAccount();
-      const {error}=await supabase.from('mediaflow_states').upsert({user_id:uploadAccountId,state_data:payload,updated_at:new Date().toISOString()},{onConflict:'user_id'});
-      assertUploadAccount();
+      const {error}=await supabase.from('mediaflow_states').upsert({user_id:AUTH_USER.id,state_data:payload,updated_at:new Date().toISOString()},{onConflict:'user_id'});
       if(!error) return true;
       lastError=error;
       const code=String(error?.code||'');
@@ -779,7 +726,7 @@ function mergeStates(a,b){
   const sessions=new Map(); [...(b.sessions||[]),...(a.sessions||[])].forEach(x=>sessions.set(x.id||uid(),x)); out.sessions=[...sessions.values()].sort((x,y)=>(x.timestamp||0)-(y.timestamp||0));
   out.xpLedger=Object.assign({libraryAdditions:{}},b.xpLedger||{},a.xpLedger||{}); out.xpLedger.libraryAdditions=Object.assign({},b.xpLedger?.libraryAdditions||{},a.xpLedger?.libraryAdditions||{});
   const activityById=new Map(); [...(b.activityLog||[]),...(a.activityLog||[])].forEach(x=>{if(!x||typeof x!=='object')return;const k=x.id||`${x.timestamp||0}::${x.action||''}::${x.detail||''}`;const prev=activityById.get(k);if(!prev||Number(x.timestamp||0)>=Number(prev.timestamp||0))activityById.set(k,x);});
-  out.activityLog=[...activityById.values()].sort((x,y)=>Number(y.timestamp||0)-Number(x.timestamp||0));
+  out.activityLog=[...activityById.values()].sort((x,y)=>Number(y.timestamp||0)-Number(x.timestamp||0)).slice(0,1000);
   out.migrations=Object.assign({},b.migrations||{},a.migrations||{});
   out.categories=a.categories||b.categories; out.categoryOrder=a.categoryOrder||a.settings?.categoryOrder||b.categoryOrder||b.settings?.categoryOrder||[]; out.settings=Object.assign({},b.settings||{},a.settings||{}); if(out.categoryOrder.length) out.settings.categoryOrder=out.categoryOrder.slice(); out.currentTask=a.currentTask||b.currentTask; out.sessionActive=a.sessionActive??b.sessionActive; out.profilePicture=a.profilePicture||b.profilePicture||'';
   return out;
@@ -799,7 +746,7 @@ function snapshot(){
     completionTimeline: S.completionTimeline || [],
     // v50: Library History is account data, not device-only UI state.
     // Persist it in the same atomic cloud snapshot as Library + consumption History.
-    activityLog: Array.isArray(S.activityLog) ? S.activityLog.slice() : [],
+    activityLog: Array.isArray(S.activityLog) ? S.activityLog.slice(0,1000) : [],
     migrations: S.migrations || {},
 
     savedAt: Date.now(),
@@ -810,41 +757,26 @@ function snapshot(){
 
 // Serialize saves so two rapid actions never race each other; always await the tail.
 
-/* v535: Coalesce saves that are still pending, but never coalesce into an
- * already-started upload. Later edits therefore always get their own final
- * snapshot. Save errors remain visible and a protected account switch aborts.
- * One failed write never poisons the entire queue. */
-let v535PendingSave=null;
 function saveState(){
+  // v115: startup/load code is never allowed to upload defaults or partial state.
+  // Normal writes are enabled only after the cloud/local source has been resolved safely.
   if(V115_STARTUP_GUARD){
-    console.warn('MediaFlow: blocked a cloud save during protected startup/recovery.');
+    console.warn('MediaFlow v115: blocked a cloud save during protected startup/recovery.');
     return Promise.resolve(false);
   }
-  const accountId=String(AUTH_USER?.id||'');
-  if(!accountId||!supabase)return Promise.resolve(false);
-  if(v535PendingSave&&v535PendingSave.accountId===accountId&&!v535PendingSave.started)
-    return v535PendingSave.promise;
-  const pending={accountId,started:false,promise:null};
-  pending.promise=Promise.resolve(saveQueue).catch(error=>{
-    console.warn('MediaFlow: recovering cloud save queue after rejection',error);
-  }).then(async()=>{
-    pending.started=true;
-    if(V115_STARTUP_GUARD||String(AUTH_USER?.id||'')!==accountId)return false;
+  // Serialize saves so concurrent UI actions cannot overwrite each other.
+  // Each queued save snapshots only when its turn begins, so a burst of actions
+  // always ends with the newest state rather than a pile of stale uploads.
+  saveQueue = saveQueue.then(async ()=>{
     try{
-      await rawSet(STATE_KEY,snapshot());
-      lastSaveFailed=false;
-      hideSaveError();
-      return true;
-    }catch(error){
-      console.error('MediaFlow: save failed',error);
-      lastSaveFailed=true;
-      showSaveError();
-      return false;
+      await rawSet(STATE_KEY, snapshot());
+      if(lastSaveFailed){ lastSaveFailed=false; hideSaveError(); }
+    }catch(e){
+      console.error('MediaFlow: save failed', e);
+      lastSaveFailed = true; showSaveError();
     }
   });
-  v535PendingSave=pending;
-  saveQueue=pending.promise;
-  return pending.promise;
+  return saveQueue;
 }
 
 function showSaveError(){
@@ -1048,50 +980,6 @@ function sessionsInRange(days){
 
   return S.sessions.filter(s=>s.timestamp>=cutoff);
 
-}
-
-
-/* MediaFlow v533 — shared media-type helpers loaded before History and Statistics.
-   The v532 end-of-runtime extension initialized these helpers too late for some
-   navigation paths. Keep these declarations in the core utility segment so
-   both old and current page renderers can call them safely. */
-function v532MediaTypeRows(){
-  return [
-    {id:'video',label:'Watching'},
-    {id:'reading',label:'Reading'},
-    {id:'playing',label:'Playing'},
-    {id:'listening',label:'Listening'}
-  ];
-}
-function v532MediaTypeLabel(raw){
-  const row=v532MediaTypeRows().find(x=>x.id===String(raw||''));
-  return row?row.label:'Other';
-}
-function v532MediaTypeOptions(selected='all'){
-  const value=String(selected||'all');
-  const rows=[{id:'all',label:'All media types'},...v532MediaTypeRows(),{id:'other',label:'Other'}];
-  return rows.map(row=>`<option value="${row.id}" ${value===row.id?'selected':''}>${row.label}</option>`).join('');
-}
-function v532SessionMediaType(session){
-  const category=(S.categories||[]).find(c=>String(c?.id)===String(session?.categoryId));
-  const type=String(category?.type||'');
-  return v532MediaTypeRows().some(x=>x.id===type)?type:'other';
-}
-function v532MediaTypeMix(sessions,categories){
-  const rows=v532MediaTypeRows();
-  const types=new Set(rows.map(x=>x.id));
-  const lookup=new Map((Array.isArray(categories)?categories:[]).map(cat=>[String(cat?.id),cat?.type]));
-  const totals=Object.fromEntries(rows.map(x=>[x.id,0]));
-  let hasOther=false;
-  for(const session of Array.isArray(sessions)?sessions:[]){
-    if(!session||session.status==='skipped')continue;
-    const raw=String(lookup.get(String(session.categoryId))||'');
-    const type=types.has(raw)?raw:'other';
-    if(type==='other'){hasOther=true;if(!Object.prototype.hasOwnProperty.call(totals,'other'))totals.other=0;}
-    totals[type]+=(Number(session.minutes)||0);
-  }
-  return [...rows.map(({id,label})=>({label,value:totals[id]})),
-          ...(hasOther?[{label:'Other',value:totals.other}]:[])];
 }
 
 /* ============================================================
@@ -1385,7 +1273,7 @@ function skipTask(){
 
     categoryId: cat.id, targetAmount: S.currentTask.targetMid, actualAmount: 0,
 
-    minutes: 0, note: '', status: 'skipped', unit: cat.unit, xp: 0, healthStatus: categoryStatus(cat),
+    minutes: 0, note: '', status: 'skipped', unit: cat.unit, xp: 0, healthStatus: categoryStatus(cat).status,
 
   };
 
@@ -1575,7 +1463,7 @@ function submitLog(){
       else if(g.amount>t.targetMid) status='over';
       else status='complete';
     }
-    const healthStatus=categoryStatus(actualCat);
+    const healthStatus=categoryStatus(actualCat).status;
     const xpCalc=calculateConsumptionXP(actualCat,g.amount,groupMinutes,healthStatus);
     const note=[entriesNote(g.entries),extra].filter(Boolean).join(' — ');
     S.sessions.push({
@@ -1603,7 +1491,7 @@ function submitLog(){
       assignedCategoryId:assignedCat.id,assignedTargetAmount:t.targetMid,sessionGroupId,
       followedAssignedCategory:false,targetAmount:t.targetMid,actualAmount:0,minutes:0,
       note:'Recommendation not followed',status:'skipped',unit:assignedCat.unit,xp:0,
-      healthStatus:categoryStatus(assignedCat),source:'recommendation',titles:[]});
+      healthStatus:categoryStatus(assignedCat).status,source:'recommendation',titles:[]});
   }
 
   // v165: award System Respect XP once per recommendation/log group.
@@ -1742,8 +1630,7 @@ function saturationLevel(cat){
 
 function totalsForSessions(list){
 
-  const out = {minutes:0, tasks:0};
-  for(const unit of Object.keys(UNITS))out[unit]=0;
+  const out = {minutes:0, episodes:0, chapters:0, movies:0, issues:0, tasks:0};
 
   list.forEach(s=>{
 
@@ -1815,16 +1702,7 @@ function levelingSettings(){
   l.rotationMultiplier=Object.assign({},d.rotationMultiplier,S.settings?.leveling?.rotationMultiplier||{});
   return l;
 }
-function xpRotationMultiplier(status){
-  // v536: real category health strings use configurable XP settings.
-  // Unknown legacy statuses retain their historical ×1 fallback, so existing
-  // History calculations are not silently reinterpreted as Healthy.
-  // A deliberately configured 0 is a valid multiplier (0 must not become 1).
-  const raw=levelingSettings().rotationMultiplier?.[status];
-  if(raw==null||raw==='')return 1;
-  const value=Number(raw);
-  return Number.isFinite(value)&&value>=0?value:1;
-}
+function xpRotationMultiplier(status){ return Number(levelingSettings().rotationMultiplier?.[status])||1; }
 function xpRotationLabel(status){ return ({neglected:'Neglected bonus',due:'Due bonus',healthy:'Normal rotation',overused:'Overuse reduction'}[status]||'Normal rotation'); }
 function xpUnitBonus(unit){ return Number(levelingSettings().unitXP?.[unit])||0; }
 function libraryAdditionXP(){ return Math.max(0,Math.round(Number(levelingSettings().libraryAdditionXP)||0)); }
@@ -1843,7 +1721,7 @@ function calculateConsumptionXP(cat, amount, minutes, status){
 function estimateCurrentLogXP(){
   const cat=getCategory(S.currentTask?.categoryId||S.logDraft?.categoryId||'');
   const amount=Math.max(0,Number(S.logDraft?.amount)||0), minutes=Math.max(0,Number(S.logDraft?.minutes)||0);
-  const status=cat?.id ? categoryStatus(cat) : 'healthy';
+  const status=cat?.id ? categoryStatus(cat).status : 'healthy';
   return calculateConsumptionXP(cat,amount,minutes,status);
 }
 function awardLibraryAdditionXP(id){
@@ -2206,7 +2084,7 @@ function renderDashboard(){
 
   }
 
-  const cats = (typeof mf508VisibleCategories==='function'?mf508VisibleCategories('todayBalance'):(typeof v186ScopeCategories==='function'?v186ScopeCategories('todayBalance'):S.categories.filter(c=>c.enabled)));
+  const cats = (typeof v186ScopeCategories==='function'?v186ScopeCategories('todayBalance'):S.categories.filter(c=>c.enabled));
 
    const balanceHtml = cats.length===0 ? `<div class="empty-state"><div class="em-icon">🗂️</div><div class="em-title">No categories selected</div><div>Choose categories in Settings → Dashboard Settings.</div></div>` : ` 
 
@@ -2801,10 +2679,10 @@ function renderLibrary(){
 <option value="title-desc" ${S.histFilters.libSort==='title-desc'?'selected':''}>Title: Z → A</option>
 <option value="rating-desc" ${S.histFilters.libSort==='rating-desc'?'selected':''}>Rating: High → Low</option>
 <option value="rating-asc" ${S.histFilters.libSort==='rating-asc'?'selected':''}>Rating: Low → High</option>
-<option value="progress-desc" ${S.histFilters.libSort==='progress-desc'?'selected':''}>Consumed progress: Most → Least</option>
-<option value="progress-asc" ${S.histFilters.libSort==='progress-asc'?'selected':''}>Consumed progress: Least → Most</option>
-<option value="total-desc" ${S.histFilters.libSort==='total-desc'?'selected':''}>Total progress: Most → Least</option>
-<option value="total-asc" ${S.histFilters.libSort==='total-asc'?'selected':''}>Total progress: Least → Most</option>
+<option value="progress-desc" ${S.histFilters.libSort==='progress-desc'?'selected':''}>Progress watched/read: Most → Least</option>
+<option value="progress-asc" ${S.histFilters.libSort==='progress-asc'?'selected':''}>Progress watched/read: Least → Most</option>
+<option value="total-desc" ${S.histFilters.libSort==='total-desc'?'selected':''}>Total episodes/chapters: Most → Least</option>
+<option value="total-asc" ${S.histFilters.libSort==='total-asc'?'selected':''}>Total episodes/chapters: Least → Most</option>
 </select>
 
         <select onchange="App.setLibFilter('libStatus', this.value)">
@@ -2905,7 +2783,7 @@ function submitBatchLog(){
   valid.forEach(r=>{
     const item=S.library.find(x=>x.id===r.libraryId); if(!item)return;
     const cat=getCategory(item.categoryId), qty=Math.max(0,Number(r.qty)||0), minutes=Math.max(0,Number(r.minutes)||0);
-    const healthStatus=categoryStatus(cat), xpCalc=calculateConsumptionXP(cat,qty,minutes,healthStatus);
+    const healthStatus=categoryStatus(cat).status, xpCalc=calculateConsumptionXP(cat,qty,minutes,healthStatus);
     S.sessions.push({id:uid(),timestamp,date,categoryId:cat.id,targetAmount:qty,actualAmount:qty,minutes,
       note,status:'logged',unit:cat.unit,xp:xpCalc.xp,healthStatus,source:'batch',batchGroupId:groupId,
       titles:[{title:cleanTitle(item.title),libraryId:item.id,qty,repeat:(item.status==='completed'||(Number(item.total)>0&&Number(item.progress)>=Number(item.total))),loggedAt:v331BatchTitleTimestamp(r,S.batchDraft,date,timestamp)}]});
@@ -2969,7 +2847,7 @@ function renderHistory(){
 
   if(f.category && f.category!=='all') list = list.filter(s=>s.categoryId===f.category);
 
-  if(f.type && f.type!=='all') list = list.filter(s=>v532SessionMediaType(s)===f.type);
+  if(f.type && f.type!=='all') list = list.filter(s=>getCategory(s.categoryId).type===f.type);
 
   if(f.range==='today') list = list.filter(s=>s.date===todayISO());
 
@@ -3056,7 +2934,11 @@ function renderHistory(){
 
         <select onchange="App.setHistFilter('type', this.value)">
 
-          ${v532MediaTypeOptions(f.type)}
+          <option value="all">All media types</option>
+
+          <option value="video" ${f.type==='video'?'selected':''}>Video</option>
+
+          <option value="reading" ${f.type==='reading'?'selected':''}>Reading</option>
 
         </select>
 
@@ -3240,7 +3122,7 @@ function renderStats(){
 
         <div class="record-row"><span class="k">Average task completion rate</span><span class="v">${avgCompletion}%</span></div>
 
-        <div class="record-row"><span class="k">Total lifetime</span><span class="v">${fmtMinutes(lifetime.minutes)} · ${Object.keys(UNITS).filter(u=>lifetime[u]>0).map(u=>lifetime[u]+' '+unitLabel(u,lifetime[u])).join(' · ')||'No units recorded'}</span></div>
+        <div class="record-row"><span class="k">Total lifetime</span><span class="v">${fmtMinutes(lifetime.minutes)} · ${lifetime.episodes} ep · ${lifetime.chapters} ch · ${lifetime.movies} mv · ${lifetime.issues} is</span></div>
 
       </div>
 
@@ -3260,7 +3142,7 @@ function statCard(label, t){
 
     <div style="font-size:12px; color:var(--text-dim); margin-top:6px; line-height:1.7;">
 
-      ${Object.keys(UNITS).filter(u=>t[u]>0).map(u=>escapeHtml(String(t[u]))+' '+escapeHtml(unitLabel(u,t[u]))).join(' · ')||'No units recorded'}
+      ${t.episodes} episodes · ${t.chapters} chapters<br>${t.movies} movies · ${t.issues} issues
 
     </div>
 
@@ -3814,7 +3696,7 @@ function categoryModalHtml(d){
 
       <div class="field"><label class="field-label">Type</label>
 
-        <select id="m-type"><option value="video" ${d.type==='video'?'selected':''}>Watching</option><option value="reading" ${d.type==='reading'?'selected':''}>Reading</option><option value="playing" ${d.type==='playing'?'selected':''}>Playing</option><option value="listening" ${d.type==='listening'?'selected':''}>Listening</option></select>
+        <select id="m-type"><option value="video" ${d.type==='video'?'selected':''}>Video</option><option value="reading" ${d.type==='reading'?'selected':''}>Reading</option></select>
 
       </div>
 
@@ -4419,7 +4301,7 @@ const App = {
 
     updated.unit = getCategory(updated.categoryId).unit;
     const editCat=getCategory(updated.categoryId);
-    const editHealth=categoryStatus(editCat);
+    const editHealth=categoryStatus(editCat).status;
     updated.healthStatus=editHealth;
     updated.xp=calculateConsumptionXP(editCat,updated.actualAmount,updated.minutes,editHealth).xp;
 
@@ -4566,9 +4448,9 @@ const App = {
         }
 
         const statusMap={
-          'Watching':'active','Active':'active','Reading':'active','Completed':'completed',
+          'Watching':'active','Reading':'active','Completed':'completed',
           'On-Hold':'paused','Dropped':'dropped',
-          'Plan to Watch':'planned','Planned':'planned','Plan to Read':'planned'
+          'Plan to Watch':'planned','Plan to Read':'planned'
         };
 
         const getTag=(block,name)=>{
@@ -5183,8 +5065,8 @@ function chooseStatusForLibrary(id){const item=S.library.find(i=>i&&i.id===id);i
 function libraryStatusModalHtml(d){
   const current=d?.status||'planned';
   const options=[
-    {id:'planned',label:'Planned',icon:'○',desc:'Planned for later, but not started yet.'},
-    {id:'active',label:'Active',icon:'▶',desc:'Currently in progress.'},
+    {id:'planned',label:'Plan to Watch',icon:'○',desc:'Planned for later, but not started yet.'},
+    {id:'active',label:'Watching',icon:'▶',desc:'Currently being watched or read.'},
     {id:'paused',label:'On Hold',icon:'Ⅱ',desc:'Temporarily set aside without abandoning it.'},
     {id:'completed',label:'Completed',icon:'✓',desc:'Finished and kept as part of your history.'},
     {id:'dropped',label:'Dropped',icon:'×',desc:'Abandoned and excluded from recommendations.'}
@@ -5345,7 +5227,8 @@ function renderStatsV14(){
  const catData=enabledCats.map(c=>({c,m:S.sessions.filter(s=>s.categoryId===c.id&&s.status!=='skipped').reduce((a,s)=>a+(Number(s.minutes)||0),0),tasks:S.sessions.filter(s=>s.categoryId===c.id&&s.status!=='skipped').length})).sort((a,b)=>b.m-a.m);
  const statusData=['planned','active','paused','completed','dropped'].map(k=>({label:v199StatusLabel(k),value:S.library.filter(i=>i.status===k).length}));
  const priorityData=['high','medium','low'].map(k=>({label:k[0].toUpperCase()+k.slice(1),value:S.library.filter(i=>i.priority===k).length}));
- const mediaData=v532MediaTypeMix(S.sessions,S.categories);
+ const mediaMap={}; S.sessions.forEach(s=>{if(s.status==='skipped')return;const cat=S.categories.find(c=>c.id===s.categoryId);const type=cat?.type||'other';mediaMap[type]=(mediaMap[type]||0)+(Number(s.minutes)||0);});
+ const mediaData=Object.entries(mediaMap).map(([label,value])=>({label,value}));
  const totalUnits=life.episodes+life.chapters+life.movies+life.issues;
  const avgDaily7=Math.round(last7.reduce((a,d)=>a+d.minutes,0)/7), avgSession=v331LogicalSessionCount(S.sessions)?Math.round(life.minutes/v331LogicalSessionCount(S.sessions)):0;
  const longestDay=Math.max(...last30.map(d=>d.minutes),0), mostActiveDay=last30.find(d=>d.minutes===longestDay)?.date;
@@ -5362,7 +5245,7 @@ function renderStatsV14(){
  <div class="two-col v131-stats-chart-stack" style="margin-bottom:24px;"><div class="card"><div class="section-label">30-DAY DAILY MINUTES</div>${svgBarChart(last30,d=>d.label,d=>d.minutes)}</div><div class="card"><div class="section-label">90-DAY ACTIVITY</div>${svgBarChart(last90,d=>d.label,d=>d.minutes)}</div></div>
  <div class="two-col" style="margin-bottom:24px;"><div class="card"><div class="section-label">30-DAY CATEGORY MIX</div>${catData.map(x=>`<div class="bal-bar-row"><div class="bal-bar-label">${v144CategoryIconHtml(x.c)} ${escapeHtml(x.c.name)}</div><div class="bal-bar-track"><div class="bal-bar-fill" style="width:${Math.round(x.m/maxCat*100)}%;background:${x.c.color};"></div></div><div class="bal-bar-val">${fmtMinutes(x.m)}</div></div>`).join('')||'<div class="empty-state">No data yet.</div>'}</div><div class="card"><div class="section-label">MEDIA TYPE MIX</div>${compactList(mediaData.map(x=>({label:x.label,value:x.value})))}</div></div>
  <div class="two-col" style="margin-bottom:24px;"><div class="card"><div class="section-label">LIBRARY STATUS</div>${compactList(statusData)}</div><div class="card"><div class="section-label">PRIORITY DISTRIBUTION</div>${compactList(priorityData)}</div></div>
- ${(()=>{const r=v81RepeatTotals();const units=r.episodes+r.chapters+r.issues+r.movies;if(!units)return '';return `<div class="card" style="margin-bottom:24px"><div class="section-label">↻ REPEAT CONSUMPTION</div><div class="record-list"><div class="record-row"><span class="k">Repeat sessions</span><span class="v">${r.sessions.toLocaleString()}</span></div><div class="record-row"><span class="k">Episodes rewatched</span><span class="v">${r.episodes.toLocaleString()}</span></div><div class="record-row"><span class="k">Chapters reread</span><span class="v">${r.chapters.toLocaleString()}</span></div><div class="record-row"><span class="k">Issues reread</span><span class="v">${r.issues.toLocaleString()}</span></div><div class="record-row"><span class="k">Movies rewatched</span><span class="v">${r.movies.toLocaleString()}</span></div><div class="record-row"><span class="k">Repeat time</span><span class="v">${fmtMinutes(r.minutes)}</span></div></div></div>`;})()}<div class="two-col" style="margin-bottom:24px;"><div class="card"><div class="section-label">LIBRARY HEALTH</div><div class="record-list"><div class="record-row"><span class="k">Library titles</span><span class="v">${S.library.length}</span></div><div class="record-row"><span class="k">Active titles</span><span class="v">${S.library.filter(i=>i.status==='active').length}</span></div><div class="record-row"><span class="k">Completed titles</span><span class="v">${S.library.filter(i=>i.status==='completed').length}</span></div><div class="record-row"><span class="k">Total units logged</span><span class="v">${totalUnits.toLocaleString()}</span></div></div></div><div class="card"><div class="section-label">ADVANCED METRICS</div><div class="record-list"><div class="record-row"><span class="k">Average daily minutes (7d)</span><span class="v">${fmtMinutes(avgDaily7)}</span></div><div class="record-row"><span class="k">Average session</span><span class="v">${fmtMinutes(avgSession)}</span></div><div class="record-row"><span class="k">Most active day</span><span class="v">${escapeHtml(mostActiveDayLabel)}</span></div><div class="record-row"><span class="k">Peak day minutes</span><span class="v">${fmtMinutes(longestDay)}</span></div><div class="record-row"><span class="k">Lifetime sessions</span><span class="v">${v331LogicalSessionCount(S.sessions)}</span></div></div></div></div>`;
+ ${(()=>{const r=v81RepeatTotals();const units=r.episodes+r.chapters+r.issues+r.movies;if(!units)return '';return `<div class="card" style="margin-bottom:24px"><div class="section-label">↻ REPEAT CONSUMPTION</div><div class="record-list"><div class="record-row"><span class="k">Repeat sessions</span><span class="v">${r.sessions.toLocaleString()}</span></div><div class="record-row"><span class="k">Episodes rewatched</span><span class="v">${r.episodes.toLocaleString()}</span></div><div class="record-row"><span class="k">Chapters reread</span><span class="v">${r.chapters.toLocaleString()}</span></div><div class="record-row"><span class="k">Issues reread</span><span class="v">${r.issues.toLocaleString()}</span></div><div class="record-row"><span class="k">Movies rewatched</span><span class="v">${r.movies.toLocaleString()}</span></div><div class="record-row"><span class="k">Repeat time</span><span class="v">${fmtMinutes(r.minutes)}</span></div></div></div>`;})()}<div class="two-col" style="margin-bottom:24px;"><div class="card"><div class="section-label">LIBRARY HEALTH</div><div class="record-list"><div class="record-row"><span class="k">Library titles</span><span class="v">${S.library.length}</span></div><div class="record-row"><span class="k">Watching titles</span><span class="v">${S.library.filter(i=>i.status==='active').length}</span></div><div class="record-row"><span class="k">Completed titles</span><span class="v">${S.library.filter(i=>i.status==='completed').length}</span></div><div class="record-row"><span class="k">Total units logged</span><span class="v">${totalUnits.toLocaleString()}</span></div></div></div><div class="card"><div class="section-label">ADVANCED METRICS</div><div class="record-list"><div class="record-row"><span class="k">Average daily minutes (7d)</span><span class="v">${fmtMinutes(avgDaily7)}</span></div><div class="record-row"><span class="k">Average session</span><span class="v">${fmtMinutes(avgSession)}</span></div><div class="record-row"><span class="k">Most active day</span><span class="v">${escapeHtml(mostActiveDayLabel)}</span></div><div class="record-row"><span class="k">Peak day minutes</span><span class="v">${fmtMinutes(longestDay)}</span></div><div class="record-row"><span class="k">Lifetime sessions</span><span class="v">${v331LogicalSessionCount(S.sessions)}</span></div></div></div></div>`;
 }
 renderStats=renderStatsV14;
 
@@ -5757,8 +5640,7 @@ function v81RepeatTotals(){
 }
 function v81RepeatLabel(item){
   const r=v81RepeatTotals().byTitle.get(item.id); if(!r||!r.amount)return '';
-  const activity=getCategory(item.categoryId)?.type;
-  const noun=activity==='reading'?'Reread':activity==='playing'?'Replayed':activity==='listening'?'Relistened':'Rewatched';
+  const noun=(getCategory(item.categoryId)?.type==='reading')?'Reread':'Rewatched';
   const cycles=r.completedRepeats?` · ${r.completedRepeats} full ${r.completedRepeats===1?'repeat':'repeats'}`:'';
   return `${noun}: ${r.amount.toLocaleString()} ${unitLabel(r.unit,r.amount)}${cycles}`;
 }
@@ -5802,7 +5684,7 @@ function renderLibraryHistory(){
   <div class="mf-batchbar" style="margin-bottom:18px"><div class="mf-undo-group"><button class="btn btn-sm" onclick="App.undoChange()" ${undoCount?'':'disabled'}>↶ Undo</button><button class="btn btn-sm" onclick="App.redoChange()" ${redoCount?'':'disabled'}>↷ Redo</button></div><span class="hint">${undoCount} undo step${undoCount===1?'':'s'} · ${redoCount} redo step${redoCount===1?'':'s'}</span></div>
   ${mfActivityHtml()}`;
 }
-function mfBatchBar(){const n=mfSelectedIds().length;return `<div class="mf-batchbar"><label style="display:flex;gap:7px;align-items:center"><input class="mf-select" type="checkbox" onchange="App.selectVisibleLibrary(this.checked)"> Select visible</label><b>${n} selected</b><div class="spacer"></div><select style="width:auto" onchange="if(this.value){App.batchLibraryStatus(this.value);this.value=''}"><option value="">Set status…</option><option value="planned">Planned</option><option value="active">Active</option><option value="paused">On Hold</option><option value="completed">Completed</option><option value="dropped">Dropped</option></select><select style="width:auto" onchange="if(this.value){App.batchLibraryPriority(this.value);this.value=''}"><option value="">Set priority…</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><select style="width:auto" onchange="if(this.value){App.batchLibraryCategory(this.value);this.value=''}"><option value="">Move to…</option>${S.categories.map(c=>`<option value="${c.id}">${v144CategoryIconText(c)} ${escapeHtml(c.name)}</option>`).join('')}</select><button class="btn btn-sm" onclick="App.clearLibrarySelection()">Clear selection</button><button class="btn btn-sm" ${n?'':'disabled'} onclick="App.v69RepairSelectedCompleted()">Fix completed progress</button><button class="btn btn-sm btn-danger" ${n?'':'disabled'} onclick="App.batchDeleteLibrary()">Delete selected</button></div>`;}
+function mfBatchBar(){const n=mfSelectedIds().length;return `<div class="mf-batchbar"><label style="display:flex;gap:7px;align-items:center"><input class="mf-select" type="checkbox" onchange="App.selectVisibleLibrary(this.checked)"> Select visible</label><b>${n} selected</b><div class="spacer"></div><select style="width:auto" onchange="if(this.value){App.batchLibraryStatus(this.value);this.value=''}"><option value="">Set status…</option><option value="planned">Plan to Watch</option><option value="active">Watching</option><option value="paused">On Hold</option><option value="completed">Completed</option><option value="dropped">Dropped</option></select><select style="width:auto" onchange="if(this.value){App.batchLibraryPriority(this.value);this.value=''}"><option value="">Set priority…</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><select style="width:auto" onchange="if(this.value){App.batchLibraryCategory(this.value);this.value=''}"><option value="">Move to…</option>${S.categories.map(c=>`<option value="${c.id}">${v144CategoryIconText(c)} ${escapeHtml(c.name)}</option>`).join('')}</select><button class="btn btn-sm" onclick="App.clearLibrarySelection()">Clear selection</button><button class="btn btn-sm" ${n?'':'disabled'} onclick="App.v69RepairSelectedCompleted()">Fix completed progress</button><button class="btn btn-sm btn-danger" ${n?'':'disabled'} onclick="App.batchDeleteLibrary()">Delete selected</button></div>`;}
 function mfEnhanceLibraryDom(){if(S.view!=='library')return;document.querySelectorAll('.item-row').forEach(row=>{if(row.querySelector('[data-mf-select]'))return;const del=[...row.querySelectorAll('button')].find(b=>(b.getAttribute('onclick')||'').includes('deleteLibraryItem'));const m=(del?.getAttribute('onclick')||'').match(/deleteLibraryItem\('([^']+)'\)/);if(!m)return;const id=m[1],cb=document.createElement('input');cb.type='checkbox';cb.className='mf-select';cb.dataset.mfSelect=id;cb.checked=!!S.librarySelection?.[id];cb.addEventListener('change',()=>mfToggleSelect(id,cb.checked));row.insertBefore(cb,row.firstChild);});const count=document.querySelector('.mf-batchbar b');if(count)count.textContent=mfSelectedIds().length+' selected';}
 
 async function mfImportSimklJson(file){if(!file)return;showImportProgress('Importing Simkl JSON',1);try{const data=JSON.parse(await file.text());if(!data||(!Array.isArray(data.anime)&&!Array.isArray(data.shows)&&!Array.isArray(data.movies)))throw new Error('This does not look like a Simkl JSON backup.');mfBegin('Simkl JSON import',file.name||'backup');const statusMap={watching:'active',plantowatch:'planned',completed:'completed',hold:'paused',onhold:'paused',dropped:'dropped'};let added=0,updated=0,historyAdded=0,processed=0;const groups=[['anime',data.anime||[]],['shows',data.shows||[]],['movies',data.movies||[]]],total=groups.reduce((a,g)=>a+g[1].length,0)||1;const seenSessions=new Set((S.sessions||[]).map(s=>s.importKey).filter(Boolean));for(const [kind,list] of groups){for(const rec of list){processed++;const media=rec.show||rec.movie||{};const title=cleanTitle(media.title||'');if(!title)continue;let catId;if(kind==='shows')catId='tv';else if(kind==='movies')catId='movies';else if(String(rec.anime_type||'').toLowerCase()==='movie')catId='animemovies';else catId=(Number(rec.not_aired_episodes_count)||0)>0?'seasonal':'backlog';if(!S.categories.some(c=>c.id===catId))catId=S.categories[0]?.id;if(!catId)continue;const ids=media.ids||{};const ext={simkl:ids.simkl??null,mal:ids.mal??null,anilist:ids.anilist??null,tmdb:ids.tmdb??ids.tmdbtv??null,imdb:ids.imdb??null};let item=S.library.find(i=>i.externalIds?.simkl&&ext.simkl&&String(i.externalIds.simkl)===String(ext.simkl));if(!item)item=S.library.find(i=>cleanTitle(i.title).toLowerCase()===title.toLowerCase()&&((i.year||null)===(media.year||null)||!i.year||!media.year));const progress=Math.max(0,Number(rec.watched_episodes_count)||0);const totalUnits=Number(rec.total_episodes_count)>0?Number(rec.total_episodes_count):(kind==='movies'?1:null);const status=statusMap[String(rec.status||'').toLowerCase()]||'planned';if(item){item.title=title;item.categoryId=catId;item.progress=Math.max(Number(item.progress)||0,progress);if(totalUnits)item.total=totalUnits;item.status=status;item.source='simkl';item.externalIds=Object.assign({},item.externalIds||{},ext);item.year=media.year||item.year||null;item.rating=rec.user_rating??item.rating??null;item.simklAddedAt=rec.added_to_watchlist_at||item.simklAddedAt||null;updated++;}else{item={id:uid(),title,categoryId:catId,progress,total:totalUnits,status,priority:'medium',estimatedMinutes:Number(media.runtime)||null,tags:['simkl'],source:'simkl',createdAt:rec.added_to_watchlist_at?Date.parse(rec.added_to_watchlist_at):Date.now(),completedAt:status==='completed'?(rec.last_watched_at?Date.parse(rec.last_watched_at):Date.now()):null,externalIds:ext,year:media.year||null,rating:rec.user_rating??null,simklAddedAt:rec.added_to_watchlist_at||null};S.library.push(item);awardLibraryAdditionXP(item.id);added++;}
@@ -6074,7 +5956,7 @@ function v43SelectAll(){S.librarySelection=S.librarySelection||{};v43FilteredLib
 function v43DeselectAll(){S.librarySelection={};render();}
 function v43SetLibraryView(v){if(!['list','compact','cards'].includes(v))return;S.settings.libraryView=v;persistSettings();render();}
 const v43OriginalLibrary=mfBaseRenderLibrary;
-renderLibrary=function(){let h=v43OriginalLibrary();const mode=S.settings.libraryView||'list';const controls=`<div class="mf-batchbar"><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" onclick="App.selectVisibleLibrary(true)">Select visible</button><button class="btn btn-sm" onclick="App.selectAllLibrary()">Select all matching</button><button class="btn btn-sm" onclick="App.deselectAllLibrary()">Deselect all</button><button class="btn btn-sm" ${mfSelectedIds().length?'':'disabled'} onclick="App.fixSelectedCompletedProgress()">Fix completed progress</button></div><b>${mfSelectedIds().length} selected</b><div class="spacer"></div><select style="width:auto" onchange="if(this.value){App.batchLibraryStatus(this.value);this.value=''}"><option value="">Set status…</option><option value="planned">Planned</option><option value="active">Active</option><option value="paused">On Hold</option><option value="completed">Completed</option><option value="dropped">Dropped</option></select><select style="width:auto" onchange="if(this.value){App.batchLibraryPriority(this.value);this.value=''}"><option value="">Set priority…</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><select style="width:auto" onchange="if(this.value){App.batchLibraryCategory(this.value);this.value=''}"><option value="">Move to…</option>${S.categories.map(c=>`<option value="${c.id}">${v144CategoryIconText(c)} ${escapeHtml(c.name)}</option>`).join('')}</select><button class="btn btn-sm" ${mfSelectedIds().length?'':'disabled'} onclick="App.v69RepairSelectedCompleted()">Fix completed progress</button><button class="btn btn-sm btn-danger" ${mfSelectedIds().length?'':'disabled'} onclick="App.batchDeleteLibrary()">Delete selected</button></div>`;
+renderLibrary=function(){let h=v43OriginalLibrary();const mode=S.settings.libraryView||'list';const controls=`<div class="mf-batchbar"><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" onclick="App.selectVisibleLibrary(true)">Select visible</button><button class="btn btn-sm" onclick="App.selectAllLibrary()">Select all matching</button><button class="btn btn-sm" onclick="App.deselectAllLibrary()">Deselect all</button><button class="btn btn-sm" ${mfSelectedIds().length?'':'disabled'} onclick="App.fixSelectedCompletedProgress()">Fix completed progress</button></div><b>${mfSelectedIds().length} selected</b><div class="spacer"></div><select style="width:auto" onchange="if(this.value){App.batchLibraryStatus(this.value);this.value=''}"><option value="">Set status…</option><option value="planned">Plan to Watch</option><option value="active">Watching</option><option value="paused">On Hold</option><option value="completed">Completed</option><option value="dropped">Dropped</option></select><select style="width:auto" onchange="if(this.value){App.batchLibraryPriority(this.value);this.value=''}"><option value="">Set priority…</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><select style="width:auto" onchange="if(this.value){App.batchLibraryCategory(this.value);this.value=''}"><option value="">Move to…</option>${S.categories.map(c=>`<option value="${c.id}">${v144CategoryIconText(c)} ${escapeHtml(c.name)}</option>`).join('')}</select><button class="btn btn-sm" ${mfSelectedIds().length?'':'disabled'} onclick="App.v69RepairSelectedCompleted()">Fix completed progress</button><button class="btn btn-sm btn-danger" ${mfSelectedIds().length?'':'disabled'} onclick="App.batchDeleteLibrary()">Delete selected</button></div>`;
   const view=`<div class="v43-view-switch" style="margin:0 0 12px"><span class="hint">Display:</span>${[['list','List'],['compact','Compact'],['cards','Cards']].map(([v,l])=>`<button class="btn btn-sm ${mode===v?'active':''}" onclick="App.setLibraryView('${v}')">${l}</button>`).join('')}</div>`;
   h=h.replace('<div class="section-label">OVERVIEW',controls+'<div class="section-label">OVERVIEW');h=h.replace('<div class="lib-toolbar">',view+'<div class="lib-toolbar">');return `<div class="library-view-${mode}">${h}</div>`;
 };
@@ -6964,219 +6846,8 @@ function render(){
 
 }
 
-/* MediaFlow v506 — verified authentication continuity.
- * Supabase callbacks run outside its auth lock; no event is allowed to turn
- * an unverified/refreshing account into an empty, writable workspace.
- * Only the explicit Logout button authorizes immediate logout UX.
- */
-const V475_AUTH={
-  restoring:false,restorePromise:null,bootId:null,bootPromise:null,
-  hydrated:false,bootGeneration:0,explicitLogout:false,logoutRequested:false,
-  error:null,lastEvent:'',lastCheckedAt:0
-};
-function v475ShowSessionLoading(message='Restoring your MediaFlow account…'){
-  const app=document.getElementById('app');
-  if(!app)return;
-  // A previously rendered workspace must not remain interactive when its
-  // Supabase session is unverified: edits would otherwise appear saved while
-  // the cloud write guard is intentionally blocking uploads.
-  if(app.querySelector('.mf506-auth-loading'))return;
-  app.innerHTML='<div class="loader-wrap mf506-auth-loading" role="status" aria-live="polite">'+escapeHtml(message)+'</div>';
-}
-function v506PersistedSessionHint(){
-  // This is ONLY a hint for which recovery screen to display, not proof of
-  // authentication. Never parse or transmit stored auth credentials.
-  try{
-    const project=new URL(SUPABASE_URL).hostname.split('.')[0];
-    return !!localStorage.getItem('sb-'+project+'-auth-token');
-  }catch(_){return false;}
-}
-function v506SessionRecoveryScreen(message){
-  V115_STARTUP_GUARD=true;
-  AUTH_READY=false;
-  const app=document.getElementById('app');
-  if(!app)return;
-  app.innerHTML='<div class="auth-screen mf506-recovery-screen"><div class="auth-card">'+
-    '<div class="auth-brand"><div class="brand-mark"></div><div><div class="auth-brand-name">MediaFlow</div><div class="brand-sub">Account recovery</div></div></div>'+
-    '<div class="auth-title">Your saved account is temporarily unavailable</div>'+
-    '<div class="auth-sub">'+escapeHtml(message||'MediaFlow could not confirm your saved session yet. Your cloud Library has not been reset.')+'</div>'+
-    '<div style="display:grid;gap:10px;margin-top:18px">'+
-    '<button type="button" class="btn btn-primary btn-block" onclick="window.MediaFlowAuthContinuity.retry()">Retry restoring my account</button>'+
-    '<button type="button" class="btn btn-block" onclick="window.MediaFlowAuthContinuity.showLogin()">Sign in instead</button></div>'+
-    '<div class="auth-foot">No cloud data has been replaced. MediaFlow does not load a blank workspace while login or cloud recovery is unresolved.</div></div></div>';
-}
-async function startAuthenticatedApp(){
-  const uid=String(AUTH_USER?.id||'');
-  if(!uid)return false;
-  if(V475_AUTH.bootPromise&&V475_AUTH.bootId===uid)return V475_AUTH.bootPromise;
-  if(V475_AUTH.hydrated&&V475_AUTH.bootId===uid)return true;
-  V115_STARTUP_GUARD=true;
-  AUTH_READY=true; // The startup guard still blocks writes until cloud data is loaded.
-  V475_AUTH.bootId=uid;
-  V475_AUTH.hydrated=false;
-  V475_AUTH.error=null;
-  const generation=++V475_AUTH.bootGeneration;
-  v475ShowSessionLoading('Loading your saved MediaFlow workspace…');
-  const running=(async()=>{
-    try{
-      const result=await v115SafeBootstrap();
-      if(generation!==V475_AUTH.bootGeneration||String(AUTH_USER?.id||'')!==uid)return false;
-      V475_AUTH.hydrated=result===true;
-      if(result!==true){V115_STARTUP_GUARD=true;AUTH_READY=false;}
-      return result===true;
-    }catch(error){
-      if(generation!==V475_AUTH.bootGeneration)return false;
-      V475_AUTH.error=String(error?.message||error);
-      V115_STARTUP_GUARD=true;
-      AUTH_READY=false;
-      console.error('MediaFlow v506: account hydration failed',error);
-      v506SessionRecoveryScreen('Your login was found but the saved workspace could not be loaded. Check your connection and retry.');
-      return false;
-    }
-  })();
-  V475_AUTH.bootPromise=running;
-  try{return await running;}
-  finally{if(V475_AUTH.bootPromise===running)V475_AUTH.bootPromise=null;}
-}
-function v506CompleteExplicitLogout(){
-  V475_AUTH.explicitLogout=true;
-  V475_AUTH.logoutRequested=false;
-  V475_AUTH.restoring=false;
-  ++V475_AUTH.bootGeneration;
-  V475_AUTH.bootId=null;
-  V475_AUTH.hydrated=false;
-  V475_AUTH.bootPromise=null;
-  V115_STARTUP_GUARD=true;
-  AUTH_USER=null;
-  AUTH_READY=false;
-  renderAuthScreen('login','You have been logged out.');
-}
-function v475HandleAuthEvent(event,session){
-  V475_AUTH.lastEvent=String(event||'');
-  if(event==='SIGNED_OUT'){
-    if(V475_AUTH.logoutRequested){v506CompleteExplicitLogout();return;}
-    if(V475_AUTH.explicitLogout)return; // Ignore the delayed event from a completed user logout.
-    // Supabase can emit SIGNED_OUT during refresh/restore. During initial
-    // bootstrap it is not evidence that the user clicked Logout.
-    if(V475_AUTH.restoring)return;
-    // Revalidate from Supabase before changing the logged-in UI. The result
-    // can be a recovered user, a verified logout, or a guarded retry screen.
-    ++V475_AUTH.bootGeneration;
-    V475_AUTH.bootId=null;
-    V475_AUTH.hydrated=false;
-    V475_AUTH.bootPromise=null;
-    V115_STARTUP_GUARD=true;
-    AUTH_USER=null;
-    AUTH_READY=false;
-    v475ShowSessionLoading('Verifying your saved MediaFlow login…');
-    void v475RestoreSavedSession();
-    return;
-  }
-  const next=session?.user||null;
-  if(!next?.id)return; // INITIAL_SESSION:null never creates an empty account.
-  if(V475_AUTH.logoutRequested||V475_AUTH.explicitLogout&&event==='INITIAL_SESSION')return;
-  V475_AUTH.explicitLogout=false;
-  const uid=String(next.id);
-  const changed=String(AUTH_USER?.id||'')!==uid;
-  if(changed){
-    V115_STARTUP_GUARD=true;
-    V475_AUTH.hydrated=false;
-    V475_AUTH.bootId=null;
-    ++V475_AUTH.bootGeneration;
-    AUTH_READY=false;
-  }
-  AUTH_USER=next;
-  // While restore probes are still active, they own startup ordering.
-  if(!V475_AUTH.restoring&&V475_AUTH.bootId!==uid)void startAuthenticatedApp();
-}
-async function v475RestoreSavedSession(){
-  if(V475_AUTH.restorePromise)return V475_AUTH.restorePromise;
-  const running=(async()=>{
-    V475_AUTH.restoring=true;
-    V475_AUTH.explicitLogout=false;
-    V115_STARTUP_GUARD=true;
-    v475ShowSessionLoading('Restoring your saved MediaFlow account…');
-    // A cold PWA reload can temporarily return null while GoTrue refreshes.
-    // Allow slow devices/network time to recover, without an unbounded wait.
-    const intervals=[0,250,600,1100,1900,3000,4500];
-    let lastError=null,confirmed=null;
-    try{
-      for(const delay of intervals){
-        if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
-        if(V475_AUTH.logoutRequested||V475_AUTH.explicitLogout)return false;
-        if(AUTH_USER?.id){confirmed=AUTH_USER;break;}
-        try{
-          const {data,error}=await supabase.auth.getSession();
-          V475_AUTH.lastCheckedAt=Date.now();
-          if(error){lastError=error;continue;}
-          if(data?.session?.user?.id){
-            confirmed=data.session.user;
-            v475HandleAuthEvent('SESSION_RESTORED',data.session);
-            break;
-          }
-        }catch(err){lastError=err;}
-      }
-      // Last chance for a delayed onAuthStateChange callback.
-      if(!confirmed&&AUTH_USER?.id)confirmed=AUTH_USER;
-      if(confirmed?.id){
-        AUTH_USER=confirmed;
-        return await startAuthenticatedApp();
-      }
-      V115_STARTUP_GUARD=true;
-      AUTH_READY=false;
-      // Inconclusive storage/connection restores require explicit retry,
-      // not a blank default account and not a forced sign-out.
-      if(lastError||v506PersistedSessionHint()){
-        V475_AUTH.error=String(lastError?.message||'Saved session could not be verified');
-        v506SessionRecoveryScreen(lastError
-          ?'Your session could not be checked because of an authentication or network error. Please retry.'
-          :'Your previously saved login is still being verified. Please retry or sign in if the session has expired.');
-      }else{
-        renderAuthScreen('login','Sign in to access your existing MediaFlow account. Your Library is kept in your cloud account.');
-      }
-      return false;
-    }finally{
-      V475_AUTH.restoring=false;
-    }
-  })();
-  V475_AUTH.restorePromise=running;
-  try{return await running;}
-  finally{if(V475_AUTH.restorePromise===running)V475_AUTH.restorePromise=null;}
-}
-async function init(){
-  if(!supabase){renderAuthScreen('login');return;}
-  try{
-    // Never await database queries from a GoTrue auth callback.
-    const {data,error}=supabase.auth.onAuthStateChange((event,session)=>{
-      setTimeout(()=>v475HandleAuthEvent(event,session),0);
-    });
-    if(error)throw error;
-    await v475RestoreSavedSession();
-  }catch(err){
-    V475_AUTH.restoring=false;
-    V115_STARTUP_GUARD=true;
-    AUTH_READY=false;
-    console.error('MediaFlow v506: auth initialization',err);
-    v506SessionRecoveryScreen('MediaFlow could not initialize your saved session. Try again without refreshing repeatedly.');
-  }
-}
-window.MediaFlowAuthContinuity={
-  state:V475_AUTH,
-  retry:async()=>{
-    if(V475_AUTH.restorePromise)return V475_AUTH.restorePromise;
-    if(AUTH_USER?.id){
-      V475_AUTH.hydrated=false;
-      V475_AUTH.bootId=null;
-      return startAuthenticatedApp();
-    }
-    return v475RestoreSavedSession();
-  },
-  showLogin:()=>{
-    V115_STARTUP_GUARD=true;
-    AUTH_READY=false;
-    renderAuthScreen('login','Sign in to reconnect your existing cloud account.');
-  }
-};
+async function startAuthenticatedApp(){AUTH_READY=true;await v115SafeBootstrap();}
+async function init(){if(!supabase){renderAuthScreen('login');return;}try{const {data}=await supabase.auth.getSession();AUTH_USER=data?.session?.user||null;if(AUTH_USER)await startAuthenticatedApp();else renderAuthScreen('login');supabase.auth.onAuthStateChange(async(_event,session)=>{const next=session?.user||null;if(next&&!AUTH_READY){AUTH_USER=next;await startAuthenticatedApp();}else if(!next&&AUTH_READY){AUTH_USER=null;AUTH_READY=false;renderAuthScreen('login');}});}catch(err){renderAuthScreen('login',friendlyAuthError(err),true);}}
 init();
 
 // Progressive Web App bootstrap. v244+ owns the richer install/update lifecycle,
@@ -7708,7 +7379,7 @@ renderSettings=function(){
    ============================================================ */
 
 DEFAULT_SETTINGS.leveling.repeatUnitXP=Object.assign(
-  {episodes:10,chapters:3,issues:6,movies:30,sessions:6,videos:5,pages:1,volumes:7,tracks:1,albums:9,levels:5,missions:5,matches:6,lessons:4,items:3},
+  {episodes:10,chapters:3,issues:6,movies:30},
   DEFAULT_SETTINGS.leveling.repeatUnitXP||{}
 );
 DEFAULT_SETTINGS.leveling.fullRepeatXP=Number.isFinite(Number(DEFAULT_SETTINGS.leveling.fullRepeatXP))
@@ -8069,8 +7740,6 @@ renderSettings=function(){
       <div class="field"><label class="field-label">Repeat issue bonus XP</label><input type="number" min="0" value="${l.repeatUnitXP?.issues??6}" onchange="App.updateRepeatUnitXP('issues',this.value)"></div>
       <div class="field"><label class="field-label">Repeat movie bonus XP</label><input type="number" min="0" value="${l.repeatUnitXP?.movies??30}" onchange="App.updateRepeatUnitXP('movies',this.value)"></div>
     </div>
-    ${Object.keys(UNITS).filter(unit=>!['episodes','chapters','issues','movies'].includes(unit)).map(unit=>
-      '<div class="field"><label class="field-label">Repeat '+escapeHtml(UNITS[unit].singular)+' bonus XP</label><input type="number" min="0" value="'+Math.max(0,Number(l.repeatUnitXP?.[unit])||0)+'" onchange="App.updateRepeatUnitXP(\''+unit+'\',this.value)"></div>').join('')}
     <div class="field"><label class="field-label">Full title rewatch / reread XP</label><input type="number" min="0" value="${l.fullRepeatXP??50}" onchange="App.updateLeveling('fullRepeatXP',this.value)"><small class="hint">Awarded each time your logged repeat units complete another full Library title. Regular minute/unit consumption XP still applies, so this is an additional repeat reward.</small></div>
     <div class="hint" style="margin:-4px 0 14px">Tracked repeats: <b>${r.repeatUnits.toLocaleString()}</b> repeat units · <b>${r.fullRepeats.toLocaleString()}</b> full rewatches/rereads · <b>${r.repeatBonusXP.toLocaleString()} XP</b> in repeat bonuses. Manual past-repeat corrections remain history-only and do not create repeat XP.</div>`;
 
@@ -11062,8 +10731,8 @@ function v143SelectedLibraryCount(){
 
 function v143StatusLabel(value){
   const map={
-    planned:'Planned',
-    active:'Active',
+    planned:'Plan to Watch',
+    active:'Watching',
     paused:'On Hold',
     completed:'Completed',
     dropped:'Dropped'
@@ -11497,7 +11166,7 @@ categoryModalHtml=function(d){
 
     <div class="field-row">
       <div class="field"><label class="field-label">Type</label>
-        <select id="m-type"><option value="video" ${d.type==='video'?'selected':''}>Watching</option><option value="reading" ${d.type==='reading'?'selected':''}>Reading</option><option value="playing" ${d.type==='playing'?'selected':''}>Playing</option><option value="listening" ${d.type==='listening'?'selected':''}>Listening</option></select>
+        <select id="m-type"><option value="video" ${d.type==='video'?'selected':''}>Video</option><option value="reading" ${d.type==='reading'?'selected':''}>Reading</option></select>
       </div>
       <div class="field"><label class="field-label">Unit</label>
         <select id="m-unit">${Object.keys(UNITS).map(u=>`<option value="${u}" ${d.unit===u?'selected':''}>${UNITS[u].label}</option>`).join('')}</select>
@@ -12590,8 +12259,6 @@ App.exportJSON=function(){
 // FINAL full import used at runtime.
 App.importJSON=function(file){
   if(!file)return;
-  const importAccountId=String(AUTH_USER?.id||'');
-  if(!importAccountId||V115_STARTUP_GUARD||!V475_AUTH.hydrated){showToast('Finish restoring your MediaFlow cloud account before importing data.');return;}
 
   showDataProgress('Importing complete MediaFlow backup','Reading and validating backup file…',5);
 
@@ -12614,7 +12281,6 @@ App.importJSON=function(file){
         return;
       }
 
-      if(importAccountId!==String(AUTH_USER?.id||'')||V115_STARTUP_GUARD||!V475_AUTH.hydrated)throw new Error('Your active account changed during import. No data was applied.');
       updateDataProgress(26,'Restoring complete account state…');
 
       // Existing wrapper chain restores all modern account fields:
@@ -12646,10 +12312,9 @@ App.importJSON=function(file){
       v148FinalizeImportedRuntime();
 
       updateDataProgress(84,'Saving restored complete state to protected cloud storage…');
-      const saved=await saveState();
+      await saveState();
       await saveQueue;
-      if(saved===false||lastSaveFailed||V115_STARTUP_GUARD)throw new Error('Cloud save not confirmed after backup restore. Keep the original backup file and retry Sync Now.');
-      await mf507VerifyImportedCloud('Full Data Backup',importAccountId);
+      if(lastSaveFailed||V115_STARTUP_GUARD)throw new Error('Cloud save not confirmed after backup restore. Keep the original backup file and retry Sync Now.');
 
       render();
 
@@ -12663,9 +12328,7 @@ App.importJSON=function(file){
       finishDataProgress(
         false,
         'Import failed',
-        /cloud|account|verif|sync/i.test(String(e?.message||''))
-          ?String(e?.message||'Cloud verification failed. Keep the backup and retry Sync Now.')
-          :lastSaveFailed?'The backup was read but the cloud save failed. Keep your backup file and retry Sync Now.':'Could not restore that MediaFlow JSON backup. The file may be invalid or corrupted.'
+        lastSaveFailed?'The backup was read but the cloud save failed. Keep your backup file and retry Sync Now.':'Could not restore that MediaFlow JSON backup. The file may be invalid or corrupted.'
       );
     }
   };
@@ -14594,16 +14257,6 @@ function v155VerifyCloudState(cloudState,expected){
 
 async function v155SyncNow(){
   if(v134OperationBusy('sync'))return;
-  // Never merge/upload an anonymous, stale, or still-hydrating account.
-  const syncAccountId=String(AUTH_USER?.id||'');
-  if(!syncAccountId||V115_STARTUP_GUARD||!V475_AUTH.hydrated||V475_AUTH.restoring||V475_AUTH.logoutRequested){
-    showToast('Finish restoring your MediaFlow cloud account before using Sync Now.');
-    return;
-  }
-  const v507ConfirmSyncAccount=()=>{
-    if(String(AUTH_USER?.id||'')!==syncAccountId||V115_STARTUP_GUARD||V475_AUTH.logoutRequested||!V475_AUTH.hydrated)
-      throw new Error('The MediaFlow account changed during Sync Now. Upload cancelled to protect your data.');
-  };
   V134_HEAVY_OPERATION='sync';
   showDataProgress('Sync now','Preparing complete protected MediaFlow synchronization…',3);
 
@@ -14627,7 +14280,6 @@ async function v155SyncNow(){
       throw new Error(`Cloud read failed. Nothing was written. ${String(error?.message||error)}`);
     }
 
-    v507ConfirmSyncAccount();
     // Preserve v115's core safety invariant: missing/suspicious cloud reads do
     // not automatically become writes, even when Sync Now is pressed.
     if(!cloud?.found){
@@ -14651,7 +14303,6 @@ async function v155SyncNow(){
     }
     await v134Yield();
 
-    v507ConfirmSyncAccount();
     updateDataProgress(34,'Applying Library, History, Settings, Order and Old System…');
     v46ApplyState(merged);
     v155ApplyPortableExtras(merged.portableExtras);
@@ -14672,7 +14323,6 @@ async function v155SyncNow(){
 
     // Use rawSet directly here so Sync Now receives the real cloud-write error.
     // saveState() intentionally catches errors for normal UI autosaves.
-    v507ConfirmSyncAccount();
     updateDataProgress(91,'Uploading one complete protected cloud state…');
     const finalState=snapshot();
     await rawSet(STATE_KEY,finalState);
@@ -14682,7 +14332,6 @@ async function v155SyncNow(){
     if(!verify?.found||!verify.state){
       throw new Error('Cloud upload could not be verified after writing.');
     }
-    v507ConfirmSyncAccount();
     const verification=v155VerifyCloudState(verify.state,finalState);
     if(!verification.ok){
       throw new Error(`Cloud verification found incomplete data: ${verification.missing.join(', ')}.`);
@@ -27405,8 +27054,15 @@ function v179StartProgress(item){
 
 function v179ProgressInputLabel(item){
   const cat=item?getCategory(item.categoryId):null;
-  const singular=UNITS[String(cat?.unit||'')]?.singular;
-  return singular?singular.charAt(0).toUpperCase()+singular.slice(1)+' Reached':'Progress Reached';
+  const unit=String(cat?.unit||'').toLowerCase();
+
+  if(/episode/.test(unit))return 'Last watched episode';
+  if(/chapter/.test(unit))return 'Last read chapter';
+  if(/issue/.test(unit))return 'Last read issue';
+  if(/volume/.test(unit))return 'Last read volume';
+  if(/book/.test(unit))return 'Last read book';
+
+  return 'Final progress';
 }
 
 function v179ProgressNoun(item,amount=2){
@@ -27447,13 +27103,13 @@ function v179ModeSwitchHtml(kind){
     <button type="button"
       class="btn btn-sm ${mode==='progress'?'active':''}"
       onclick="App.v179SetLogMode('${kind}','progress')">
-      Progress Reached
+      Last progress
     </button>
 
     <div class="v179-log-mode-help">${
       mode==='progress'
-        ?'Select a Library title and enter the progress reached using its category unit. MediaFlow calculates how much you consumed from the starting progress.'
-        :'Enter directly how many units you consumed in this session.'
+        ?'Select a Library title, enter the last episode/chapter/issue you reached, and MediaFlow calculates how much you consumed from the title’s starting progress.'
+        :'Original logging method: enter directly how many episodes, chapters, issues, movies, or other units you consumed.'
     }</div>
   </div>`;
 }
@@ -27674,7 +27330,7 @@ renderLogForm=function(t,cat){
 
   const inputLabel=selected
     ?v179ProgressInputLabel(selected)
-    :'Progress Reached';
+    :'Last progress';
 
   const start=selected?v179StartProgress(selected):0;
   const suggested=selected
@@ -29812,7 +29468,7 @@ function v181SetDefaultLoggingMode(mode){
 
   showToast(
     cfg.defaultMode==='progress'
-      ?'Default logging mode: Progress Reached'
+      ?'Default logging mode: Last progress'
       :'Default logging mode: Amount consumed'
   );
 }
@@ -30842,9 +30498,7 @@ function v181TitleDetailsHtml(item){
         ${cover}
 
         <div class="v181-title-hero-copy">
-          <h2>${escapeHtml(cleanTitle(item.title))}</h2>
-
-    <div class="v181-title-hero-meta">
+          <h2>${escapeHtml(cleanTitle(item.title))}</h2><div class="v181-title-hero-meta">
             <span class="pill">${v144CategoryIconHtml(cat)} ${escapeHtml(cat.name)}</span>
             <span class="pill">${escapeHtml(v199StatusLabel(item.status))}</span>
             <span class="pill">${escapeHtml(item.priority||'medium')} priority</span>
@@ -30981,8 +30635,8 @@ function v181QuickSchema(item,key){
   ]);
 
   const status=[
-    ['planned','Planned'],
-    ['active','Active'],
+    ['planned','Plan to Watch'],
+    ['active','Watching'],
     ['paused','On Hold'],
     ['completed','Completed'],
     ['dropped','Dropped']
@@ -31423,7 +31077,7 @@ function v181DynamicLibrarySettingsHtml(){
 
     <div class="hint">
       Arrange the order used under every Dynamic Library category.
-      Default: Active → On Hold → Completed → Dropped → Planned.
+      Default: Watching → On Hold → Completed → Dropped → Plan to Watch.
     </div>
 
     <div class="v181-config-list">
@@ -31940,7 +31594,7 @@ function v183EnsureLibraryOverview(settings=S.settings){
 }
 
 function v183LibraryOverviewEnabled(){
-  return typeof mf508Ensure==='function'?mf508Ensure().libraryOverview.enabled:v183EnsureLibraryOverview(S.settings||DEFAULT_SETTINGS).showOverview!==false;
+  return v183EnsureLibraryOverview(S.settings||DEFAULT_SETTINGS).showOverview!==false;
 }
 
 function v183LibraryOverviewToggleHtml(){
@@ -32004,7 +31658,7 @@ function v183LibraryOverviewEstimate(cat,x){
 
 function v183LibraryOverviewHtml(){
   const ov=v53LibraryOverview();
-  const rows=(typeof mf508VisibleCategories==='function'?mf508VisibleCategories('libraryOverview'):(S.categories||[]).filter(c=>c.enabled!==false)).map(cat=>{
+  const rows=(S.categories||[]).map(cat=>{
     const x=ov.byCat.get(cat.id)||{
       items:0,
       done:0,
@@ -32533,7 +32187,7 @@ v181DynamicLibrarySettingsHtml=function(){
       <button type="button" class="btn btn-sm btn-ghost" onclick="App.v181ResetDynamicLibrary()">Reset Dynamic Library layout</button>
     </div>
     <div class="section-label" style="margin-top:16px;">DYNAMIC STATUS ROW</div>
-    <div class="hint">Arrange the order used under every Dynamic Library category. Default: Active → On Hold → Completed → Dropped → Planned.</div>
+    <div class="hint">Arrange the order used under every Dynamic Library category. Default: Watching → On Hold → Completed → Dropped → Plan to Watch.</div>
     <div class="v181-config-list">${statusRows}</div>
   </div>`;
 };
@@ -33307,31 +32961,6 @@ App.v69SetLibrarySort=v69SetLibrarySort;
 // v391: reuse the locale collator instead of allocating collation options for every comparison.
 // The options match the original String.localeCompare contract exactly.
 const V391_TITLE_COLLATOR=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
-// v519: canonical remaining count shared by Normal and Dynamic Library.
-// An unknown total (or any season with an unknown total) is not zero.
-function v189LibraryRemainingUnits(item){
-  if(!item||typeof item!=='object')return null;
-  const knownTotal=value=>{
-    if(value===null||value===undefined||String(value).trim()==='')return null;
-    const n=Number(value);
-    return Number.isFinite(n)&&n>0?Math.floor(n):null;
-  };
-  const watched=value=>{
-    const n=Number(value);
-    return Number.isFinite(n)?Math.max(0,Math.floor(n)):0;
-  };
-  if(Array.isArray(item.seasons)&&item.seasons.length){
-    let sum=0;
-    for(const season of item.seasons){
-      const total=knownTotal(season?.total??season?.totalEpisodes??season?.total_episodes);
-      if(total===null)return null;
-      sum+=Math.max(0,total-watched(season?.progress));
-    }
-    return sum;
-  }
-  const total=knownTotal(item.total);
-  return total===null?null:Math.max(0,total-watched(item.progress));
-}
 function v189CompareLibraryItems(a,b,sort){
   const ai=a?.item||a, bi=b?.item||b;
   const at=cleanTitle(ai?.title||'');
@@ -33341,14 +32970,6 @@ function v189CompareLibraryItems(a,b,sort){
   const rank={low:0,medium:1,high:2};
   let d=0;
 
-  if(sort==='remaining-desc'||sort==='remaining-asc'){
-    const av=v189LibraryRemainingUnits(ai),bv=v189LibraryRemainingUnits(bi);
-    if(av===null&&bv!==null)return 1;
-    if(av!==null&&bv===null)return -1;
-    if(av===null&&bv===null)return titleCmp();
-    d=(av-bv)*(sort.endsWith('-asc')?1:-1);
-    return d||titleCmp();
-  }
   if(sort==='title-asc')return titleCmp();
   if(sort==='title-desc')return -titleCmp();
   if(sort==='priority-asc')d=(rank[String(ai?.priority||'medium')]??1)-(rank[String(bi?.priority||'medium')]??1);
@@ -33435,10 +33056,10 @@ function v189SortOptionsHtml(){
     opt('title-desc','Title: Z → A'),
     opt('rating-desc','Rating: High → Low'),
     opt('rating-asc','Rating: Low → High'),
-    opt('progress-desc','Consumed progress: Most → Least'),
-    opt('progress-asc','Consumed progress: Least → Most'),
-    opt('total-asc','Total progress: Ascending'),
-    opt('total-desc','Total progress: Descending'),
+    opt('progress-desc','Progress watched/read: Most → Least'),
+    opt('progress-asc','Progress watched/read: Least → Most'),
+    opt('total-asc','Total episodes/chapters: Ascending'),
+    opt('total-desc','Total episodes/chapters: Descending'),
     opt('logging-desc','Last updated by logging: Newest → Oldest'),
     opt('logging-asc','Last updated by logging: Oldest → Newest'),
     opt('edited-desc','Last edited: Newest → Oldest'),
@@ -33562,7 +33183,7 @@ function v189DynamicBatchBarHtml(){
       <button type="button" class="btn btn-sm" ${n?'':'disabled'} onclick="App.v69RepairSelectedCompleted()">Fix completed progress</button>
     </div>
     <b>${n.toLocaleString()} selected</b><span class="spacer"></span>
-    <select style="width:auto" onchange="if(this.value){App.batchLibraryStatus(this.value);this.value=''}"><option value="">Set status…</option><option value="planned">Planned</option><option value="active">Active</option><option value="paused">On Hold</option><option value="completed">Completed</option><option value="dropped">Dropped</option></select>
+    <select style="width:auto" onchange="if(this.value){App.batchLibraryStatus(this.value);this.value=''}"><option value="">Set status…</option><option value="planned">Plan to Watch</option><option value="active">Watching</option><option value="paused">On Hold</option><option value="completed">Completed</option><option value="dropped">Dropped</option></select>
     <select style="width:auto" onchange="if(this.value){App.batchLibraryPriority(this.value);this.value=''}"><option value="">Set priority…</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
     <select style="width:auto" onchange="if(this.value){App.batchLibraryCategory(this.value);this.value=''}"><option value="">Move to…</option>${(S.categories||[]).map(c=>`<option value="${escapeHtml(String(c.id))}">${v144CategoryIconText(c)} ${escapeHtml(c.name)}</option>`).join('')}</select>
     <button type="button" class="btn btn-sm btn-danger" ${n?'':'disabled'} onclick="App.batchDeleteLibrary()">Delete selected</button>
@@ -33715,7 +33336,7 @@ function v190NormalLibraryBatchBarHtml(){
       <button type="button" class="btn btn-sm" ${n?'':'disabled'} onclick="App.v69RepairSelectedCompleted()">Fix completed progress</button>
     </div>
     <b>${n.toLocaleString()} selected</b><span class="spacer"></span>
-    <select style="width:auto" onchange="if(this.value){App.batchLibraryStatus(this.value);this.value=''}"><option value="">Set status…</option><option value="planned">Planned</option><option value="active">Active</option><option value="paused">On Hold</option><option value="completed">Completed</option><option value="dropped">Dropped</option></select>
+    <select style="width:auto" onchange="if(this.value){App.batchLibraryStatus(this.value);this.value=''}"><option value="">Set status…</option><option value="planned">Plan to Watch</option><option value="active">Watching</option><option value="paused">On Hold</option><option value="completed">Completed</option><option value="dropped">Dropped</option></select>
     <select style="width:auto" onchange="if(this.value){App.batchLibraryPriority(this.value);this.value=''}"><option value="">Set priority…</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
     <select style="width:auto" onchange="if(this.value){App.batchLibraryCategory(this.value);this.value=''}"><option value="">Move to…</option>${(S.categories||[]).map(c=>`<option value="${escapeHtml(String(c.id))}">${v144CategoryIconText(c)} ${escapeHtml(c.name)}</option>`).join('')}</select>
     <button type="button" class="btn btn-sm btn-danger" ${n?'':'disabled'} onclick="App.batchDeleteLibrary()">Delete selected</button>
@@ -34820,8 +34441,6 @@ App.exportSettingsPreset=function(){
 
 App.importSettingsPreset=async function(file){
   if(!file)return;
-  const importAccountId=String(AUTH_USER?.id||'');
-  if(!importAccountId||V115_STARTUP_GUARD||!V475_AUTH.hydrated){showToast('Finish restoring your MediaFlow cloud account before importing settings.');return;}
   showDataProgress('Importing Settings Preset','Reading settings-only preset…',8);
   try{
     const data=JSON.parse(await file.text());
@@ -34830,7 +34449,6 @@ App.importSettingsPreset=async function(file){
       finishDataProgress(false,'Preset rejected',validation.message);
       return;
     }
-    if(importAccountId!==String(AUTH_USER?.id||'')||V115_STARTUP_GUARD||!V475_AUTH.hydrated)throw new Error('Active account changed. Settings were not applied.');
     updateDataProgress(30,'Applying MediaFlow settings…');
     S.settings=v196NormalizeImportedSettings(data.settings);
     v196MergePresetCategories(data.categories,data.categoryOrder||data.settings?.categoryOrder||[]);
@@ -34845,15 +34463,14 @@ App.importSettingsPreset=async function(file){
     try{restartBackupTimer();}catch(_){ }
 
     updateDataProgress(72,'Saving imported settings to your MediaFlow account…');
-    const saved=await saveState();
+    await saveState();
     await saveQueue;
-    if(saved===false||lastSaveFailed||V115_STARTUP_GUARD)throw new Error('Cloud save not confirmed. Keep the Settings Preset file and retry Sync Now.');
-    await mf507VerifyImportedCloud('Settings Preset',importAccountId);
+    if(lastSaveFailed||V115_STARTUP_GUARD)throw new Error('Cloud save not confirmed. Imported settings are still in memory; use Sync Now after your cloud connection recovers.');
     render();
     finishDataProgress(true,'Settings Preset imported','Settings and category configuration were applied. Library, History, XP and profile data were left untouched.');
   }catch(e){
     console.error(e);
-    finishDataProgress(false,'Settings Preset import failed',/cloud|account|verif|sync/i.test(String(e?.message||''))?String(e?.message||'Cloud verification failed. Keep your preset file.'):lastSaveFailed?'Settings were applied locally, but the cloud save failed. Keep your preset file and retry Sync Now once connected.':'Could not read that preset. Make sure it is a valid MediaFlow Settings Preset JSON file.');
+    finishDataProgress(false,'Settings Preset import failed',lastSaveFailed?'Settings were applied locally, but the cloud save failed. Keep your preset file and retry Sync Now once connected.':'Could not read that preset. Make sure it is a valid MediaFlow Settings Preset JSON file.');
   }finally{
     try{const input=document.getElementById('v196-settings-preset-file');if(input)input.value='';}catch(_){ }
   }
@@ -34898,11 +34515,11 @@ renderSettings=function(){
    MediaFlow v199 — Global Library Status Terminology
    ------------------------------------------------------------
    User-facing Library statuses now use one canonical vocabulary everywhere:
-   active    -> Active
+   active    -> Watching
    paused    -> On Hold
    dropped   -> Dropped
    completed -> Completed
-   planned   -> Planned
+   planned   -> Plan to Watch
 
    Internal status ids stay unchanged for backward compatibility with existing
    Library data, imports, cloud state, backups, Settings Presets and APIs.
@@ -34910,12 +34527,12 @@ renderSettings=function(){
 function v199StatusLabel(value){
   const key=String(value||'planned').toLowerCase();
   return ({
-    active:'Active',
+    active:'Watching',
     paused:'On Hold',
     dropped:'Dropped',
     completed:'Completed',
-    planned:'Planned'
-  })[key] || String(value||'Planned');
+    planned:'Plan to Watch'
+  })[key] || String(value||'Plan to Watch');
 }
 
 /* ============================================================
@@ -36496,7 +36113,7 @@ function v224LegacySortParts(value,fallbackBase=V224_DEFAULT_SORT_BASE,fallbackD
   if(!raw||raw==='relevance')return {base:fallbackBase,dir:fallbackDir};
   if(raw==='priority')return {base:'priority',dir:'desc'};
   if(raw==='random')return {base:'random',dir:'asc'};
-  const m=raw.match(/^(title|priority|rating|progress|total|remaining|logging|edited|seen|added)-(asc|desc)$/);
+  const m=raw.match(/^(title|priority|rating|progress|total|logging|edited|seen|added)-(asc|desc)$/);
   if(m)return {base:m[1],dir:m[2]};
   if(['title','priority','rating','progress','total','logging','edited','seen','added'].includes(raw)){
     return {base:raw,dir:fallbackDir};
@@ -36536,15 +36153,6 @@ function v224CompareLibraryLike(a,b,base,dir){
     case 'rating': diff=n(a?.rating)-n(b?.rating); break;
     case 'progress': diff=n(a?.progress)-n(b?.progress); break;
     case 'total': diff=n(a?.total)-n(b?.total); break;
-    case 'remaining': {
-      // The canonical Library sorter and other Library-like pickers can
-      // safely reuse the same read-only season-aware value.
-      const av=v189LibraryRemainingUnits(a),bv=v189LibraryRemainingUnits(b);
-      if(av===null&&bv!==null)return 1;
-      if(av!==null&&bv===null)return -1;
-      diff=av===null?0:av-bv;
-      break;
-    }
     case 'logging': diff=n(v53LastTouched(a))-n(v53LastTouched(b)); break;
     case 'edited': diff=n(a?.modifiedAt||a?.createdAt)-n(b?.modifiedAt||b?.createdAt); break;
     case 'seen': diff=n(a?.lastSeenAt)-n(b?.lastSeenAt); break;
@@ -36560,19 +36168,18 @@ function v224CompareLibraryLike(a,b,base,dir){
    - Keeps + Add title as the single right-side header action.
    - Adds cover-presence filter to Normal + Dynamic Library.
    - Replaces direction-duplicated sorts with one sort field + ASC/DESC.
-   - Date added to Library / DESC (newest first) is the default Library sort.
+   - Alphabetic / ASC is the default Library sort.
    ============================================================ */
 const V224_LIBRARY_SORT_OPTIONS=[
   ['title','Alphabetic'],
   ['priority','Priority'],
   ['rating','Rating'],
-  ['progress','Consumed progress'],
-  ['total','Total progress'],
-  ['remaining','Remaining progress'],
+  ['progress','Progress watched/read'],
+  ['total','Total episodes/chapters'],
   ['logging','Last updated by logging'],
   ['edited','Last edited'],
   ['seen','Last seen in Title Details'],
-  ['added','Date added to Library'],
+  ['added','Date added'],
   ['random','Random']
 ];
 
@@ -36580,29 +36187,14 @@ function v224LibrarySortState(){
   S.histFilters=S.histFilters||{};
   const f=S.histFilters;
   const allowed=new Set(V224_LIBRARY_SORT_OPTIONS.map(x=>x[0]));
-  // v519: This migration runs on the actual v224 Library state path, not
-  // only inside a late runtime extension. Fix previously stored implicit
-  // Alphabetic defaults once, preserving later deliberate changes.
-  if(f.v519LibraryDefaultApplied!==true){
-    const previousBase=String(f.libSortBase||'').toLowerCase();
-    const previousDir=String(f.libSortDir||'').toLowerCase();
-    const previousKey=String(f.libSort||'').toLowerCase();
-    if((!previousBase||previousBase==='title')&&
-       (!previousDir||previousDir==='asc')&&
-       (!previousKey||previousKey==='title-asc')){
-      f.libSortBase='added';
-      f.libSortDir='desc';
-      f.libSort='added-desc';
-    }
-    f.v519LibraryDefaultApplied=true;
-  }
   let base=String(f.libSortBase||'').toLowerCase();
   let dir=v224SortDirection(f.libSortDir);
   if(!allowed.has(base)){
-    const parts=v224LegacySortParts(f.libSort,'added','desc');
-    base=allowed.has(parts.base)?parts.base:'added';
+    const parts=v224LegacySortParts(f.libSort,V224_DEFAULT_SORT_BASE,V224_DEFAULT_SORT_DIR);
+    base=allowed.has(parts.base)?parts.base:V224_DEFAULT_SORT_BASE;
     dir=parts.dir;
-    if(!f.libSort) {base='added';dir='desc';}
+    // v224 intentionally replaces the old implicit priority default.
+    if(!f.libSort) {base=V224_DEFAULT_SORT_BASE;dir=V224_DEFAULT_SORT_DIR;}
   }
   if(base==='random')dir='asc';
   f.libSortBase=base;
@@ -36617,11 +36209,10 @@ v69SetLibrarySort=function(value){
   S.histFilters=S.histFilters||{};
   const allowed=new Set(V224_LIBRARY_SORT_OPTIONS.map(x=>x[0]));
   const raw=String(value||'').toLowerCase();
-  const parts=v224LegacySortParts(raw,'added','desc');
-  const base=allowed.has(raw)?raw:(allowed.has(parts.base)?parts.base:'added');
+  const parts=v224LegacySortParts(raw,V224_DEFAULT_SORT_BASE,V224_DEFAULT_SORT_DIR);
+  const base=allowed.has(raw)?raw:(allowed.has(parts.base)?parts.base:V224_DEFAULT_SORT_BASE);
   const current=v224LibrarySortState();
-  const dir=base==='random'?'asc':(raw.includes('-')?parts.dir:
-    (base==='added'||base==='remaining'?'desc':current.dir));
+  const dir=base==='random'?'asc':(raw.includes('-')?parts.dir:current.dir);
   S.histFilters.libSortBase=base;
   S.histFilters.libSortDir=dir;
   S.histFilters.libSort=v224SortKey(base,dir);
@@ -36737,8 +36328,8 @@ const V224_BATCH_SORT_OPTIONS=[
   ['title','Alphabetic'],
   ['priority','Priority'],
   ['rating','Rating'],
-  ['progress','Consumed progress'],
-  ['total','Total progress']
+  ['progress','Progress'],
+  ['total','Total']
 ];
 
 const v224NormalizeBatchLibraryStateBase=v175NormalizeBatchLibraryState;
@@ -36847,8 +36438,8 @@ const V224_ORDER_PICKER_SORT_OPTIONS=[
   ['title','Alphabetic'],
   ['priority','Priority'],
   ['rating','Rating'],
-  ['progress','Consumed progress'],
-  ['total','Total progress']
+  ['progress','Progress'],
+  ['total','Total']
 ];
 
 const v224EnsureOrderPickerUIBase=v140EnsureOrderPickerUI;
@@ -36948,8 +36539,8 @@ const V224_LOG_SORT_OPTIONS=[
   ['title','Alphabetic'],
   ['priority','Priority'],
   ['rating','Rating'],
-  ['progress','Consumed progress'],
-  ['total','Total progress']
+  ['progress','Progress'],
+  ['total','Total']
 ];
 
 function v224NormalizeLogSort(){
@@ -38277,8 +37868,8 @@ v225ButtonIconName=function(el){
 libraryStatusModalHtml=function(d){
   const current=String(d?.status||'planned');
   const options=[
-    {id:'planned',label:'Planned',desc:'Planned for later, but not started yet.'},
-    {id:'active',label:'Active',desc:'Currently in progress.'},
+    {id:'planned',label:'Plan to Watch',desc:'Planned for later, but not started yet.'},
+    {id:'active',label:'Watching',desc:'Currently being watched or read.'},
     {id:'paused',label:'On Hold',desc:'Temporarily set aside without abandoning it.'},
     {id:'completed',label:'Completed',desc:'Finished and kept as part of your history.'},
     {id:'dropped',label:'Dropped',desc:'Abandoned and excluded from recommendations.'}
@@ -40342,7 +39933,7 @@ let V238_LOG_LIBRARY_OPEN=false;
 // v232 made option reordering idempotent, but moving <option> nodes can make
 // Chromium temporarily select the final moved option. Preserve the value
 // explicitly around the layout pass so status filters never become visually
-// stuck on Planned (and their underlying onchange remains authoritative).
+// stuck on Plan to Watch (and their underlying onchange remains authoritative).
 const v238ReorderSelectBase=v230ReorderSelect;
 v230ReorderSelect=function(select,surface){
   if(!select)return;
@@ -43498,22 +43089,8 @@ v142OrderExportPayload=function(){
 };
 const v250ImportOrderBase=v142ImportOrder;
 v142ImportOrder=async function(file){
-  if(!file)return;
-  if(!AUTH_USER?.id||V115_STARTUP_GUARD||!V475_AUTH.hydrated){showToast('Restore your cloud account before importing Personal Order.');return;}
-  const before=v250Fingerprint(S.orderPlan||{});
-  const accountId=String(AUTH_USER?.id||'');
   const result=await v250ImportOrderBase.apply(this,arguments);
-  // Avoid a redundant write after an invalid file; old importers swallow parse errors.
-  if(before!==v250Fingerprint(S.orderPlan||{})){
-    try{
-      const saved=await saveState();await saveQueue;
-      if(saved===false||lastSaveFailed||V115_STARTUP_GUARD)throw new Error('Cloud upload failed');
-      await mf507VerifyImportedCloud('Personal Order',accountId);
-    }catch(error){
-      console.warn('MediaFlow v507: Personal Order cloud verification failed',error);
-      showToast('Personal Order updated locally, but cloud verification failed. Keep your export and retry Sync Now.');
-    }
-  }
+  try{await saveState();await saveQueue;}catch(_){ }
   return result;
 };
 App.v142ImportOrder=v142ImportOrder;
@@ -44300,7 +43877,7 @@ function v253HistoryFilteredList(){
   const f=S.histFilters=S.histFilters||{},selected=new Set(typeof v241HistorySelectedCategories==='function'?v241HistorySelectedCategories():[]);
   let list=(S.sessions||[]).slice().sort((a,b)=>(Number(b.timestamp)||0)-(Number(a.timestamp)||0));
   if(selected.size)list=list.filter(s=>selected.has(String(s.categoryId)));
-  if(f.type&&f.type!=='all')list=list.filter(s=>v532SessionMediaType(s)===f.type);
+  if(f.type&&f.type!=='all')list=list.filter(s=>getCategory(s.categoryId).type===f.type);
   if(f.range==='today')list=list.filter(s=>s.date===todayISO());
   else if(f.range==='week')list=list.filter(s=>Number(s.timestamp)>=hoursAgo(24*7));
   else if(f.range==='month')list=list.filter(s=>Number(s.timestamp)>=hoursAgo(24*30));
@@ -44361,7 +43938,7 @@ renderHistory=function(){
   const pager=data.list.length>data.pageSize?`<div class="lib-pagination v253-history-pager"><button class="btn btn-sm" ${data.page<=0?'disabled':''} onclick="App.setHistPage(${data.page-1})">← Previous</button><span>Page ${data.page+1} of ${data.pageCount} · ${data.list.length.toLocaleString()} entries</span><button class="btn btn-sm" ${data.page>=data.pageCount-1?'disabled':''} onclick="App.setHistPage(${data.page+1})">Next →</button></div>`:(data.list.length?`<div class="health-note">${data.list.length.toLocaleString()} history ${data.list.length===1?'entry':'entries'}.</div>`:'');
   const pageSize=`<label class="v253-history-page-size"><span>Per page</span><input type="number" min="1" max="500" step="1" value="${data.pageSize}" onchange="App.v253SetHistoryPageSize(this.value)" onkeydown="if(event.key==='Enter')this.blur()"><small>Default 10</small></label>`;
   return `<div class="view-head v242-history-head"><div><div class="view-title">History</div><div class="view-desc">Every logged task — edit, select or delete entries and MediaFlow recalculates from what remains.</div></div>${S.sessions.length?'<button class="btn btn-sm v242-history-undo" onclick="App.undoLastEntry()">↺ Undo last entry</button>':''}</div>
-    <div class="lib-toolbar v241-history-toolbar v242-history-toolbar v253-history-toolbar"><div class="lib-filters">${v241HistoryCategoryFilterHtml()}<select onchange="App.setHistFilter('type',this.value)">${v532MediaTypeOptions(f.type)}</select><select onchange="App.setHistFilter('range',this.value)"><option value="all" ${f.range==='all'?'selected':''}>All time</option><option value="today" ${f.range==='today'?'selected':''}>Today</option><option value="week" ${f.range==='week'?'selected':''}>This week</option><option value="month" ${f.range==='month'?'selected':''}>This month</option><option value="custom" ${f.range==='custom'?'selected':''}>Custom dates</option></select><div class="v241-history-date-filter"><label>From<input type="date" value="${escapeHtml(f.dateFrom||'')}" onchange="App.v241SetHistoryDate('from',this.value)"></label><label>To<input type="date" value="${escapeHtml(f.dateTo||'')}" onchange="App.v241SetHistoryDate('to',this.value)"></label>${(f.dateFrom||f.dateTo)?'<button type="button" class="btn btn-sm btn-ghost" onclick="App.v241ClearHistoryDates()">Clear dates</button>':''}</div></div><div class="v253-history-toolbar-actions">${pageSize}<button class="btn btn-sm v242-history-export" onclick="App.exportCSV()">Export CSV</button></div></div>
+    <div class="lib-toolbar v241-history-toolbar v242-history-toolbar v253-history-toolbar"><div class="lib-filters">${v241HistoryCategoryFilterHtml()}<select onchange="App.setHistFilter('type',this.value)"><option value="all">All media types</option><option value="video" ${f.type==='video'?'selected':''}>Video</option><option value="reading" ${f.type==='reading'?'selected':''}>Reading</option></select><select onchange="App.setHistFilter('range',this.value)"><option value="all" ${f.range==='all'?'selected':''}>All time</option><option value="today" ${f.range==='today'?'selected':''}>Today</option><option value="week" ${f.range==='week'?'selected':''}>This week</option><option value="month" ${f.range==='month'?'selected':''}>This month</option><option value="custom" ${f.range==='custom'?'selected':''}>Custom dates</option></select><div class="v241-history-date-filter"><label>From<input type="date" value="${escapeHtml(f.dateFrom||'')}" onchange="App.v241SetHistoryDate('from',this.value)"></label><label>To<input type="date" value="${escapeHtml(f.dateTo||'')}" onchange="App.v241SetHistoryDate('to',this.value)"></label>${(f.dateFrom||f.dateTo)?'<button type="button" class="btn btn-sm btn-ghost" onclick="App.v241ClearHistoryDates()">Clear dates</button>':''}</div></div><div class="v253-history-toolbar-actions">${pageSize}<button class="btn btn-sm v242-history-export" onclick="App.exportCSV()">Export CSV</button></div></div>
     ${v253HistorySelectionBar(data)}${pager}<div class="card v253-history-card">${rows}</div>${pager}`;
 };
 
@@ -44645,7 +44222,7 @@ MediaFlowRuntime.version=V254_RUNTIME_VERSION;
    ------------------------------------------------------------
    Presentation-only release:
    - Completed status icon on cover overlays is blue.
-   - Planned status icon on cover overlays is white.
+   - Plan to Watch status icon on cover overlays is white.
    - Normal Library and Dynamic Library share the same v254 overlay renderer,
      so these semantic colors apply consistently to both Covers and
      Covers+Titles without changing any title data or status logic.
@@ -45681,8 +45258,6 @@ const V258_BUILTIN_CATEGORY_ICONS=Object.freeze([
   {label:'Movies Backlog',src:'assets/category-icons/movies-backlog.png'},
   {label:'TV Series',src:'assets/category-icons/tv-series.png'},
   {label:'TV Series Backlog',src:'assets/category-icons/tv-series-backlog.png'},
-  {label:'Games',src:'assets/category-icons/games.png'},
-  {label:'Music',src:'assets/category-icons/music.png'},
   {label:'Books',src:'assets/category-icons/books.png'},
   {label:'Books Backlog',src:'assets/category-icons/books-backlog.png'},
   {label:'Novels',src:'assets/category-icons/novels.png'},
@@ -46103,7 +45678,7 @@ function v261CategoryButtonHtml(cat,active,onclick){
 }
 function v261LibraryStickyHtml(dynamic){
   const cfg=v181EnsureLibrarySettings(S.settings||DEFAULT_SETTINGS);
-  const statuses=[['all','All'],['planned','Planned'],['active','Active'],['paused','On Hold'],['completed','Completed'],['dropped','Dropped']];
+  const statuses=[['all','All'],['planned','Plan to Watch'],['active','Watching'],['paused','On Hold'],['completed','Completed'],['dropped','Dropped']];
   const activeStatus=dynamic?String(cfg.activeStatus||'active'):String(S.histFilters?.libStatus||'all');
   const activeCategory=dynamic?String(cfg.activeCategoryId||''):String(S.histFilters?.libCategory||'all');
   const visibleCats=dynamic
@@ -46177,7 +45752,7 @@ function v261OpenBalanceCategory(id){
   const cfg=v181EnsureLibrarySettings(S.settings||DEFAULT_SETTINGS);cfg.activeCategoryId=String(id);S.view='library';persistSettings();render();
 }
 function v261BalanceMarkup(){
-  const cats=(typeof mf508VisibleCategories==='function'?mf508VisibleCategories('todayBalance'):(typeof v186ScopeCategories==='function'?v186ScopeCategories('todayBalance'):S.categories.filter(c=>c.enabled)));
+  const cats=(typeof v186ScopeCategories==='function'?v186ScopeCategories('todayBalance'):S.categories.filter(c=>c.enabled));
   const today=todaysSessions();
   if(!cats.length)return '<div class="v261-balance-empty">No categories selected for Today’s Balance.</div>';
   const labelMap={healthy:'Healthy',neglected:'Neglected',overused:'Overused',due:'Due'};
@@ -46333,7 +45908,7 @@ function v262ApplyLibraryToolsState(collapsed=v262LibraryToolsCollapsed()){
 
 function v262StatusLabel(status){
   if(status==='all')return 'All';
-  try{return v199StatusLabel(status);}catch(_){return ({planned:'Planned',active:'Active',paused:'On Hold',completed:'Completed',dropped:'Dropped'})[status]||status;}
+  try{return v199StatusLabel(status);}catch(_){return ({planned:'Plan to Watch',active:'Watching',paused:'On Hold',completed:'Completed',dropped:'Dropped'})[status]||status;}
 }
 function v262CategoryFilterCategories(){
   try{if(typeof v236EffectiveCategoryFilterCategories==='function')return v236EffectiveCategoryFilterCategories().filter(Boolean);}catch(_){ }
@@ -46639,7 +46214,7 @@ function v264GuidanceMeta(todayStatus,overallStatus,text){
   return {label,clean};
 }
 function v264BalanceMarkup(){
-  const cats=(typeof mf508VisibleCategories==='function'?mf508VisibleCategories('todayBalance'):(typeof v186ScopeCategories==='function'?v186ScopeCategories('todayBalance'):S.categories.filter(c=>c.enabled))),today=todaysSessions();
+  const cats=(typeof v186ScopeCategories==='function'?v186ScopeCategories('todayBalance'):S.categories.filter(c=>c.enabled)),today=todaysSessions();
   if(!cats.length)return '<div class="mf264-balance-empty">No categories selected for Today’s Balance.</div>';
   const labelMap={healthy:'Healthy',neglected:'Neglected',overused:'Overused',due:'Due'};
   const rows=cats.map(cat=>{
@@ -46929,7 +46504,7 @@ function v265Guidance(todayStatus,overallStatus,cat){
   return {label,clean:clean||'Keep this category in your normal rotation.'};
 }
 function v265BalanceMarkup(){
-  const cats=(typeof mf508VisibleCategories==='function'?mf508VisibleCategories('todayBalance'):(typeof v186ScopeCategories==='function'?v186ScopeCategories('todayBalance'):S.categories.filter(c=>c.enabled))),today=todaysSessions();
+  const cats=(typeof v186ScopeCategories==='function'?v186ScopeCategories('todayBalance'):S.categories.filter(c=>c.enabled)),today=todaysSessions();
   if(!cats.length)return '<div class="mf265-balance-empty">No categories are enabled for Today’s Balance.</div>';
   const labelMap={healthy:'Healthy',neglected:'Neglected',overused:'Overused',due:'Due'};
   const rows=cats.map(cat=>{
@@ -46942,16 +46517,13 @@ function v265BalanceMarkup(){
       <div class="mf265-balance-guidance"><b>${v265Esc(g.label)}</b><span>${v265Esc(g.clean)}</span></div>
     </article>`;
   }).join('');
-  const metricScope=typeof mf508MetricScope==='function'?mf508MetricScope():'all';
-  const selectedIds=new Set(cats.map(c=>String(c.id)));
-  const consumed=today.filter(s=>s.status!=='skipped'&&(metricScope==='all'||selectedIds.has(String(s.categoryId))));
-  const units=consumed.reduce((a,s)=>a+(Number(s.actualAmount)||0),0),minutes=consumed.reduce((a,s)=>a+(Number(s.minutes)||0),0),streak=computeDayStreak(),unrated=(S.library||[]).filter(i=>!(Number(i.rating)>0)).length;
+  const consumed=today.filter(s=>s.status!=='skipped'),units=consumed.reduce((a,s)=>a+(Number(s.actualAmount)||0),0),minutes=consumed.reduce((a,s)=>a+(Number(s.minutes)||0),0),streak=computeDayStreak(),unrated=(S.library||[]).filter(i=>!(Number(i.rating)>0)).length;
   return `<div class="mf265-balance-list">${rows}</div><div class="mf265-balance-summary">
     <div><small>Consumed today</small><b>${units.toLocaleString()}</b><span>units</span></div>
     <div><small>Time invested</small><b>${fmtMinutes(minutes)}</b><span>today</span></div>
     <div><small>Current streak</small><b>${streak}</b><span>days</span></div>
     <div><small>Rating queue</small><b>${unrated.toLocaleString()}</b><span>unrated titles</span></div>
-  </div>${typeof mf508HealthSummaryHtml==='function'?mf508HealthSummaryHtml(cats):''}`;
+  </div>`;
 }
 function v265EnhanceBalance(){
   if(String(S.view||'')!=='dashboard')return;
@@ -48015,7 +47587,7 @@ function v269FilterBarHtml(sessions){
     <label class="mf269-filter-cell"><span class="mf269-filter-label">Period</span><select onchange="App.setHistFilter('range',this.value)"><option value="all" ${f.range==='all'?'selected':''}>All history</option><option value="today" ${f.range==='today'?'selected':''}>Today</option><option value="week" ${f.range==='week'?'selected':''}>This week</option><option value="month" ${f.range==='month'?'selected':''}>This month</option><option value="custom" ${f.range==='custom'?'selected':''}>Custom dates</option></select></label>
   </div><div class="mf269-filter-actions"><button type="button" class="mf269-select-toggle ${u.selectMode?'active':''}" onclick="App.v269ToggleSelectMode()">${u.selectMode?'DONE':'SELECT'}</button>
     <details class="mf269-options"><summary class="btn btn-sm">View Options</summary><div class="mf269-options-panel">
-      <label><span>Media type</span><select onchange="App.setHistFilter('type',this.value)">${v532MediaTypeOptions(f.type)}</select></label>
+      <label><span>Media type</span><select onchange="App.setHistFilter('type',this.value)"><option value="all" ${!f.type||f.type==='all'?'selected':''}>All media types</option><option value="video" ${f.type==='video'?'selected':''}>Video</option><option value="reading" ${f.type==='reading'?'selected':''}>Reading</option></select></label>
       <label><span>Weeks per page</span><input type="number" min="2" max="16" value="${u.weeksPerPage}" onchange="App.v269SetWeeksPerPage(this.value)"></label>
       <div class="mf269-date-options"><label><span>From</span><input type="date" value="${v269Esc(f.dateFrom||'')}" onchange="App.v241SetHistoryDate('from',this.value)"></label><label><span>To</span><input type="date" value="${v269Esc(f.dateTo||'')}" onchange="App.v241SetHistoryDate('to',this.value)"></label></div>
       <button type="button" class="btn btn-sm btn-ghost" onclick="App.v269ResetViewFilters()">Reset filters</button>
@@ -49301,7 +48873,7 @@ function v274CollectionToolsHtml(c){
   const f=V274_UI.filters,cats=(S.categories||[]).filter(c=>c?.id),catLabel=f.categories.length?`${f.categories.length} categories selected`:'All categories',mode=v274EnsureSettings().detailView;
   return `<div class="mf274-collection-tools card">
     <div class="mf274-tools-head"><div><span class="section-label">COLLECTION TOOLS</span><p>Library-style browsing, filters, display modes and cover overlays for this collection.</p></div><button class="btn btn-sm btn-ghost" onclick="App.v274ToggleCollectionTools()">Hide tools</button></div>
-    <div class="mf274-tools-grid"><input type="search" placeholder="Search titles…" value="${escapeHtml(f.search)}" oninput="App.v274SetCollectionFilter('search',this.value)"><details class="v66-cat-filter"><summary class="btn">${escapeHtml(catLabel)} ▾</summary><div class="v66-cat-panel"><div class="v66-cat-head"><b>Show categories</b><button type="button" class="btn btn-sm btn-ghost" onclick="App.v274ClearCollectionCategories(event)">All</button></div>${cats.map(cat=>`<label class="v66-cat-option"><input type="checkbox" ${f.categories.includes(String(cat.id))?'checked':''} onchange="App.v274ToggleCollectionCategory('${escapeHtml(String(cat.id))}',this.checked)"><span>${v144CategoryIconHtml(cat)} ${escapeHtml(cat.name)}</span></label>`).join('')}</div></details><select onchange="App.v274SetCollectionFilter('status',this.value)"><option value="all" ${f.status==='all'?'selected':''}>All statuses</option>${['planned','active','paused','completed','dropped'].map(x=>`<option value="${x}" ${f.status===x?'selected':''}>${escapeHtml(v274StatusLabel(x))}</option>`).join('')}</select><select onchange="App.v274SetCollectionFilter('priority',this.value)"><option value="all" ${f.priority==='all'?'selected':''}>All priorities</option>${['high','medium','low'].map(x=>`<option value="${x}" ${f.priority===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select><select onchange="App.v274SetCollectionFilter('rating',this.value)"><option value="all" ${f.rating==='all'?'selected':''}>All ratings</option><option value="rated" ${f.rating==='rated'?'selected':''}>Rated only</option><option value="unrated" ${f.rating==='unrated'?'selected':''}>Unrated</option>${[9,8,7,6,5].map(n=>`<option value="${n}+" ${f.rating===n+'+'?'selected':''}>${n}+ rating</option>`).join('')}</select><select onchange="App.v274SetCollectionFilter('cover',this.value)"><option value="all" ${f.cover==='all'?'selected':''}>All covers</option><option value="has" ${f.cover==='has'?'selected':''}>Has cover</option><option value="missing" ${f.cover==='missing'?'selected':''}>Missing cover</option></select><select onchange="App.v274SetCollectionFilter('sort',this.value)"><option value="order" ${f.sort==='order'?'selected':''}>Collection order</option><option value="title" ${f.sort==='title'?'selected':''}>Alphabetic</option><option value="priority" ${f.sort==='priority'?'selected':''}>Priority</option><option value="rating" ${f.sort==='rating'?'selected':''}>Rating</option><option value="progress" ${f.sort==='progress'?'selected':''}>Consumed progress</option><option value="total" ${f.sort==='total'?'selected':''}>Total progress</option><option value="year" ${f.sort==='year'?'selected':''}>Year</option></select><button type="button" class="btn btn-sm" onclick="App.v274ToggleCollectionFilterDir()">${f.dir==='asc'?'ASC ↑':'DESC ↓'}</button><button type="button" class="btn btn-sm btn-ghost" onclick="App.v274ClearCollectionFilters()">Clear filters</button></div>
+    <div class="mf274-tools-grid"><input type="search" placeholder="Search titles…" value="${escapeHtml(f.search)}" oninput="App.v274SetCollectionFilter('search',this.value)"><details class="v66-cat-filter"><summary class="btn">${escapeHtml(catLabel)} ▾</summary><div class="v66-cat-panel"><div class="v66-cat-head"><b>Show categories</b><button type="button" class="btn btn-sm btn-ghost" onclick="App.v274ClearCollectionCategories(event)">All</button></div>${cats.map(cat=>`<label class="v66-cat-option"><input type="checkbox" ${f.categories.includes(String(cat.id))?'checked':''} onchange="App.v274ToggleCollectionCategory('${escapeHtml(String(cat.id))}',this.checked)"><span>${v144CategoryIconHtml(cat)} ${escapeHtml(cat.name)}</span></label>`).join('')}</div></details><select onchange="App.v274SetCollectionFilter('status',this.value)"><option value="all" ${f.status==='all'?'selected':''}>All statuses</option>${['planned','active','paused','completed','dropped'].map(x=>`<option value="${x}" ${f.status===x?'selected':''}>${escapeHtml(v274StatusLabel(x))}</option>`).join('')}</select><select onchange="App.v274SetCollectionFilter('priority',this.value)"><option value="all" ${f.priority==='all'?'selected':''}>All priorities</option>${['high','medium','low'].map(x=>`<option value="${x}" ${f.priority===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select><select onchange="App.v274SetCollectionFilter('rating',this.value)"><option value="all" ${f.rating==='all'?'selected':''}>All ratings</option><option value="rated" ${f.rating==='rated'?'selected':''}>Rated only</option><option value="unrated" ${f.rating==='unrated'?'selected':''}>Unrated</option>${[9,8,7,6,5].map(n=>`<option value="${n}+" ${f.rating===n+'+'?'selected':''}>${n}+ rating</option>`).join('')}</select><select onchange="App.v274SetCollectionFilter('cover',this.value)"><option value="all" ${f.cover==='all'?'selected':''}>All covers</option><option value="has" ${f.cover==='has'?'selected':''}>Has cover</option><option value="missing" ${f.cover==='missing'?'selected':''}>Missing cover</option></select><select onchange="App.v274SetCollectionFilter('sort',this.value)"><option value="order" ${f.sort==='order'?'selected':''}>Collection order</option><option value="title" ${f.sort==='title'?'selected':''}>Alphabetic</option><option value="priority" ${f.sort==='priority'?'selected':''}>Priority</option><option value="rating" ${f.sort==='rating'?'selected':''}>Rating</option><option value="progress" ${f.sort==='progress'?'selected':''}>Progress</option><option value="total" ${f.sort==='total'?'selected':''}>Total</option><option value="year" ${f.sort==='year'?'selected':''}>Year</option></select><button type="button" class="btn btn-sm" onclick="App.v274ToggleCollectionFilterDir()">${f.dir==='asc'?'ASC ↑':'DESC ↓'}</button><button type="button" class="btn btn-sm btn-ghost" onclick="App.v274ClearCollectionFilters()">Clear filters</button></div>
     <div class="mf274-display-row"><span>Display</span>${[['list','List'],['compact','Compact'],['cards','Cards'],['covers','Covers'],['covers-title','Covers+Titles']].map(([id,label])=>`<button class="btn btn-sm ${mode===id?'btn-primary':''}" onclick="App.v274SetDetailView('${id}')">${label}</button>`).join('')}<label class="mf274-page-size">Titles/page <select onchange="App.v274SetCollectionPageSize(this.value)">${[25,50,100,200].map(n=>`<option value="${n}" ${v274EnsureSettings().pageSize===n?'selected':''}>${n}</option>`).join('')}</select></label></div>
     ${v274AdvancedFiltersHtml()}
     ${v274CollectionOverlayControlsHtml(mode)}
@@ -49428,7 +49000,7 @@ function v274BatchCollectionStatus(value){const c=v274CollectionById(V274_UI.act
 function v274BatchCollectionPriority(value){const c=v274CollectionById(V274_UI.activeId);if(!c||!v274PrepareCollectionSelection(c).length)return;return App.batchLibraryPriority?.(value);}
 function v274BatchCollectionCategory(value){const c=v274CollectionById(V274_UI.activeId);if(!c||!v274PrepareCollectionSelection(c).length)return;return App.batchLibraryCategory?.(value);}
 async function v274RemoveSelectedFromCollection(){const c=v274CollectionById(V274_UI.activeId);if(!c)return;const ids=new Set(v274SelectedCollectionIds(c));if(!ids.size)return;c.titleIds=c.titleIds.filter(id=>!ids.has(String(id)));c.order=c.titleIds.slice();v274TouchCollection(c);S.librarySelection={};await saveState();render();showToast('Selected titles removed from collection');}
-function v274CollectionBatchBarHtml(c){const n=v274SelectedCollectionIds(c).length;return `<div class="mf-batchbar mf274-collection-batchbar"><div class="v189-batch-left"><button type="button" class="btn btn-sm" onclick="App.v274SelectCollectionVisible()">Select visible</button><button type="button" class="btn btn-sm" onclick="App.v274SelectCollectionAll()">Select all matching</button><button type="button" class="btn btn-sm" onclick="App.v274DeselectCollection()">Deselect all</button><button type="button" class="btn btn-sm" ${n?'':'disabled'} onclick="App.v69RepairSelectedCompleted()">Fix completed progress</button></div><b>${n.toLocaleString()} selected</b><span class="spacer"></span><select style="width:auto" onchange="if(this.value){App.v274BatchCollectionStatus(this.value);this.value=''}"><option value="">Set status…</option><option value="planned">Planned</option><option value="active">Active</option><option value="paused">On Hold</option><option value="completed">Completed</option><option value="dropped">Dropped</option></select><select style="width:auto" onchange="if(this.value){App.v274BatchCollectionPriority(this.value);this.value=''}"><option value="">Set priority…</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><select style="width:auto" onchange="if(this.value){App.v274BatchCollectionCategory(this.value);this.value=''}"><option value="">Move to category…</option>${(S.categories||[]).map(cat=>`<option value="${escapeHtml(String(cat.id))}">${escapeHtml(cat.name)}</option>`).join('')}</select><button type="button" class="btn btn-sm btn-danger" ${n?'':'disabled'} onclick="App.v274RemoveSelectedFromCollection()">Remove selected</button></div>`;}
+function v274CollectionBatchBarHtml(c){const n=v274SelectedCollectionIds(c).length;return `<div class="mf-batchbar mf274-collection-batchbar"><div class="v189-batch-left"><button type="button" class="btn btn-sm" onclick="App.v274SelectCollectionVisible()">Select visible</button><button type="button" class="btn btn-sm" onclick="App.v274SelectCollectionAll()">Select all matching</button><button type="button" class="btn btn-sm" onclick="App.v274DeselectCollection()">Deselect all</button><button type="button" class="btn btn-sm" ${n?'':'disabled'} onclick="App.v69RepairSelectedCompleted()">Fix completed progress</button></div><b>${n.toLocaleString()} selected</b><span class="spacer"></span><select style="width:auto" onchange="if(this.value){App.v274BatchCollectionStatus(this.value);this.value=''}"><option value="">Set status…</option><option value="planned">Plan to Watch</option><option value="active">Watching</option><option value="paused">On Hold</option><option value="completed">Completed</option><option value="dropped">Dropped</option></select><select style="width:auto" onchange="if(this.value){App.v274BatchCollectionPriority(this.value);this.value=''}"><option value="">Set priority…</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><select style="width:auto" onchange="if(this.value){App.v274BatchCollectionCategory(this.value);this.value=''}"><option value="">Move to category…</option>${(S.categories||[]).map(cat=>`<option value="${escapeHtml(String(cat.id))}">${escapeHtml(cat.name)}</option>`).join('')}</select><button type="button" class="btn btn-sm btn-danger" ${n?'':'disabled'} onclick="App.v274RemoveSelectedFromCollection()">Remove selected</button></div>`;}
 const v274CollectionToolsHtmlBulkBase=v274CollectionToolsHtml;
 v274CollectionToolsHtml=function(c){const h=v274CollectionToolsHtmlBulkBase.apply(this,arguments);return v274CollectionBatchBarHtml(c)+h;};
 const v274CollectionItemHtmlSelectBase=v274CollectionItemHtml;
@@ -50324,8 +49896,6 @@ function v281ExportCollections(){
 }
 async function v281ImportCollections(file){
   if(!file)return;
-  const importAccountId=String(AUTH_USER?.id||'');
-  if(!importAccountId||V115_STARTUP_GUARD||!V475_AUTH.hydrated){showToast('Finish restoring your MediaFlow cloud account before importing Collections.');return;}
   let parsed;
   try{parsed=JSON.parse(await file.text());}catch(_){showToast('Could not read that Collections file.');return;}
   const rows=Array.isArray(parsed)?parsed:Array.isArray(parsed?.collections)?parsed.collections:null;
@@ -50343,7 +49913,6 @@ async function v281ImportCollections(file){
     confirmLabel:'Import collections'
   });
   if(!ok)return;
-  if(importAccountId!==String(AUTH_USER?.id||'')||V115_STARTUP_GUARD||!V475_AUTH.hydrated){showToast('Account changed during Collections import. No changes applied.');return;}
   const byId=new Map(v274EnsureCollections().map(c=>[String(c.id),c])),now=v274Now();
   const tomb=new Map((S.collectionTombstones||[]).filter(x=>x?.id).map(x=>[String(x.id),{id:String(x.id),deletedAt:v274Num(x.deletedAt,0)}]));
   const sourceById=new Map(rows.filter(x=>x?.id).map(x=>[String(x.id),x]));
@@ -50374,17 +49943,9 @@ async function v281ImportCollections(file){
     S.settings.v274Collections=Object.assign({},S.settings.v274Collections||{},v274Clone(parsed.collectionSettings,{}));
     v274EnsureSettings(S.settings);v281RestoreCollectionUiState();
   }
-  const saved=await saveState();V274_UI.activeId='';render();
-  let cloudVerified=false;
-  try{
-    if(saved===false||lastSaveFailed||V115_STARTUP_GUARD)throw new Error('Cloud save blocked or failed');
-    await mf507VerifyImportedCloud('Collections',importAccountId);
-    cloudVerified=true;
-  }catch(error){
-    console.warn('MediaFlow v507: Collections cloud verification failed',error);
-    showToast('Collections updated locally. Keep your export and retry Sync Now to verify cloud storage.');
-  }
-  if(cloudVerified)showToast(`${acceptedIds.size.toLocaleString()} collections imported · ${removed.toLocaleString()} older collections removed${incoming.length>acceptedIds.size?` · ${(incoming.length-acceptedIds.size).toLocaleString()} older copies skipped`:''}`);
+  await saveState();V274_UI.activeId='';render();
+  if(lastSaveFailed||V115_STARTUP_GUARD)showToast('Collections applied locally, but cloud save is not confirmed. Retry Sync Now when connected.');
+  else showToast(`${acceptedIds.size.toLocaleString()} collections imported · ${removed.toLocaleString()} older collections removed${incoming.length>acceptedIds.size?` · ${(incoming.length-acceptedIds.size).toLocaleString()} older copies skipped`:''}`);
 }
 
 /* ---------- Card cover-size responsiveness ------------------------- */
@@ -54177,7 +53738,7 @@ persistLibrary=function(){
   return v334PersistLibraryBase.apply(this,arguments);
 };
 
-// The Dashboard logger can create a new title already in Active status. This
+// The Dashboard logger can create a new title already in Watching state. This
 // is a genuine first start (unlike importing an already-started title).
 let V334_ADDING_LOG_ENTRY=false;
 const v334AddLogEntryBase=App.addLogEntry;
@@ -56856,7 +56417,7 @@ function v354Select(kind,key,ids,label){
 function v354Toolbar(kind){
   const s=v354State(kind),sortOptions=kind==='collections'
     ?[['queue','Saved queue'],['title','Collection/title name'],['count','Collection size'],['priority','Priority'],['status','Status'],['rating','Rating']]
-    :[['queue','Saved order'],['title','Title A–Z'],['priority','Priority'],['status','Status'],['rating','Rating'],['progress','Consumed progress']];
+    :[['queue','Saved order'],['title','Title A–Z'],['priority','Priority'],['status','Status'],['rating','Rating'],['progress','Progress']];
   const sortSelect=sortOptions.map(([key,label])=>`<option value="${key}" ${s.sort===key?'selected':''}>${label}</option>`).join('');
   const status=v354Select(kind,'status',['all',...v354StatusIds()],x=>x==='all'?'All statuses':v199StatusLabel(x));
   const priority=v354Select(kind,'priority',['all',...v354PriorityIds()],x=>x==='all'?'All priorities':x[0].toUpperCase()+x.slice(1));
@@ -59187,9 +58748,8 @@ function v369ItemTitle(entry){
   return (S.library||[]).find(x=>String(x?.id||'')===id)||null;
 }
 function v369UnitType(item){
-  const unit=String(getCategory(item?.categoryId)?.unit||'episodes');
-  const singular=UNITS[unit]?.singular||'unit';
-  return singular.charAt(0).toUpperCase()+singular.slice(1);
+  const u=String(getCategory(item?.categoryId)?.unit||'').toLowerCase();
+  return /chapter/.test(u)?'Chapter':/issue/.test(u)?'Issue':/volume/.test(u)?'Volume':/book/.test(u)?'Book':/movie|film/.test(u)?'Movie':/page/.test(u)?'Page':/track|song/.test(u)?'Track':/game/.test(u)?'Game':'Episode';
 }
 function v369ValidStamp(value){
   const n=Number(value);
@@ -60553,10 +60113,8 @@ window.MediaFlowV372={version:372,features:['Premium theme-aware Logging 3.0','Q
 const V373_RELEASE=373;
 const V373_SORTS=[
   ['logAdded','Added to Logging'],
-  ['draftUpdated','Last updated in draft'],
-  ['progress','Consumed progress'],
-  ['total','Total progress'],
-  ['remaining','Remaining progress'],
+  ['progress','Current progress'],
+  ['total','Total episodes / chapters'],
   ['priority','Priority'],
   ['title','Alphabetical'],
   ['logging','Last updated by logging'],
@@ -60566,33 +60124,14 @@ const V373_SORTS=[
   ['random','Random'],
   ['custom','Custom order']
 ];
-// Draft-specific recency is ONLY for Arrange your session; never extend the all-Library picker.
-const V373_PICKER_SORTS=V373_SORTS.filter(([key])=>key!=='custom'&&key!=='draftUpdated');
+const V373_PICKER_SORTS=V373_SORTS.filter(([key])=>key!=='custom');
 const V373_ALLOWED=new Set(V373_SORTS.map(x=>x[0]));
 function v373OrderState(){
   const draft=S.logDraft;
-  if(!draft||typeof draft!=='object')return {sort:'logAdded',dir:'desc',manualIds:[],randomSeed:1};
-  if(!draft.v373Ordering||typeof draft.v373Ordering!=='object')
-    draft.v373Ordering={sort:'logAdded',dir:'desc',manualIds:[],randomSeed:1,v517DefaultApplied:true,v525DefaultApplied:true};
+  if(!draft||typeof draft!=='object')return {sort:'logAdded',dir:'asc',manualIds:[],randomSeed:1};
+  if(!draft.v373Ordering||typeof draft.v373Ordering!=='object')draft.v373Ordering={sort:'logAdded',dir:'asc',manualIds:[],randomSeed:1};
   const st=draft.v373Ordering;
-  // Upgrade untouched legacy defaults without resetting deliberate custom sorts.
-  if(st.v517DefaultApplied!==true){
-    const untouched=st.sort==='logAdded'&&st.dir==='asc'&&
-      (!Array.isArray(st.manualIds)||st.manualIds.length===0);
-    if(untouched){st.sort='added';st.dir='desc';}
-    st.v517DefaultApplied=true;
-  }
-  // v525 restores a session-only default of Added to Logging, newest first.
-  // Migrate the previous v517 implicit default once; never overwrite custom,
-  // random, reverse, or other consciously selected sorting choices.
-  if(st.v525DefaultApplied!==true){
-    if(st.sort==='added'&&st.dir==='desc'&&
-        (!Array.isArray(st.manualIds)||st.manualIds.length===0)){
-      st.sort='logAdded';st.dir='desc';
-    }
-    st.v525DefaultApplied=true;
-  }
-  if(!V373_ALLOWED.has(st.sort)){st.sort='logAdded';st.dir='desc';}
+  if(!V373_ALLOWED.has(st.sort))st.sort='logAdded';
   st.dir=st.dir==='desc'?'desc':'asc';
   if(!Array.isArray(st.manualIds))st.manualIds=[];
   if(!Number.isSafeInteger(st.randomSeed)||st.randomSeed<1)st.randomSeed=1;
@@ -60616,44 +60155,6 @@ function v373Timestamp(v){
   if(typeof v==='string'){const d=Date.parse(v);return Number.isFinite(d)?d:0;}
   return 0;
 }
-/* Compute remaining episode/chapter units from canonical saved progress.
- * Seasons with missing totals make the complete remaining count unknown;
- * never silently sort those as zero. This helper never mutates the Library.
- * Completed titles have zero remaining units when total is known. */
-function v373RemainingUnits(item){
-  if(!item||typeof item!=='object')return null;
-  const validTotal=value=>{
-    if(value==null||value==='')return null;
-    const n=Number(value);
-    return Number.isFinite(n)&&n>0?Math.floor(n):null;
-  };
-  const progress=value=>{
-    const n=Number(value);
-    return Number.isFinite(n)?Math.max(0,Math.floor(n)):0;
-  };
-  const seasons=Array.isArray(item.seasons)?item.seasons:[];
-  if(seasons.length){
-    let sum=0;
-    for(const season of seasons){
-      const total=validTotal(season?.total??season?.totalEpisodes??season?.total_episodes);
-      if(total===null)return null;
-      sum+=Math.max(0,total-progress(season?.progress));
-    }
-    return sum;
-  }
-  const total=validTotal(item.total);
-  return total===null?null:Math.max(0,total-progress(item.progress));
-}
-// Prefer the real last edit of the draft title, not a Library metadata
-// update or a manually adjusted watched-at timestamp. Per-unit timestamps
-// handle restored older drafts that lack an entry-level edit stamp.
-function v373DraftModifiedAt(entry){
-  if(!entry||typeof entry!=='object')return 0;
-  const units=Array.isArray(entry.v369Units)?entry.v369Units:[];
-  let stamp=v373Timestamp(entry.v369UpdatedAt);
-  for(const u of units)stamp=Math.max(stamp,v373Timestamp(u?.v369UpdatedAt));
-  return stamp||v373Timestamp(entry.loggedAt);
-}
 function v373CompareData(a,b,field,dir){
   const sign=dir==='desc'?-1:1;
   const itemA=a.item||{},itemB=b.item||{};
@@ -60662,22 +60163,10 @@ function v373CompareData(a,b,field,dir){
     const ranks={low:0,medium:1,high:2};
     return sign*((ranks[String(itemA.priority||'medium').toLowerCase()]??1)-(ranks[String(itemB.priority||'medium').toLowerCase()]??1));
   }
-  if(field==='remaining'){
-    const av=v373RemainingUnits(itemA),bv=v373RemainingUnits(itemB);
-    // Unknown totals always sort last in both directions.
-    if(av===null&&bv!==null)return 1;
-    if(av!==null&&bv===null)return -1;
-    if(av===null&&bv===null)return 0;
-    return sign*(av-bv);
-  }
   let av=0,bv=0;
   const num=(v)=>Number.isFinite(Number(v))?Number(v):0;
   switch(field){
-    // Session insertion order is canonical and does not change when someone
-    // edits a watched-at timestamp. The last-update sorter is separate.
-    case 'logAdded':av=a.index;bv=b.index;break;
-    case 'draftUpdated':
-      av=v373DraftModifiedAt(a.entry);bv=v373DraftModifiedAt(b.entry);break;
+    case 'logAdded':av=v373Timestamp(a.entry.loggedAt)||a.index+1;bv=v373Timestamp(b.entry.loggedAt)||b.index+1;break;
     case 'progress':av=num(itemA.progress);bv=num(itemB.progress);break;
     case 'total':av=num(itemA.total);bv=num(itemB.total);break;
     case 'logging':av=v373Timestamp(a.item?v53LastTouched(itemA):0);bv=v373Timestamp(b.item?v53LastTouched(itemB):0);break;
@@ -60686,7 +60175,7 @@ function v373CompareData(a,b,field,dir){
     case 'added':av=v373Timestamp(itemA.createdAt);bv=v373Timestamp(itemB.createdAt);break;
   }
   // Unknown timestamps always go last regardless of direction.
-  if(['draftUpdated','logging','edited','seen','added'].includes(field)){
+  if(['logging','edited','seen','added'].includes(field)){
     if(!av&&bv)return 1;
     if(av&&!bv)return -1;
   }
@@ -60776,7 +60265,7 @@ function v373Persist(){v369Touch();v373LiveUpdate();}
 function v373SetSort(value){
   const st=v373OrderState(),next=V373_ALLOWED.has(value)?value:'logAdded';
   if(next==='custom'&&st.sort!=='custom')st.manualIds=v373OrderedEntries().map(x=>x.id);
-  if((next==='logAdded'||next==='draftUpdated'||next==='added'||next==='remaining')&&st.sort!==next)st.dir='desc';
+  if(next==='logAdded'&&st.sort!=='logAdded')st.dir='desc';
   st.sort=next;
   v373Persist();
 }
@@ -60871,19 +60360,13 @@ function v373NormalizePickerSort(){
   if(!st.v373Ready){
     st.v373Ready=true;
     if(!st.sortBase||st.sortBase==='title'||st.sort==='relevance'){
-      st.sortBase='added';st.sortDir='desc';st.sort='added-desc';
+      st.sortBase='added';st.sortDir='asc';st.sort='added-asc';
     }
     st.v373RandomSeed=1;
   }
-  if(st.v517DefaultApplied!==true){
-    // Old untouched picker default was Date added ascending.
-    if(st.sortBase==='added'&&st.sortDir==='asc'&&st.sort==='added-asc')
-      st.sortDir='desc';
-    st.v517DefaultApplied=true;
-  }
   const allowed=new Set(V373_PICKER_SORTS.map(x=>x[0]));
-  if(!allowed.has(st.sortBase)){st.sortBase='added';st.sortDir='desc';}
-  st.sortDir=st.sortDir==='asc'?'asc':'desc';
+  if(!allowed.has(st.sortBase))st.sortBase='added';
+  st.sortDir=st.sortDir==='desc'?'desc':'asc';
   if(!Array.isArray(st.categories))st.categories=[];
   st.sort=v224SortKey(st.sortBase,st.sortDir);
   return st;
@@ -60921,12 +60404,12 @@ logTitleCandidates=function(query){
 App.v224LogSetSort=function(value){
   const st=v373NormalizePickerSort(),allowed=new Set(V373_PICKER_SORTS.map(x=>x[0]));
   st.sortBase=allowed.has(value)?value:'added';
-  if(value==='logAdded'||value==='added'||value==='remaining')st.sortDir='desc';
+  if(value==='logAdded')st.sortDir='desc';
   st.sort=v224SortKey(st.sortBase,st.sortDir);st.page=0;renderLogSuggestions();
 };
 App.v224LogClearFilters=function(){
   const st=v373NormalizePickerSort();
-  st.categories=[];st.status='all';st.priority='all';st.sortBase='added';st.sortDir='desc';st.sort='added-desc';st.page=0;renderLogSuggestions();
+  st.categories=[];st.status='all';st.priority='all';st.sortBase='added';st.sortDir='asc';st.sort='added-asc';st.page=0;renderLogSuggestions();
 };
 App.v373ShufflePicker=function(){
   const st=v373NormalizePickerSort();st.sortBase='random';st.sortDir='asc';st.v373RandomSeed=(Date.now()%2147483647)||1;
@@ -63627,7 +63110,7 @@ function v392Timestamp(item,key='createdAt'){
   return Number.isFinite(n)&&n>0?n:0;
 }
 function v392SortOptions(selected){
-  const options=[['added','Date added'],['title','Alphabetical'],['priority','Priority'],['rating','Rating'],['progress','Consumed progress'],['total','Total progress'],['edited','Last edited'],['logged','Last logged'],['random','Random']];
+  const options=[['added','Date added'],['title','Alphabetical'],['priority','Priority'],['rating','Rating'],['progress','Progress'],['total','Total episodes'],['edited','Last edited'],['logged','Last logged'],['random','Random']];
   return options.map(([k,label])=>`<option value="${k}" ${selected===k?'selected':''}>${label}</option>`).join('');
 }
 function v392CompareTitles(a,b,sort,dir){
@@ -64199,13 +63682,13 @@ function v394BulkPanel(e,index,item){
   const note=(!exact?'<p class="mf394-warning">Nonconsecutive '+escapeHtml(noun.toLowerCase())+'s are preserved. Changing this number will replace the selected season’s detailed entries after confirmation.</p>':'')+
     (repeatMixed?'<p class="mf394-warning">Mixed repeat/non-repeat entries are preserved until you explicitly replace them.</p>':'')+
     (hasOther?'<p class="mf394-hint">'+(all.length-units.length)+' draft units in other seasons are preserved. The summary below controls only the selected season.</p>':'');
-  const label=method==='last'?noun+' Reached':unitLabel(getCategory(item.categoryId).unit,2)+' Consumed';
+  const label=method==='last'?'Last '+(/chapter|page|book|issue/i.test(noun)?'Read':'Watched')+' '+noun:noun+'s consumed';
   const value=method==='last'?highest:quantity;
-  return '<div class="mf394-bulk" aria-label="'+escapeHtml(method==='last'?'Progress Reached':'Amount Consumed')+' logging">'+
+  return '<div class="mf394-bulk" aria-label="'+escapeHtml(method==='last'?'Last watched':'Amount consumed')+' logging">'+
     (opts?'<label class="mf394-field">Season <select onchange="App.v394ChooseSeason('+index+',this.value)">'+opts+'</select></label>':'')+
     '<label class="mf394-field">'+escapeHtml(label)+'<input type="number" inputmode="numeric" min="'+(method==='last'?base:0)+'" max="999999" value="'+value+'" onchange="App.v394SetQuantity('+index+',this.value)"></label>'+
     '<div class="mf394-summary"><span>Saved '+escapeHtml(noun.toLowerCase())+' progress: <strong>'+base+'</strong></span><span>Draft amount: <strong>'+quantity+'</strong></span><span>Highest draft '+escapeHtml(noun.toLowerCase())+': <strong>'+highest+'</strong></span></div>'+note+
-    '<div class="mf394-field"><label>Consumed At <input type="datetime-local" step="1" aria-label="Consumed At" value="'+dateValue+'" onchange="App.v394SetWhen('+index+',this.value)"></label>'+
+    '<div class="mf394-field"><label>When '+(/chapter|page|issue|book/i.test(noun)?'Consumed':'Watched')+' <input type="datetime-local" step="1" aria-label="When watched or consumed" value="'+dateValue+'" onchange="App.v394SetWhen('+index+',this.value)"></label>'+
     '<small>Uses the title-added date by default. Editing this field never changes the Per Unit timestamps.</small>'+'</div>'+ 
     '<div class="mf394-runtime"><label class="mf394-runtime-toggle"><input type="checkbox" '+(manual?'checked':'')+' onchange="App.v394ToggleRuntime('+index+',this.checked)"> Customize total runtime</label>'+ 
     (manual?'<label class="mf394-field">Total runtime (HH:MM:SS) <input aria-label="Custom total runtime" type="text" inputmode="numeric" pattern="[0-9]+:[0-5][0-9]:[0-5][0-9]" value="'+v369Hms(Number(e.v394RuntimeSeconds)||0)+'" onchange="App.v394SetRuntime('+index+',this.value)"></label>':'<div class="mf394-auto-runtime">Automatic: <strong>'+v369Hms(duration)+'</strong>'+(v369DefaultSeconds(item)<=0?'<small>Duration metadata is missing; check the category runtime.</small>':'')+'</div>')+'</div>'+ 
@@ -64222,7 +63705,7 @@ v370TitlePanelHtml=function(e,index,forceExpanded=false){
   const content=panel.querySelector('.v370-title-content');
   if(content){
     const tabs=document.createElement('div');tabs.className='mf394-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Logging method for '+cleanTitle(item.title));
-    const labels=[['unit','Per Unit','unit'],['last','Progress Reached','last'],['amount','Amount Consumed','amount']];
+    const labels=[['unit','Per Unit','unit'],['last','Last Watched','last'],['amount','Amount Consumed','amount']];
     tabs.innerHTML=labels.map(([id,label,icon])=>'<button type="button" role="tab" aria-selected="'+(v394Method(e)===id)+'" class="btn btn-sm '+(v394Method(e)===id?'active':'')+'" onclick="App.v394Switch('+index+',\''+id+'\')"><span class="mf394-tab-icon">'+v370Icon(icon,14)+'</span><span class="mf394-tab-label">'+label+'</span></button>').join('');
     content.insertAdjacentElement('afterbegin',tabs);
     if(v394Method(e)!=='unit'){
@@ -64373,7 +63856,7 @@ if(typeof v394SettingsRenderer==='function')MediaFlowRuntime.registerPageRendere
 // now-without-Batch NAV_ITEMS. Old batch History remains readable in History.
 const v394SetViewBase=App.setView;
 App.setView=function(view){return v394SetViewBase.call(this,view==='batch'?'dashboard':view);};
-window.MediaFlowV394={version:394,features:['Advanced Logging per-title tabs','Shared Per Unit canonical draft','Progress Reached','Amount Consumed','Runtime override','When watched','Batch Log navigation retired'],audit:()=>({mode:S.logDraft?.v369Interface,methods:(S.logDraft?.entries||[]).map(e=>v394Method(e)),units:(S.logDraft?.entries||[]).map(e=>e.v369Units?.length||0),batchNavigation:NAV_ITEMS.some(n=>n.id==='batch')})};
+window.MediaFlowV394={version:394,features:['Advanced Logging per-title tabs','Shared Per Unit canonical draft','Last Watched','Amount Consumed','Runtime override','When watched','Batch Log navigation retired'],audit:()=>({mode:S.logDraft?.v369Interface,methods:(S.logDraft?.entries||[]).map(e=>v394Method(e)),units:(S.logDraft?.entries||[]).map(e=>e.v369Units?.length||0),batchNavigation:NAV_ITEMS.some(n=>n.id==='batch')})};
 MediaFlowRuntime.version=V394_RELEASE;
 /* MediaFlow v396 — Advanced Logging card decoration reliability.
  * v394 re-renders ONE title after method/quantity/time/runtime edits. That
@@ -66272,7 +65755,7 @@ App.v354OpenSheet=function(kind){
   return v406OpenSheetBase.apply(this,arguments);
 };
 
-const V406_STATUS_LABEL={planned:'Planned',active:'Active',paused:'On Hold',completed:'Completed',dropped:'Dropped'};
+const V406_STATUS_LABEL={planned:'Plan to Watch',active:'Watching',paused:'On Hold',completed:'Completed',dropped:'Dropped'};
 const V406_PRIORITY_LABEL={low:'Low',medium:'Medium',high:'High'};
 function v406ActionItems(kind){
   const ids=v230VisibleIds(kind==='category'?'setCategory':kind==='status'?'setStatus':'setPriority');
@@ -67046,12 +66529,8 @@ function mf421InjectSettings(){
 }
 try{MediaFlowRuntime.registerPageEnhancer('settings',mf421InjectSettings);}catch(_){ }
 
-/* Use the same physical breakpoint as the v277/v278 mobile bottom bar.
- * Device-layout preference flags must not keep a desktop dock visible while
- * the viewport already renders mobile navigation. */
-const MF421_NAV_BREAKPOINT=1080;
 function mf421DeskAllowed(){
-  return window.innerWidth>MF421_NAV_BREAKPOINT;
+  return window.innerWidth>860&&!['mobile','tablet'].includes(document.documentElement.dataset.v238Layout||'');
 }
 function mf421AddDock(){
   let bar=document.querySelector('.mf421-dock');
@@ -67103,7 +66582,6 @@ function mf421RefreshDock(bar,force=false){
 }
 function mf421Apply(force=false){
   const mode=mf421Mode(),desk=mf421DeskAllowed(),body=document.body;
-  if(!desk&&mf421Drag){mf421Drag=null;mf421Zones(false);}
   body.classList.toggle('mf421-desktop',desk);
   for(const key of MF421_MODES)body.classList.toggle('mf421-'+key,desk&&mode===key);
   body.classList.toggle('mf265-sidebar-collapsed',desk&&mode==='mini');
@@ -67117,7 +66595,7 @@ function mf421Apply(force=false){
   }
   let bar=document.querySelector('.mf421-dock');
   if(desk&&(mode==='top'||mode==='bottom')){
-    bar=mf421AddDock();bar.hidden=false;bar.inert=false;
+    bar=mf421AddDock();bar.hidden=false;
     const progress=bar.querySelector('.mf421-dock-progress');
     if(progress){
       try{
@@ -67128,7 +66606,7 @@ function mf421Apply(force=false){
       }catch(_){progress.hidden=true;}
     }
     mf421RefreshDock(bar,force);
-  }else if(bar){bar.hidden=true;bar.inert=true;mf421DropOpen=false;mf421UpdateMore(bar);}
+  }else if(bar){bar.hidden=true;mf421DropOpen=false;mf421UpdateMore(bar);}
 }
 function mf421Target(e){
   if(e.clientY<Math.max(96,window.innerHeight*.13))return 'top';
@@ -67337,15 +66815,7 @@ mf421Apply=function(force){
   const result=mf422OriginalApply.apply(this,arguments);
   if(mf421Mode()==='sidebar'&&mf421DeskAllowed())mf422RestoreExpandedWidth();
   mf422EnhanceDock();mf422RefreshSettingsTabs();
-  // Responsive handoff: never reopen a desktop progression popup after
-  // shrinking to mobile and expanding the window again.
-  if(!mf421DeskAllowed()||!['top','bottom'].includes(mf421Mode())){
-    mf422PopupOpen=false;
-    const bar=document.querySelector('.mf421-dock');
-    const popup=bar?.querySelector('.mf422-progress-popup');
-    if(popup)popup.hidden=true;
-    bar?.querySelector('.mf421-dock-progress')?.setAttribute('aria-expanded','false');
-  }
+  if(!['top','bottom'].includes(mf421Mode()))mf422PopupOpen=false;
   return result;
 };
 document.addEventListener('pointerdown',function(e){
@@ -67728,15 +67198,13 @@ async function mf424Request(provider,url,options={}){
   if(hit&&hit.until>Date.now())return hit.data;
   let attempt=0;
   while(attempt<3){
-    if(MF424.job?.hardStop)throw Object.assign(new Error('Recovery stopped by user'),{paused:true});
     let now=Date.now();state.at=state.at.filter(t=>now-t<60000);
     const wait=Math.max(0,state.next-now,state.cooldown-now,state.at.length>=limit?state.at[0]+60000-now:0);
-    if(wait){mf424State('cooldown');await mf424Delay(Math.min(3000,wait));continue;}
+    if(wait){mf424State('cooldown');await mf424Delay(Math.min(60000,wait));continue;}
     attempt++;
     state.at.push(Date.now());state.next=Date.now()+gap;state.count++;
     if(MF424.job)MF424.job.requestCount++;
-    const controller=new AbortController();MF424.activeControllers??=new Set();MF424.activeControllers.add(controller);
-    const timer=setTimeout(()=>controller.abort(),14500);
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),14500);
     try{
       const res=await fetch(url,{method:options.body?'POST':'GET',body:options.body||undefined,signal:controller.signal,headers:{'Accept':provider==='kitsu'?'application/vnd.api+json':'application/json',...(options.body?{'Content-Type':'application/json'}:{})}});
       if(res.ok){const data=await res.json();
@@ -67747,8 +67215,8 @@ async function mf424Request(provider,url,options={}){
         mf424Note('cooldown',provider+' '+res.status+' — cooling down');if(MF424.job)MF424.job.cooldownEvents++;await mf424SaveJob();continue;}
       if(res.status>=500){state.fails++;await mf424Delay(1200*(attempt+1));continue;}
       throw Object.assign(new Error(provider+' HTTP '+res.status),{permanent:true});
-    }catch(e){if(e.permanent||MF424.job?.hardStop)throw e;state.fails++;if(attempt>=3){state.unavailableUntil=Date.now()+90000;throw e;}await mf424Delay(900*(attempt+1)+Math.random()*550);}
-    finally{clearTimeout(timer);MF424.activeControllers?.delete(controller);}
+    }catch(e){if(e.permanent)throw e;state.fails++;if(attempt>=3){state.unavailableUntil=Date.now()+90000;throw e;}await mf424Delay(900*(attempt+1)+Math.random()*550);}
+    finally{clearTimeout(timer);}
   }
   if(state.fails>=6)state.cooldown=Date.now()+5*60000;
   throw new Error(provider+' temporarily unavailable');
@@ -67913,9 +67381,6 @@ async function mf424Apply(item,candidate,expected,{manual=false,linkId=true}={})
   if(!mf424Missing(item))return false;
   if(Number(item.modifiedAt||0)!==Number(expected||0))return false;
   if(!await mf424Image(candidate.url,candidate.provider))return false;
-  // A slow image probe may outlive this tab's lease or account session.
-  if(mf424Account()!==MF424.account||(MF424.running&&!mf424OwnLease())||
-     (MF424.running&&typeof mf442ProcessOwned==='function'&&!mf442ProcessOwned('cover')))return false;
   if(!mf424Missing(item)||Number(item.modifiedAt||0)!==Number(expected||0))return false;
   item.coverUrl=candidate.url;item.coverSource='auto:'+candidate.provider+':'+(candidate.idMatch?'external-id':'verified');
   // A selected cover can safely link a record ID, but existing IDs are sacred.
@@ -67927,7 +67392,6 @@ async function mf424Apply(item,candidate,expected,{manual=false,linkId=true}={})
 }
 async function mf424Flush(){if(!MF424.job?.dirty)return;
   if(mf424Account()!==MF424.account)throw new Error('Account changed before saving');
-  if(MF424.running&&typeof mf442ProcessOwned==='function'&&!mf442ProcessOwned('cover'))throw new Error('Recovery process lock changed; cover save suspended');
   if(typeof v53InvalidateLibraryCache==='function')v53InvalidateLibraryCache();
   await saveState();MF424.job.dirty=0;MF424.byId=null;mf424BuildIndex();
 }
@@ -67940,7 +67404,7 @@ async function mf424WaitForLibrary(){
   throw new Error('Account Library is not fully loaded; recovery paused rather than skipping titles');
 }
 function mf424LeaseKey(){return 'mf-v424-owner-'+mf424Account();}
-function mf424OwnLease(){try{const row=JSON.parse(localStorage.getItem(mf424LeaseKey())||'null');return Boolean(MF424.leaseToken&&row?.token===MF424.leaseToken&&Number(row.expiry)>Date.now());}catch(_){return false;}}
+function mf424OwnLease(){try{const row=JSON.parse(localStorage.getItem(mf424LeaseKey())||'null');return row?.token===MF424.leaseToken;}catch(_){return false;}}
 function mf424Lease(){const key=mf424LeaseKey();try{
   const current=JSON.parse(localStorage.getItem(key)||'null');if(current&&current.expiry>Date.now()&&current.token!==MF424.leaseToken)return false;
   if(!MF424.leaseToken)MF424.leaseToken=String(Date.now())+'-'+Math.random();
@@ -67982,14 +67446,9 @@ async function mf424Run(){if(MF424.running||!MF424.job)return;
         const id=job.ids[job.cursor],item=mf424Lookup(id);
         try{if(item)await mf424Process(item);else job.skipped++;}
         catch(e){if(!e.paused){job.failed++;mf424Note('error',String(e.message||e),id);}}
-        // Never commit a checkpoint for a title processed after lease loss.
-        if(!mf424OwnLease()||(typeof mf442ProcessOwned==='function'&&!mf442ProcessOwned('cover'))){job.pauseRequested=true;break;}
         if(job.pauseRequested||job.stopRequested)break;
-        await mf424Flush(); // confirm actual Library save BEFORE moving the cursor
-        if(!mf424OwnLease()||(typeof mf442ProcessOwned==='function'&&!mf442ProcessOwned('cover'))){job.pauseRequested=true;break;}
         job.cursor++;job.processed++;
-        await mf424SaveJob(); // committed results before checkpoint advancement
-        if(job.stopAfterTitle){job.stopAfterTitle=false;job.stopRequested=true;await mf424SaveJob();break;}
+        await mf424Flush();await mf424SaveJob(); // committed results before checkpoint advancement
         mf424Paint();await mf424Delay(0);
       }
       if(job.cursor>=partEnd&&job.mode==='parts'&&job.cursor<job.ids.length){
@@ -68183,7 +67642,6 @@ const MF425_PATHS={
  database:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/>',
  download:'<path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/>',
  retry:'<path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/>',
- refresh:'<path d="M20 11a8 8 0 0 0-14.93-4.1L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8 8 0 0 0 14.93 4.1L21 15"/><path d="M16 15h5v5"/>',
  check:'<path d="m5 12 4 4L19 6"/>',x:'<path d="M5 5 19 19M19 5 5 19"/>',
  gift:'<rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M12 8c-2-5-7-7-8-3-1 3 3 3 8 3Zm0 0c2-5 7-7 8-3 1 3-3 3-8 3Z"/>',
  external:'<path d="M13 4h7v7M20 4l-9 9M20 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"/>',
@@ -68228,7 +67686,7 @@ function mf425ScopeChange(){const root=document.getElementById('mf425-scope');if
  if(mode==='categoryStatus'){
   const selected=[...root.querySelectorAll('input[data-mf425-category]:checked')].map(i=>i.value);
   const previous=new Set([...grid.querySelectorAll('input[data-mf425-status]:checked')].map(i=>i.dataset.mf425Status+':'+i.value));
-  const statuses=[['planned','Planned'],['active','Active'],['paused','On Hold'],['completed','Completed'],['dropped','Dropped']];
+  const statuses=[['planned','Plan to Watch / Read'],['active','Watching / Reading'],['paused','On Hold'],['completed','Completed'],['dropped','Dropped']];
   grid.innerHTML=selected.map(id=>{const cat=(S.categories||[]).find(c=>String(c.id)===id);return '<fieldset><legend>'+mf425Esc(cat?.name||id)+'</legend>'+statuses.map(([s,n])=>'<label><input data-mf425-status="'+mf425Esc(id)+'" type="checkbox" value="'+s+'" onchange="App.mf425UpdateCount()" '+(previous.has(id+':'+s)?'checked':'')+'>'+n+'</label>').join('')+'</fieldset>';}).join('');
  }
  mf425UpdateCount();}
@@ -68320,7 +67778,7 @@ function mf425CandidatesHtml(found,item){if(!found.length)return '<div class="mf
  const id=mf425IdText(item,c.provider,c);return '<article class="mf425-candidate"><img src="'+mf425Esc(c.url)+'" alt="'+mf425Esc(c.title||item.title)+' poster" loading="lazy"><div class="mf425-candidate-copy"><strong>'+mf425Esc(c.title||'Untitled provider record')+'</strong><small>Library: '+mf425Esc(item.title)+'</small><span class="mf425-source">'+mf425Icon('database')+' '+mf425Esc(c.provider)+'</span><small>'+mf425Esc(id)+'</small><small>'+mf425Esc(c.reason||'Title match')+'</small>'+(c.recordUrl?'<a href="'+mf425Esc(c.recordUrl)+'" target="_blank" rel="noopener noreferrer">'+mf425Icon('external')+' Provider record</a>':'')+mf424CoverIdControl(item,c,i,'mf425')+'<button class="btn btn-primary" onclick="App.mf425ChooseInstant('+i+')">'+mf425Icon('check')+' Use this cover</button></div></article>';
  }).join('')+'</div>';}
 // Only validated, visible candidates are selectable, in precisely the displayed order.
-async function mf425ChooseInstant(index){const candidate=MF425.quick?.candidates?.[Number(index)];if(!candidate){showToast('This cover result is no longer available. Retry the search.');return;}
+function mf425ChooseInstant(index){const candidate=MF425.quick?.candidates?.[Number(index)];if(!candidate){showToast('This cover result is no longer available. Retry the search.');return;}
  const entry=MF425.quickEntry||MF425.quickSource||'editor';const url=candidate.url;
  if(entry==='dashboard'){
   const input=document.getElementById('v192-cover-url-input');if(input){input.value=url;App.v235ValidateMissingCover?.(url);showToast('Cover selected. Confirm Save cover & Next to earn XP.');}
@@ -68330,7 +67788,7 @@ async function mf425ChooseInstant(index){const candidate=MF425.quick?.candidates
   const all=[...document.querySelectorAll('#modal-root input')];const input=all.find(x=>/cover|image/i.test(x.id+' '+x.placeholder)&&x.type!=='file');
   if(input){input.value=url;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));showToast('Cover selected. Save the title to apply it and earn XP.');}
   else if(MF425.draft?.id&&MF425.draft.id!=='draft'){
-    const item=mf424Lookup(MF425.draft.id);if(item&&(!item.coverUrl||await mf444Confirm('Replace existing cover?', 'You can replace this title’s current artwork with the selected validated cover. Other title data remains unchanged.', 'Use Cover', false, 1, 'cover'))){const previous=String(item.coverUrl||'');item.coverUrl=url;item.coverSource='manual:instant:'+candidate.provider;item.modifiedAt=Date.now();mf425Credit(item,previous,url,'instant');saveState();render();}
+    const item=mf424Lookup(MF425.draft.id);if(item&&(!item.coverUrl||confirm('Replace this title’s existing cover?'))){const previous=String(item.coverUrl||'');item.coverUrl=url;item.coverSource='manual:instant:'+candidate.provider;item.modifiedAt=Date.now();mf425Credit(item,previous,url,'instant');saveState();render();}
   }
  }
  mf425CloseInstant();}
@@ -68424,8 +67882,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 // Existing v365 Settings Center: inject a real Library subgroup, not a popup
 // pretending to be settings. Preferences use S.settings and existing cloud sync.
 function mf425SettingsMarkup(){const prefs=mf424Defaults(),xp=S.settings?.leveling?.coverChangeXP??DEFAULT_SETTINGS.leveling.coverChangeXP;
- const sources=MF424_PROVIDER_META.slice().sort((a,b)=>(prefs.priorities.indexOf(a.id)<0?999:prefs.priorities.indexOf(a.id))-(prefs.priorities.indexOf(b.id)<0?999:prefs.priorities.indexOf(b.id)));
- const providerUi='<fieldset class="mf430-settings-providers" data-mf-setting-id="cover-providers"><legend>'+mf425Icon('database')+' Cover providers & priority</legend><p class="mf425-settings-note">Every registered provider stays visible. Only providers with real working adapters and the required configuration can run. No API test is required. Your disabled sources stay disabled.</p><div class="mf430-settings-provider-list">'+sources.map(p=>'<div class="mf430-settings-provider" data-mf430-provider="'+mf425Esc(p.id)+'"><label><input type="checkbox" value="'+mf425Esc(p.id)+'" data-mf430-provider-enabled '+(prefs.enabled.includes(p.id)?'checked':'')+' onchange="App.mf430SaveSettingsProviders()"><span><strong>'+mf425Esc(p.name)+'</strong><small>'+mf425Esc(p.limit?(p.credentials?'Configured gateway · ready without testing':'Public adapter · ready without testing'):(p.credentials?'Credential or working adapter required':'Working adapter unavailable · listed for reference'))+'</small></span></label><div class="mf430-settings-provider-order"><button class="btn btn-ghost" type="button" onclick="App.mf430MoveSettingsProvider(\''+p.id+'\',-1)" title="Move '+mf425Esc(p.name)+' higher" aria-label="Move '+mf425Esc(p.name)+' higher">'+mf425Icon('chevronUp')+'</button><button class="btn btn-ghost" type="button" onclick="App.mf430MoveSettingsProvider(\''+p.id+'\',1)" title="Move '+mf425Esc(p.name)+' lower" aria-label="Move '+mf425Esc(p.name)+' lower">'+mf425Icon('chevronDown')+'</button></div></div>').join('')+'</div></fieldset>';
+ const sources=MF424_PROVIDER_META.filter(p=>p.limit).sort((a,b)=>(prefs.priorities.indexOf(a.id)<0?999:prefs.priorities.indexOf(a.id))-(prefs.priorities.indexOf(b.id)<0?999:prefs.priorities.indexOf(b.id)));
+ const providerUi='<fieldset class="mf430-settings-providers" data-mf-setting-id="cover-providers"><legend>'+mf425Icon('database')+' Enabled cover providers & priority</legend><p class="mf425-settings-note">All supported sources can search every Library category. Their individual APIs may still return no match. Reorder searches with the up/down arrows.</p><div class="mf430-settings-provider-list">'+sources.map(p=>'<div class="mf430-settings-provider" data-mf430-provider="'+mf425Esc(p.id)+'"><label><input type="checkbox" value="'+mf425Esc(p.id)+'" data-mf430-provider-enabled '+(prefs.enabled.includes(p.id)?'checked':'')+' onchange="App.mf430SaveSettingsProviders()"><span><strong>'+mf425Esc(p.name)+'</strong><small>'+mf425Esc(p.level||'Public')+'</small></span></label><div class="mf430-settings-provider-order"><button class="btn btn-ghost" type="button" onclick="App.mf430MoveSettingsProvider(\''+p.id+'\',-1)" title="Move '+mf425Esc(p.name)+' higher" aria-label="Move '+mf425Esc(p.name)+' higher">'+mf425Icon('chevronUp')+'</button><button class="btn btn-ghost" type="button" onclick="App.mf430MoveSettingsProvider(\''+p.id+'\',1)" title="Move '+mf425Esc(p.name)+' lower" aria-label="Move '+mf425Esc(p.name)+' lower">'+mf425Icon('chevronDown')+'</button></div></div>').join('')+'</div></fieldset>';
  const option=(v,label,current)=>'<option value="'+v+'" '+(v===current?'selected':'')+'>'+label+'</option>';
  return '<section class="mf425-settings-card" aria-label="Cover Recovery Settings"><div class="mf425-settings-lead">'+mf425Icon('images',21)+'<div><strong>Recovery preferences</strong><p>Default processing, providers, background recovery and XP rewards.</p></div></div>'+ 
  '<div class="mf425-settings-grid"><label data-mf-setting-id="cover-mode">Recovery mode<select onchange="App.mf425SavePref(\'mode\',this.value)">'+option('parts','Part-by-Part',prefs.mode)+option('one','One-Go',prefs.mode)+'</select></label>'+ 
@@ -69254,7 +68712,7 @@ window.MediaFlowV433=Object.freeze({
   list:()=>MF433_PROVIDER_CATALOG.map(p=>({...p})),
   verifyCandidateIds:(item,candidate)=>mf433CandidateLinks(item,candidate).map(link=>({...link}))
 });
-/* MediaFlow v434 gateway adapter; v443 makes testing optional for configured connections.
+/* MediaFlow v434 — opt-in live provider testing and External ID source lookup.
  * A successful gateway response only validates access; it does not establish a
  * match to a Library title. The user selects any unconfirmed results manually. */
 const MF434={status:null,loading:false,tests:{},lookup:[],lookupProvider:"",cache:new Map(),busy:false};
@@ -69285,10 +68743,11 @@ async function mf434Call(action,payload={}){
  }finally{clearTimeout(timer);}
 }
 function mf434EnableAdapters(){
+ const verified=new Set(mf434SavedTests());
  for(const p of MF424_PROVIDER_META){
   const status=mf434ProviderStatus(p.id);
   if(!MF434_COVER.has(p.id))continue;
-  const enabled=Boolean(status?.configured&&status?.testable);
+  const enabled=Boolean(status?.configured&&status?.testable&&verified.has(p.id));
   p.limit=enabled?(p.id==="tmdb"?8:6):0;
   p.gap=enabled?Math.max(10000,Number(p.gap)||10000):0;
   if(enabled)MF424_EXTRA_COVER_ADAPTERS.set(p.id,(item)=>mf434Find(item,p.id));
@@ -69316,9 +68775,8 @@ function mf434Payload(item,provider){
 }
 async function mf434Find(item,provider){
  if(!MF434_COVER.has(provider))return [];
- if(typeof mf443EnsureGateway==='function')await mf443EnsureGateway();
  const status=mf434ProviderStatus(provider);
- if(!status?.configured||!status?.testable)return [];
+ if(!status?.configured||!mf434SavedTests().includes(provider))return [];
  const key=String(AUTH_USER?.id||"")+":"+provider+":"+item.title+":"+JSON.stringify(item.externalIds||{});
  const hit=MF434.cache.get(key);
  if(hit&&hit.until>Date.now())return hit.rows;
@@ -69349,9 +68807,13 @@ async function mf434TestProvider(provider){
   S.settings.v434TestedProviders=[...new Set([...mf434SavedTests(),provider])];
   await saveState();
   mf434EnableAdapters();
-  if(area)area.textContent=MF434_LABELS[provider]+" responded successfully · "+MF434.tests[provider].found+" matching records. "+(MF434_COVER.has(provider)?"Cover Recovery can use this connection without testing.":"ID-only source; no unlicensed artwork.");
+  if(area)area.textContent=MF434_LABELS[provider]+" responded successfully · "+MF434.tests[provider].found+" matching records. "+(MF434_COVER.has(provider)?"Enable it in the provider preferences for Cover Recovery.":"ID-only source; no unlicensed artwork.");
   showToast(MF434_LABELS[provider]+" API connection tested successfully.");
  }catch(e){
+  if(provider==="omdb"&&mf434SavedTests().includes("omdb")){
+   S.settings.v434TestedProviders=mf434SavedTests().filter(p=>p!=="omdb");
+   await saveState();mf434EnableAdapters();
+  }
   if(area)area.textContent=MF434_LABELS[provider]+": "+String(e.message||e);
   showToast("Provider test failed: "+String(e.message||e));
  }
@@ -69360,10 +68822,10 @@ async function mf434TestProvider(provider){
 function mf434Panel(){
  const statuses=MF434.status?.providers||[];
  const label=p=>mf434Esc(MF434_LABELS[p.id]||p.id);
- const statusText=p=>!p.testable?"API access or licensing review":!p.configured?"Credential missing":mf434SavedTests().includes(p.id)?"Ready · last diagnostic passed":"Ready · optional test";
+ const statusText=p=>!p.testable?"API access or licensing review":!p.configured?"Credential missing":mf434SavedTests().includes(p.id)?"Connection tested":"Ready for manual test";
  return '<div class="mf434-connection" data-mf-setting-id="cover-api-gateway">'+
  '<header><strong>Verified API connections</strong><span>Personal MediaFlow · v434</span></header>'+
- '<p>Configured providers work without testing first. Test API is optional diagnostics. Credentials remain in Supabase.</p>'+
+ '<p>New APIs are opt-in. Use a real title to test each provider, then enable approved cover sources. No credential is displayed or stored in the browser.</p>'+
  '<div class="mf434-test-toolbar"><label>Test title <input id="mf434-test-title" type="text" placeholder="Breaking Bad / Naruto / Frankenstein" maxlength="110" value="'+mf434Esc(MF434.lastTestTitle||"")+'"></label>'+
  '<button class="btn btn-ghost" type="button" onclick="App.mf434RefreshGateway()">Check connections</button></div>'+
  '<div class="mf434-status-grid">'+(statuses.length?statuses.map(p=>'<div class="mf434-provider" data-provider="'+mf434Esc(p.id)+'"><div><strong>'+label(p)+'</strong><small>'+mf434Esc(statusText(p))+'</small></div>'+
@@ -70134,19 +69596,18 @@ function mf438Catalog(){
   entry.gateway=Boolean(status);
   entry.configured=Boolean(status?.configured);
   entry.testable=Boolean(status?.testable&&status?.configured);
-  entry.verified=Boolean(entry.testable&&mf434SavedTests().includes(entry.id)); // diagnostic history only
+  entry.verified=Boolean(entry.testable&&mf434SavedTests().includes(entry.id));
   entry.publicProbe=Boolean(MF438_PUBLIC_PROBES[entry.id]);
   entry.probeResult=MF438_UI.tests.get(entry.id)||null;
   entry.coverEnabled=entry.coverAdapter&&mf424Defaults().enabled.includes(entry.id);
-  // A catalog entry is NOT evidence of a live adapter.
-  entry.metadataActive=(typeof MF439_PUBLIC!=='undefined'&&Boolean(MF439_PUBLIC[entry.id]))||
-    (typeof MF439_GATEWAY!=='undefined'&&MF439_GATEWAY.includes(entry.id)&&Boolean(status?.configured&&status?.testable));
+  // Metadata is a declared potential capability, not a live recovery adapter.
+  entry.metadataActive=false;
   entry.releaseActive=false;
   entry.ratingActive=false;
   entry.testKind=entry.gateway?(entry.testable?'gateway':'none'):(entry.publicProbe?'public':'none');
-  entry.state=entry.coverEnabled?'cover':entry.metadataActive?'configured':
-   entry.gateway&&entry.configured&&entry.testable?'configured':
-   entry.probeResult?.ok===true?'tested':entry.probeResult?.ok===false?'failed':'pending';
+  entry.state=entry.verified?'tested':entry.probeResult?.ok===true?'tested':
+   entry.probeResult?.ok===false?'failed':entry.coverEnabled?'cover':
+   entry.gateway&&entry.configured?'configured':'pending';
  }
  return [...entries.values()].sort((a,b)=>a.name.localeCompare(b.name));
 }
@@ -70157,23 +69618,22 @@ function mf438Filtered(list){
   if(MF438_UI.media!=='all'&&p.mediaTypes.length&&!p.mediaTypes.includes(MF438_UI.media))return false;
   if(MF438_UI.media!=='all'&&!p.mediaTypes.length)return false;
   if(MF438_UI.access==='testable'&&p.testKind==='none')return false;
-  if(MF438_UI.access==='active'&&!(p.coverEnabled||p.metadataActive||p.gateway&&p.configured&&p.testable))return false;
-  if(MF438_UI.access==='pending'&&(p.coverEnabled||p.metadataActive||p.gateway&&p.configured&&p.testable))return false;
+  if(MF438_UI.access==='active'&&!(p.coverEnabled||p.verified))return false;
+  if(MF438_UI.access==='pending'&&(p.coverEnabled||p.verified))return false;
   if(!query)return true;
   const hay=[p.id,p.name,p.access,p.source,...p.capabilities,...p.mediaTypes].join(' ').toLowerCase();
   return hay.includes(query);
  });
 }
 function mf438StateLabel(p){
- if(p.coverEnabled)return 'Cover Recovery ready · no test required';
- if(p.metadataActive)return 'Metadata Recovery ready · no test required';
- if(p.gateway&&p.configured&&p.testable)return 'Configured gateway · no test required';
- if(p.probeResult?.ok===false)return 'Optional API diagnostic failed';
- if(p.verified)return 'Last diagnostic passed';
+ if(p.probeResult?.ok===false)return 'Latest API test failed';
+ if(p.verified)return 'Gateway connection tested';
  if(p.probeResult?.ok===true)return 'Public API responded';
+ if(p.coverEnabled)return 'Available in Cover Recovery';
+ if(p.gateway&&p.configured&&p.testable)return 'Gateway configured · test required';
  if(p.gateway&&!p.configured)return 'Gateway credential not configured';
  if(p.gateway&&!p.testable)return 'Gateway integration not approved';
- if(p.publicProbe)return 'Public · optional diagnostic available';
+ if(p.publicProbe)return 'Public · manual test available';
  return 'Catalog only · no tested request adapter';
 }
 function mf438EntryHtml(p){
@@ -70212,7 +69672,7 @@ function mf438ControlsHtml(){
   '<div class="mf438-results-line" aria-live="polite" id="mf438-results-count"></div>'+
   '<div class="mf438-grid" id="mf438-provider-grid"></div>'+
   '<div id="mf438-test-message" role="status" aria-live="polite"></div>'+
-  '<p class="mf438-note">No API keys appear here. Existing Cover Recovery provider order and enable choices remain in Cover Recovery. Testing is optional and does not unlock providers. Only real adapters with proper access can recover data. Provider coverage is never restricted by your custom categories.</p>'+
+  '<p class="mf438-note">No API keys appear here. Existing Cover Recovery provider order and enable choices remain in Cover Recovery. Testing one API does not automatically enable bulk recovery or grant usage rights. Provider coverage is never restricted by your custom categories.</p>'+
   '<div class="mf438-gateway" data-mf-setting-id="api-gateway-panel">'+mf434Panel()+'</div>'+
   '</section>';
 }
@@ -70627,9 +70087,8 @@ function mf439TranslateGateway(provider,record,item){
 }
 async function mf439LookupGateway(provider,item){
  if(!MF439_GATEWAY.includes(provider))return [];
- if(typeof mf443EnsureGateway==='function')await mf443EnsureGateway();
  const status=mf434ProviderStatus(provider);
- if(!status?.configured||!status?.testable)return [];
+ if(!status?.configured||!status?.testable||!mf434SavedTests().includes(provider))return [];
  const title=mf439TitleVariants(item)[0];
  const reply=await mf434Call('metadata',{provider,title,externalIds:item.externalIds||{},year:item.year||''});
  return (Array.isArray(reply?.results)?reply.results:[])
@@ -70962,11 +70421,10 @@ function mf439SettingsHtml(){
   '<div class="mf439-settings-head">'+mf425Icon('database',22)+'<div><strong>Metadata Recovery</strong><p>Fill missing fields from verified providers without overwriting existing metadata.</p></div></div>'+
   '<p>Each provider contributes only the fields it actually returns. Conflicts and uncertain matches are reviewed rather than guessed. Custom Library categories never restrict available sources.</p>'+
   '<fieldset><legend>Metadata providers</legend><div class="mf439-provider-list">'+mf439Available().map(id=>{
-   const gateway=MF439_GATEWAY.includes(id),status=gateway?mf434ProviderStatus(id):null;
-   const ready=!gateway||Boolean(status?.configured&&status?.testable);
+   const gateway=MF439_GATEWAY.includes(id),active=gateway?mf434ProviderStatus(id)?.configured&&mf434SavedTests().includes(id):true;
    return '<label><input type="checkbox" value="'+mf439Esc(id)+'" data-mf439-provider '+(prefs.enabled.includes(id)?'checked':'')+
-    ' onchange="App.mf439SaveSettings()"><span><strong>'+mf439Esc(id)+'</strong><small>'+
-    (gateway?(ready?'Configured gateway · ready without testing':status&&!status.testable?'Integration unavailable / under review':status&&!status.configured?'Credential missing · setup needed':'Gateway status pending · automatically checked at recovery'):'Public · ready without testing; browser CORS/quotas apply')+
+    (gateway&&!active?' disabled':'')+' onchange="App.mf439SaveSettings()"><span><strong>'+mf439Esc(id)+'</strong><small>'+
+    (gateway?active?'Existing verified Supabase gateway':'Requires configured and tested gateway':'Public · best effort; browser CORS/quotas apply')+
     '</small></span></label>';
   }).join('')+'</div></fieldset>'+
   '<label>Maximum titles per manual batch (up to 250)<input id="mf439-max-batch" type="number" min="1" max="250" step="1" value="'+prefs.maxBatch+'" onchange="App.mf439SaveSettings()"></label>'+
@@ -71004,12 +70462,12 @@ function mf439BatchCandidates(){
  const known=new Set(selected.map(String)),max=mf439Preferences().maxBatch;
  return (S.library||[]).filter(x=>x?.id!=null&&known.has(String(x.id))).slice(0,max).map(x=>String(x.id));
 }
-async function mf439ConfirmBatch(){
+function mf439ConfirmBatch(){
  if(MF439.working){showToast('Metadata Recovery already running.');return;}
  const ids=mf439BatchCandidates();
  if(!ids.length){showToast('Check Library titles first. Batches require an explicit selection.');return;}
  if(!mf439Preferences().enabled.length){showToast('Enable at least one metadata provider.');return;}
- if(!await mf444Confirm('Start Metadata Recovery?', 'MediaFlow will search enabled metadata providers and fill only eligible missing fields. Rate limits can extend processing time.', 'Start Recovery', false, ids.length, 'metadata'))return;
+ if(!confirm('Recover missing metadata for '+ids.length+' selected title(s)? Existing values and protected fields will be preserved. This may take time due to public API rate limits.'))return;
  MF439.job={schema:1,account:mf439Account(),ids,cursor:0,changed:0,completed:0,errors:[],startedAt:Date.now(),status:'running'};
  mf439SaveJob();mf439RunBatch();
 }
@@ -71048,9 +70506,9 @@ function mf439Resume(){
  if(!MF439.job||MF439.job.status==='completed')return;
  MF439.job.status='running';mf439RunBatch();
 }
-async function mf439Discard(){
+function mf439Discard(){
  if(MF439.working){showToast('Pause recovery first.');return;}
- if(!await mf444Confirm('Clear recovery checkpoint?', 'The unfinished recovery queue will be discarded. Metadata fields already saved to the Library will remain unchanged.', 'Clear Checkpoint', true, 0, 'metadata'))return;
+ if(!confirm('Clear the saved metadata recovery checkpoint? Previously recovered fields will remain saved.'))return;
  MF439.job=null;
  try{localStorage.removeItem(mf439StateKey());}catch(_){}
  mf439PaintJob();
@@ -71374,9544 +70832,5 @@ window.MediaFlowV440=Object.freeze({
  find:(item,provider)=>MF440_ADAPTERS[provider]?MF440_ADAPTERS[provider](item,{request:mf424Request}):Promise.resolve([]),
  match:mf440Record,probeId:mf440Id
 });
-/* MediaFlow v441 — Recovery Workspace & Background Processes.
- * This is presentation/orchestration only. v424 and v439 remain the owners
- * of job checkpoints, verified candidates, cloud saves and provider access.
- */
-const MF441_VERSION=441;
-const MF441_DEFAULT={visibility:'auto',position:'right',expanded:false,showFinished:false};
-const MF441={opening:false,previewFilter:'all',lastFocused:null};
-const mf441Esc=v=>mf424Escape(String(v??''));
-function mf441Prefs(){
- const current=S.settings?.v441RecoveryUI||{};
- return {...MF441_DEFAULT,...current,
-  visibility:['auto','always','hidden'].includes(current.visibility)?current.visibility:'auto',
-  position:['left','right'].includes(current.position)?current.position:'right',
-  expanded:Boolean(current.expanded),showFinished:Boolean(current.showFinished)};
-}
-function mf441State(){
- const cover=MF424?.job||null,metadata=MF439?.job||mf439ReadJob()||null;
- const coverActive=!!cover&&!['complete','stopped'].includes(cover.status);
- const metadataActive=!!metadata&&!['completed'].includes(metadata.status);
- const coverPct=cover?.ids?.length?Math.min(100,Math.max(0,Math.floor((cover.cursor||0)/cover.ids.length*100))):0;
- const metaPct=metadata?.ids?.length?Math.min(100,Math.max(0,Math.floor((metadata.cursor||0)/metadata.ids.length*100))):0;
- return {cover,metadata,coverActive,metadataActive,coverPct,metaPct,
-  activeCount:Number(coverActive)+Number(metadataActive)};
-}
-function mf441Show(prefs,state){
- if(prefs.visibility==='hidden')return false;
- if(prefs.visibility==='always')return true;
- return Boolean(state.coverActive||state.metadataActive||
-  prefs.showFinished&&(state.cover||state.metadata));
-}
-function mf441CoverRow(s){
- const j=s.cover,status=j?.status||'idle',pct=s.coverPct;
- const running=Boolean(j&&['running','cooldown','ready'].includes(status));
- const suspended=Boolean(j&&['paused','waiting-part','other-tab','stopped'].includes(status));
- return '<article class="mf441-process" data-mf441-process="cover">'+
-  '<div class="mf441-process-heading"><span class="mf441-process-icon">'+mf425Icon('images',18)+'</span>'+
-  '<div><strong>Cover Recovery</strong><small>'+mf441Esc(j?mf424StatusText(status):'No active job')+'</small></div>'+
-  '<b class="mf441-process-number">'+pct+'%</b></div>'+
-  '<div class="mf441-track" role="progressbar" aria-label="Cover Recovery progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><span style="width:'+pct+'%"></span></div>'+
-  '<div class="mf441-process-stats">'+(j?(j.cursor||0).toLocaleString()+' / '+j.ids.length.toLocaleString()+' titles · '+(j.fixed||0)+' recovered'+
-   (j.pending?' · '+j.pending+' awaiting review':''):'Ready to find missing covers')+'</div>'+
-  '<div class="mf441-process-actions"><button type="button" onclick="App.mf441OpenCover()">'+mf425Icon('settings',15)+' Setup</button>'+
-  (running?'<button type="button" onclick="App.mf424Pause()">'+mf425Icon('pause',15)+' Pause</button>':'')+
-  (suspended?'<button type="button" onclick="App.mf424Resume()">'+mf425Icon('play',15)+' Resume</button>':'')+
-  (j?.pending?'<button type="button" onclick="App.mf424Review()">'+mf425Icon('search',15)+' Review ('+j.pending+')</button>':'')+
-  '</div></article>';
-}
-function mf441MetadataRow(s){
- const j=s.metadata,pct=s.metaPct,status=j?.status||'idle';
- const active=Boolean(j&&status==='running'&&MF439.working),paused=Boolean(j&&['paused','running'].includes(status)&&!MF439.working);
- return '<article class="mf441-process" data-mf441-process="metadata">'+
-  '<div class="mf441-process-heading"><span class="mf441-process-icon">'+mf425Icon('database',18)+'</span>'+
-  '<div><strong>Metadata Recovery</strong><small>'+mf441Esc(j?active?'Recovering missing fields':status==='paused'?'Paused · checkpoint preserved':status==='completed'?'Recovery complete':status:'No active job')+'</small></div>'+
-  '<b class="mf441-process-number">'+pct+'%</b></div>'+
-  '<div class="mf441-track" role="progressbar" aria-label="Metadata Recovery progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><span style="width:'+pct+'%"></span></div>'+
-  '<div class="mf441-process-stats">'+(j?(j.cursor||0).toLocaleString()+' / '+j.ids.length.toLocaleString()+
-   ' titles · '+(j.changed||0)+' missing fields recovered'+(j.errors?.length?' · '+j.errors.length+' warnings':''):
-   'Select Library titles to preview or recover')+'</div>'+
-  '<div class="mf441-process-actions"><button type="button" onclick="App.mf441OpenMetadata()">'+mf425Icon('search',15)+' New Recovery</button>'+
-  (active?'<button type="button" onclick="App.mf439Pause()">'+mf425Icon('pause',15)+' Pause after title</button>':'')+
-  (paused?'<button type="button" onclick="App.mf439Resume()">'+mf425Icon('play',15)+' Resume</button>':'')+
-  '</div></article>';
-}
-function mf441WidgetHtml(prefs,state){
- const expanded=prefs.expanded;
- return '<aside class="mf441-widget mf441-position-'+prefs.position+(expanded?' mf441-expanded':'')+
-  '" id="mf441-process-widget" aria-label="MediaFlow background recovery processes">'+
-  '<button type="button" class="mf441-widget-toggle" onclick="App.mf441Toggle()" aria-expanded="'+expanded+'" aria-controls="mf441-process-content">'+
-  '<span class="mf441-widget-symbol">'+mf425Icon('layers',18)+'</span>'+
-  '<span class="mf441-widget-name"><strong>Background Processes</strong><small>'+
-  (state.activeCount?state.activeCount+' active recovery process'+(state.activeCount===1?'':'es'):'Cover & metadata recovery')+'</small></span>'+
-  '<span class="mf441-widget-percent">'+Math.max(state.coverPct,state.metaPct)+'%</span>'+
-  mf425Icon(expanded?'chevronDown':'chevronUp',15)+'</button>'+
-  '<div class="mf441-widget-content" id="mf441-process-content" '+(expanded?'':'hidden')+'>'+
-  mf441CoverRow(state)+mf441MetadataRow(state)+
-  '<div class="mf441-widget-foot"><button type="button" onclick="App.mf441Settings()">'+mf425Icon('settings',15)+' Recovery Settings</button>'+
-  '<button type="button" onclick="App.mf441Hide()">'+mf425Icon('x',15)+' Hide widget</button></div></div></aside>';
-}
-function mf441Paint(){
- if(!document.body)return;
- const prefs=mf441Prefs(),state=mf441State(),visible=mf441Show(prefs,state);
- // A single combined widget replaces the previous cover-only floating
- // indicator when shown; the original v424 indicator remains intact.
- document.body.classList.toggle('mf441-recovery-widget-active',visible);
- const old=document.getElementById('mf441-process-widget');
- if(!visible){old?.remove();mf441RefreshSettingsStatus(state);return;}
- const markup=mf441WidgetHtml(prefs,state);
- if(old){
-  // Avoid shifting keyboard focus when progress advances.
-  const active=document.activeElement;
-  const focusKey=active?.closest?.('#mf441-process-widget')&&active?.getAttribute('onclick');
-  const slot=document.createElement('div');slot.innerHTML=markup;
-  old.replaceWith(slot.firstElementChild);
-  if(focusKey){const target=[...document.querySelectorAll('#mf441-process-widget button')].find(b=>b.getAttribute('onclick')===focusKey);
-   target?.focus?.({preventScroll:true});}
- }else document.body.insertAdjacentHTML('beforeend',markup);
- mf441RefreshSettingsStatus(state);
-}
-function mf441Toggle(){
- S.settings=S.settings||{};
- S.settings.v441RecoveryUI={...mf441Prefs(),expanded:!mf441Prefs().expanded};
- mf441Paint();mf441Persist();
-}
-function mf441Hide(){
- S.settings=S.settings||{};
- S.settings.v441RecoveryUI={...mf441Prefs(),visibility:'hidden',expanded:false};
- mf441Paint();mf441Persist();
- showToast('Background Processes widget hidden. You can restore it in Recovery Workspace settings.');
-}
-function mf441SaveSetting(key,value){
- if(!['visibility','position','expanded','showFinished'].includes(key))return;
- const p={...mf441Prefs(),[key]:value};
- S.settings=S.settings||{};S.settings.v441RecoveryUI=p;
- mf441Paint();mf441Persist();
-}
-function mf441Persist(){
- Promise.resolve(saveState()).catch(e=>console.warn('Recovery workspace setting save failed:',e));
-}
-function mf441OpenCover(){
- if(!AUTH_USER||!MF424.ready){showToast('Sign in and wait for Cover Recovery storage to initialize.');return;}
- if(typeof App.mf425OpenConfig==='function')App.mf425OpenConfig('floating');
- else App.mf424OpenConfig?.();
-}
-function mf441OpenMetadata(){
- // No metadata provider call is issued by opening this setup surface.
- const selected=typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds().length:0;
- const existing=document.getElementById('mf441-start-dialog');existing?.remove();
- const root=document.createElement('div');root.id='mf441-start-dialog';root.className='mf424-modal mf441-start-overlay mf425-themed';
- root.innerHTML='<div class="mf424-shade" data-mf441-close="1"></div>'+
- '<section class="mf424-dialog mf441-start-dialog" role="dialog" aria-modal="true" aria-labelledby="mf441-start-title">'+
- '<header class="mf441-start-head"><span>'+mf425Icon('database',21)+'</span><div><small>NEW METADATA RECOVERY</small><h2 id="mf441-start-title">Choose a recovery action</h2></div>'+
- '<button class="btn btn-ghost" type="button" onclick="App.mf441CloseStart()" aria-label="Close Metadata Recovery">'+mf425Icon('x',18)+'</button></header>'+
- '<div class="mf441-start-body">'+
- '<p>MediaFlow combines matching metadata from multiple APIs, fills missing fields only, and protects existing values. Review changes before saving.</p>'+
- '<div class="mf441-scope"><strong>'+selected.toLocaleString()+' Library titles selected</strong><small>'+
-  (selected?'Selected checkboxes will define the recovery scope.':'Select titles in Library for a targeted recovery.')+'</small></div>'+
- '<div class="mf441-start-options">'+
- '<button type="button" '+(selected===1?'':'disabled')+' onclick="App.mf441StartPreview()">'+mf425Icon('search',21)+
-  '<span><strong>Preview one title</strong><small>Compare fields and provider evidence before saving</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
- '<button type="button" '+(selected?'':'disabled')+' onclick="App.mf441StartBatch()">'+mf425Icon('layers',21)+
-  '<span><strong>Recover selected titles</strong><small>Confirm safe, missing-field-only batch · '+selected+' selected</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
- '<button type="button" onclick="App.mf441Settings()">'+mf425Icon('settings',21)+
-  '<span><strong>Metadata Recovery settings</strong><small>Provider selection, batch limits, progress and shortcuts</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
- '</div><small class="mf441-start-note">Opening this window never starts a background process or makes an API request.</small></div></section>';
- document.body.appendChild(root);
- MF441.lastFocused=document.activeElement;
- root.querySelector('.mf441-start-head button')?.focus();
- root.querySelector('[data-mf441-close]')?.addEventListener('click',mf441CloseStart);
-}
-function mf441CloseStart(){
- document.getElementById('mf441-start-dialog')?.remove();
- try{MF441.lastFocused?.focus?.({preventScroll:true});}catch(_){}
- MF441.lastFocused=null;
-}
-function mf441StartPreview(){
- const ids=mf436SelectedLibraryIds();
- if(ids.length!==1){showToast('Select exactly one Library title for a preview.');return;}
- mf441CloseStart();App.mf439Open(ids[0]);
-}
-function mf441StartBatch(){
- if(!mf436SelectedLibraryIds().length){showToast('Select Library titles before starting.');return;}
- mf441CloseStart();App.mf439ConfirmBatch();
-}
-function mf441Settings(section='v221-settings-recovery-workspace'){
- mf441CloseStart();
- if(S.view!=='settings'){
-  if(typeof App.setView!=='function'){showToast('Open Settings → Recovery Workspace.');return;}
-  App.setView('settings');
-  // Settings Center's page enhancer registers sections after page render.
-  // Wait until it exists instead of opening a stale section on the prior page.
-  const tryOpen=(attempt=0)=>{
-   if(S.view==='settings'&&document.querySelector('.mf365-section[data-mf365-section="'+section+'"]')){
-    App.v365OpenSection?.(section);return;
-   }
-   if(attempt<8)setTimeout(()=>tryOpen(attempt+1),80);
-   else showToast('In Settings, open Recovery Workspace.');
-  };
-  tryOpen();return;
- }
- App.v365OpenSection?.(section);
-}
-function mf441RefreshSettingsStatus(state=mf441State()){
- const root=document.getElementById('mf441-settings-status');
- if(!root)return;
- const summarize=(job,kind)=>{
-  if(!job)return kind+': No saved job';
-  return kind+': '+String(job.status||'ready')+' · '+(job.cursor||0)+' / '+(job.ids?.length||0)+' titles';
- };
- root.textContent=summarize(state.cover,'Cover')+'   •   '+summarize(state.metadata,'Metadata');
-}
-function mf441WorkspaceHtml(){
- const prefs=mf441Prefs(),state=mf441State();
- const opt=(id,label,val)=>'<option value="'+id+'" '+(val===id?'selected':'')+'>'+label+'</option>';
- return '<section class="mf441-settings" data-mf-setting-id="recovery-workspace">'+
- '<div class="mf441-settings-hero"><span>'+mf425Icon('layers',23)+'</span><div><h3>Recovery Workspace</h3><p>Cover artwork, metadata and their background processes in one place.</p></div></div>'+
- '<div class="mf441-settings-status" id="mf441-settings-status" role="status">'+
- 'Cover: '+mf441Esc(state.cover?.status||'No saved job')+' · Metadata: '+mf441Esc(state.metadata?.status||'No saved job')+'</div>'+
- '<div class="mf441-settings-links">'+
- '<button type="button" onclick="App.mf445Open(&#39;cover&#39;)">'+mf425Icon('images',19)+
- '<span><strong>New Cover Recovery</strong><small>Scope, cover providers, rate protection and previews</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
- '<button type="button" onclick="App.mf445Open(&#39;metadata&#39;)">'+mf425Icon('database',19)+
- '<span><strong>New Metadata Recovery</strong><small>Selected titles, field evidence and safe merging</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
- '<button type="button" onclick="App.v365OpenSection(\'v221-settings-cover-recovery\')">'+mf425Icon('settings',19)+
- '<span><strong>Cover Recovery preferences</strong><small>Enabled sources, priority and automation</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
- '<button type="button" onclick="App.v365OpenSection(\'v221-settings-metadata-recovery\')">'+mf425Icon('settings',19)+
- '<span><strong>Metadata Recovery preferences</strong><small>Provider selection, batch limits and protection</small></span>'+mf425Icon('chevronRight',16)+'</button>'+
- '<button type="button" onclick="App.v365OpenSection(\'v221-settings-api-providers\')">'+mf425Icon('plug',19)+
- '<span><strong>API Providers & Testing</strong><small>Verify public and configured services in the shared registry</small></span>'+mf425Icon('chevronRight',16)+'</button></div>'+
- '<fieldset class="mf441-widget-preferences"><legend>'+mf425Icon('layers',16)+' Background Processes widget</legend>'+
- '<p>The unified floating widget displays the two recovery processes without creating duplicate jobs. Visibility and placement follow the current MediaFlow theme.</p>'+
- '<div class="mf441-control-grid">'+
- '<label data-mf-setting-id="recovery-widget-visibility">Visibility<select onchange="App.mf441SaveSetting(\'visibility\',this.value)">'+
- opt('auto','Automatic · only with active processes',prefs.visibility)+opt('always','Always show',prefs.visibility)+opt('hidden','Hidden',prefs.visibility)+'</select></label>'+
- '<label data-mf-setting-id="recovery-widget-position">Position<select onchange="App.mf441SaveSetting(\'position\',this.value)">'+
- opt('right','Bottom right',prefs.position)+opt('left','Bottom left',prefs.position)+'</select></label></div>'+
- '<label class="mf441-settings-check"><input type="checkbox" '+(prefs.showFinished?'checked':'')+
- ' onchange="App.mf441SaveSetting(\'showFinished\',this.checked)"> Show finished processes in Automatic mode</label>'+
- '</fieldset>'+
- '<p class="mf441-settings-foot">Recovery work continues under its original checkpoint and safety rules. Hiding the widget never stops recovery; closing MediaFlow pauses browser-only work until the app is reopened.</p>'+
- '</section>';
-}
-function mf441SettingsEnhance(){
- if(String(S.view||'')!=='settings'||!window.MediaFlowSettingsCenter?.mountSection)return;
- if(document.querySelector('.mf365-section[data-mf365-section="v221-settings-recovery-workspace"]'))return;
- const body=document.createElement('div');body.innerHTML=mf441WorkspaceHtml();
- const reg=window.MediaFlowSettingsRegistry;
- for(const [id,label] of [['recovery-workspace','Cover and Metadata Recovery workspace'],
-  ['recovery-widget-visibility','Background Processes visibility'],
-  ['recovery-widget-position','Background Processes position']]){
-  reg?.registerSetting?.({id,section:'v221-settings-recovery-workspace',
-   selector:'[data-mf-setting-id="'+id+'"]',label,keywords:['cover','metadata','recovery','background','widget','visibility']});
- }
- window.MediaFlowSettingsCenter.mountSection({id:'v221-settings-recovery-workspace',
-  title:'RECOVERY WORKSPACE',category:'library',subgroup:'Library maintenance',
-  keywords:['cover','metadata','smart recovery','background processes','shortcut','API'],
-  nodes:[body]});
- mf441RefreshSettingsStatus();
-}
-const mf441PrevMarkup=mf397Markup;
-mf397Markup=function(){
- const html=mf441PrevMarkup.apply(this,arguments);
- const anchor='      </div>\n      <button type="button" id="mf397-fab"';
- if(!html.includes(anchor))return html;
- const btn='        <button type="button" class="mf397-fan-action a5 mf441-metadata-action" data-action="metadataRecovery">'+
-  '<span class="mf397-action-symbol">'+mf425Icon('database',20)+'</span>'+
-  '<span><strong>New Metadata Recovery</strong><small>Preview or recover selected titles</small></span><em>05</em></button>\n';
- return html.replace(anchor,btn+anchor);
-};
-const mf441PrevQuickAction=mf397Action;
-mf397Action=function(action){
- if(action==='metadataRecovery'){mf397SetMenu(false);mf441OpenMetadata();return;}
- return mf441PrevQuickAction.apply(this,arguments);
-};
-// Existing cover and metadata recovery engines still own processing. The
-// shared widget updates when either engine publishes progress, even off Settings.
-const mf441PrevCoverPaint=mf424Paint;
-mf424Paint=function(){const result=mf441PrevCoverPaint.apply(this,arguments);mf441Paint();return result;};
-const mf441PrevMetadataPaint=mf439PaintJob;
-mf439PaintJob=function(){const result=mf441PrevMetadataPaint.apply(this,arguments);mf441Paint();return result;};
-const mf441PrevPreviewHtml=mf439PreviewHtml;
-mf439PreviewHtml=function(){
- const base=mf441PrevPreviewHtml.apply(this,arguments);
- if(!base.includes('class="mf439-fields"'))return base;
- const fields=MF439.preview?.preview?.proposals||[];
- const totals=['ready','review','conflict','existing','protected'].map(x=>[x,fields.filter(p=>p.status===x).length]);
- const top='<div class="mf441-preview-summary" role="status">'+
- totals.map(([k,n])=>'<span><strong>'+n+'</strong> '+mf441Esc(k)+'</span>').join('')+'</div>'+
- '<label class="mf441-preview-filter">Show fields<select aria-label="Filter recovery preview fields" onchange="App.mf441FilterPreview(this.value)">'+
- [['all','All fields'],['ready','Ready to fill'],['review','Needs review'],['conflict','Conflicts'],['existing','Existing'],['protected','Protected']].map(([k,label])=>
- '<option value="'+k+'" '+(MF441.previewFilter===k?'selected':'')+'>'+label+'</option>').join('')+'</select></label>';
- return base.replace('<div class="mf439-fields">',top+'<div class="mf439-fields" data-mf441-filter="'+mf441Esc(MF441.previewFilter)+'">');
-};
-function mf441FilterPreview(value){
- const choices=['all','ready','review','conflict','existing','protected'];
- MF441.previewFilter=choices.includes(value)?value:'all';
- const grid=document.querySelector('#mf439-recovery-modal .mf439-fields');
- if(grid)grid.dataset.mf441Filter=MF441.previewFilter;
-}
-// Keep the original Metadata Recovery Settings panel; make selected scope
-// visible before the user commits to a batch.
-const mf441PrevMetadataSettings=mf439SettingsHtml;
-mf439SettingsHtml=function(){
- const html=mf441PrevMetadataSettings.apply(this,arguments);
- const ids=typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds():[];
- const banner='<div class="mf441-metadata-scope" role="note">'+mf425Icon('check',17)+
-  '<span><strong>'+ids.length.toLocaleString()+' selected Library titles</strong><small>'+
-  (ids.length?'Use Preview for one title, or start a confirmed safe batch.':'Check titles in Library to set the recovery scope.')+'</small></span></div>';
- return html.replace('<div class="mf439-settings-head">',banner+'<div class="mf439-settings-head">');
-};
-for(const page of ['settings','library','dashboard','history','order','collections']){
- MediaFlowRuntime.registerPageEnhancer(page,()=>{if(page==='settings')mf441SettingsEnhance();mf441Paint();});
-}
-const mf441PrevBackup=v148BuildFullBackup;
-v148BuildFullBackup=function(){
- const out=mf441PrevBackup.apply(this,arguments);
- if(out){out.mediaFlowVersion=441;out.backupVersion=441;
-  const m=out.backupManifest||(out.backupManifest={});
-  m.includes={...(m.includes||{}),recoveryWorkspacePreferences:true};
-  m.v441={release:441,preservedRecoveryCheckpoints:true,sharedBackgroundProcessUI:true};}
- return out;
-};
-document.addEventListener('keydown',event=>{
- if(event.key!=='Escape'||!document.getElementById('mf441-start-dialog'))return;
- event.preventDefault();mf441CloseStart();
-});
-Object.assign(App,{mf441OpenMetadata,mf441OpenCover,mf441CloseStart,mf441StartPreview,
- mf441StartBatch,mf441Settings,mf441Toggle,mf441Hide,mf441SaveSetting,mf441FilterPreview});
-window.MediaFlowV441=Object.freeze({version:441,settings:mf441WorkspaceHtml,
- widget:mf441WidgetHtml,state:mf441State,paint:mf441Paint,quickMarkup:()=>mf397Markup(),openMetadata:mf441OpenMetadata,
- providers:()=>({cover:MF424_PROVIDER_META.filter(p=>p.limit).length,
-  metadata:mf439Available().length})});
-/* MediaFlow v442 — Recovery Integration & Performance Hardening.
- * Shared account-local, cross-tab process coordination. This does NOT claim
- * cross-device locking; remote devices need a server-side arbiter.
- * Never bypass v424 image checks or v439 field/ID provenance protections.
- */
-const MF442_VERSION=442;
-const MF442={owner:'mf442-'+Date.now()+'-'+Math.random().toString(36).slice(2),
- process:'',timer:null,leaseLost:false,index:null,indexLibrary:null,lastError:'',lastEvent:'',saves:0};
-function mf442ProcessKey(){return 'mediaflow-v442-recovery-owner:'+mf439Account();}
-function mf442LocalLease(key){
- try{const x=JSON.parse(localStorage.getItem(key)||'null');
-  return x&&typeof x==='object'&&Number(x.expires)>Date.now()?x:null;
- }catch(_){return null;}
-}
-function mf442ProcessLease(){return mf442LocalLease(mf442ProcessKey());}
-function mf442ProcessOwned(kind){
- const row=mf442ProcessLease();
- return Boolean(row?.token===MF442.owner&&row?.kind===kind&&MF442.process===kind);
-}
-function mf442AcquireProcess(kind){
- if(!['cover','metadata'].includes(kind)||!mf439Account())return false;
- const previous=mf442ProcessLease();
- if(previous&&(previous.token!==MF442.owner||previous.kind!==kind))return false;
- try{
-  localStorage.setItem(mf442ProcessKey(),JSON.stringify({token:MF442.owner,kind,
-   expires:Date.now()+60000}));
-  if(mf442LocalLease(mf442ProcessKey())?.token!==MF442.owner)return false;
-  MF442.process=kind;MF442.leaseLost=false;
-  clearInterval(MF442.timer);
-  MF442.timer=setInterval(()=>{
-   if(!mf442ProcessOwned(kind)){MF442.leaseLost=true;
-    if(kind==='cover'){if(MF424.job)MF424.job.pauseRequested=true;}
-    else MF439.cancel=true;
-    clearInterval(MF442.timer);return;
-   }
-   try{localStorage.setItem(mf442ProcessKey(),
-     JSON.stringify({token:MF442.owner,kind,expires:Date.now()+60000}));}
-   catch(_){MF442.leaseLost=true;}
-  },8000);
-  return mf442ProcessOwned(kind);
- }catch(_){return false;}
-}
-function mf442ReleaseProcess(kind){
- clearInterval(MF442.timer);MF442.timer=null;
- try{if(mf442ProcessOwned(kind))localStorage.removeItem(mf442ProcessKey());}catch(_){}
- if(MF442.process===kind)MF442.process='';
-}
-function mf442MetadataLeaseOwned(){
- const row=mf442LocalLease(mf439LeaseKey());
- return Boolean(MF439.lease&&row?.token===MF439.lease);
-}
-function mf442RenewMetadataLease(){
- if(!mf442MetadataLeaseOwned()||!mf442ProcessOwned('metadata'))return false;
- try{
-  localStorage.setItem(mf439LeaseKey(),JSON.stringify({token:MF439.lease,expires:Date.now()+45000}));
-  return mf442MetadataLeaseOwned();
- }catch(_){return false;}
-}
-function mf442CoverLockIsActive(){
- if(MF424.running&&mf424Account()===mf439Account())return true;
- const lease=mf442LocalLease('mf-v424-owner-'+mf439Account());
- // The v424 lease uses 'expiry', not 'expires'.
- try{const row=JSON.parse(localStorage.getItem('mf-v424-owner-'+mf439Account())||'null');
-  return Boolean(lease||(row?.token&&Number(row.expiry)>Date.now()));
- }catch(_){return false;}
-}
-function mf442MetadataLockIsActive(){
- return Boolean(MF439.working||mf442LocalLease(mf439LeaseKey()));
-}
-function mf442NormalizeJob(job){
- if(!job||job.schema!==1||job.account!==mf439Account()||!Array.isArray(job.ids)||
-    !job.ids.length||job.ids.length>250)return null;
- const ids=[...new Set(job.ids.filter(id=>['string','number'].includes(typeof id))
-   .map(id=>String(id).trim()).filter(id=>id.length>0&&id.length<=120))];
- if(!ids.length)return null;
- const cursor=Math.max(0,Math.min(ids.length,Math.floor(Number(job.cursor)||0)));
- const errors=Array.isArray(job.errors)?job.errors.slice(-50):[];
- const status=['running','paused','completed','stopped'].includes(job.status)?job.status:'paused';
- return {...job,ids,cursor,errors,status,
-  completed:cursor,changed:Math.max(0,Math.floor(Number(job.changed)||0))};
-}
-function mf442LibraryReady(account){
- return Boolean(Array.isArray(S.library)&&S.loading!==true&&mf439Account()===account);
-}
-async function mf442WaitForLibrary(account){
- for(let attempt=0;attempt<120;attempt++){
-  if(mf442LibraryReady(account))return true;
-  if(mf439Account()!==account)return false;
-  await new Promise(done=>setTimeout(done,250));
- }
- return false;
-}
-function mf442IndexSelected(ids){
- const lib=S.library||[],lookup=new Map(),wanted=new Set(ids.map(String));
- for(const item of lib)if(item?.id!=null&&wanted.has(String(item.id)))lookup.set(String(item.id),item);
- MF442.index=lookup;MF442.indexLibrary=lib;
- return lookup;
-}
-function mf442TitleSignature(item){
- return item?JSON.stringify([String(item.id),item.title,item.originalTitle,item.year,item.releaseDate,
-  Number(item.modifiedAt)||0,item.externalIds||{}]):'';
-}
-function mf442Failure(job,reason,id){
- job.errors=Array.isArray(job.errors)?job.errors:[];
- job.errors.push({titleId:String(id||''),reason:String(reason||'').slice(0,200)});
- if(job.errors.length>50)job.errors=job.errors.slice(-50);
- MF442.lastError=String(reason||'').slice(0,200);
-}
-const mf442OriginalMetadataRead=mf439ReadJob;
-mf439ReadJob=function(){
- const original=mf442OriginalMetadataRead.apply(this,arguments);
- return mf442NormalizeJob(original);
-};
-const mf442OriginalMetadataConfirm=mf439ConfirmBatch;
-mf439ConfirmBatch=async function(){
- if(MF439.working)return mf442OriginalMetadataConfirm.apply(this,arguments);
- if(mf442CoverLockIsActive()||mf442ProcessLease()?.kind==='cover'){
-  showToast('Cover Recovery is active. Pause it before starting Metadata Recovery.');return;
- }
- const previous=mf442NormalizeJob(MF439.job||mf439ReadJob());
- if(previous&&previous.cursor<previous.ids.length&&previous.status!=='completed'){
-  if(!await mf444Confirm('Replace unfinished recovery?', 'A saved metadata queue is unfinished. Replacing it discards pending work, but previously recovered fields remain saved.', 'Replace Queue', true, previous.ids.length-previous.cursor, 'metadata'))return;
- }
- return mf442OriginalMetadataConfirm.apply(this,arguments);
-};
-App.mf439ConfirmBatch=mf439ConfirmBatch;
-const mf442OriginalCoverRun=mf424Run;
-mf424Run=async function(){
- if(!MF424.job||MF424.running)return;
- if(!mf442AcquireProcess('cover')){
-  MF442.lastEvent='Cover Recovery waiting for another recovery process';
-  MF424.job.pauseRequested=true;
-  mf424State('paused');
-  try{await mf424SaveJob();}catch(e){console.warn('Cover pause checkpoint failed',e);}
-  showToast('Another recovery is using this account. Resume Cover Recovery after it finishes.');
-  return;
- }
- if(mf442MetadataLockIsActive()){
-  mf442ReleaseProcess('cover');
-  MF424.job.pauseRequested=true;mf424State('paused');await mf424SaveJob();
-  showToast('Metadata Recovery is active in another tab. Resume covers when it finishes.');return;
- }
- try{return await mf442OriginalCoverRun.apply(this,arguments);}
- finally{mf442ReleaseProcess('cover');}
-};
-// Metadata recovery now resolves each Library title in O(1) after one bounded
-// index build, validates the title against mid-lookup changes, and persists
-// Library data before moving the resumable cursor.
-mf439RunBatch=async function mf442RunMetadataBatch(){
- if(MF439.working||!MF439.job)return;
- let job=mf442NormalizeJob(MF439.job);
- if(!job||!['running','paused'].includes(job.status))return;
- if(!mf442LibraryReady(job.account)){
-  if(!await mf442WaitForLibrary(job.account)){
-   showToast('Metadata Recovery paused until your Library finishes loading.');return;
-  }
- }
- if(mf442CoverLockIsActive()){
-  MF439.job.status='paused';mf439SaveJob();mf439PaintJob();
-  showToast('Cover Recovery is running. Resume metadata after it finishes.');return;
- }
- if(!mf442AcquireProcess('metadata')){
-  MF439.job.status='paused';mf439SaveJob();mf439PaintJob();
-  showToast('Another recovery tab is already processing this account.');return;
- }
- if(!mf439AcquireLease()){
-  mf442ReleaseProcess('metadata');
-  MF439.job.status='paused';mf439SaveJob();mf439PaintJob();
-  showToast('Metadata Recovery is active in another tab.');return;
- }
- // Keep the original, current job object, not a detached normalized clone.
- job=MF439.job;
- job.ids=mf442NormalizeJob(job).ids;
- job.cursor=Math.max(0,Math.min(job.ids.length,Number(job.cursor)||0));
- MF439.account=job.account;MF439.working=true;MF439.cancel=false;job.status='running';
- mf439SaveJob();mf439PaintJob();
- mf442IndexSelected(job.ids);
- const keepAlive=setInterval(()=>{
-  if(!mf442RenewMetadataLease()){MF442.leaseLost=true;MF439.cancel=true;}
- },8000);
- try{
-  while(job.cursor<job.ids.length&&!MF439.cancel){
-   if(MF439.job!==job||MF439.account!==mf439Account()||
-      !mf442MetadataLeaseOwned()||!mf442ProcessOwned('metadata')||MF442.leaseLost||
-      mf442CoverLockIsActive()){
-    job.status='paused';mf442Failure(job,'Account, lock or ownership changed; recovery paused');
-    break;
-   }
-   const id=job.ids[job.cursor];
-   if(MF442.indexLibrary!==S.library)mf442IndexSelected(job.ids);
-   const item=MF442.index.get(id);
-   if(!item){mf442Failure(job,'Library title unavailable; no changes applied',id);
-    job.cursor++;job.completed=job.cursor;mf439SaveJob();mf439PaintJob();
-    if(typeof mf452StopBoundary==='function'&&mf452StopBoundary(job))break;continue;}
-   if(job.v455Selection==='manual'){
-    job.manualReviewId=id;job.status='paused';mf439SaveJob();mf439PaintJob();break;
-   }
-   const before=mf442TitleSignature(item);
-   const {preview,failures}=await mf439Discover(item,mf439Preferences().enabled,()=>{},null);
-   if(MF439.cancel||MF439.job!==job||MF439.account!==mf439Account()||
-      !mf442MetadataLeaseOwned()||!mf442ProcessOwned('metadata')||MF442.leaseLost||
-      mf442CoverLockIsActive()){
-    job.status='paused';mf442Failure(job,'Process ownership changed during lookup; nothing saved',id);
-    break;
-   }
-   if(MF442.indexLibrary!==S.library)mf442IndexSelected(job.ids);
-   const latest=MF442.index.get(id);
-   if(latest!==item||before!==mf442TitleSignature(item)){
-    mf442Failure(job,'Title changed during provider lookup; skipped safely',id);
-   }else{
-    const result=mf439Apply(item,preview,'automatic');
-    if(result.changed||job.pendingSaveId===id){
-     // Do not checkpoint until saveState has committed. On failure leave
-     // cursor at the same ID; the next resume is safe and idempotent.
-     job.pendingSaveId=id;mf439SaveJob();
-     await saveState();
-     MF442.saves++;job.pendingSaveId='';
-     job.changed=(Number(job.changed)||0)+result.changed;
-    }
-   }
-   if(failures.length)job.errors.push({titleId:id,failures:failures.slice(0,5)});
-   if(job.errors.length>50)job.errors=job.errors.slice(-50);
-   if(!mf442MetadataLeaseOwned()||!mf442ProcessOwned('metadata')||
-      MF439.account!==mf439Account()||MF442.leaseLost){
-    job.status='paused';mf442Failure(job,'Ownership changed before checkpoint',id);
-    break;
-   }
-   job.cursor++;job.completed=job.cursor;
-   mf439SaveJob();mf439PaintJob();
-   if(typeof mf452StopBoundary==='function'&&mf452StopBoundary(job))break;
-   if(job.mode==='parts'&&job.continuation==='manual'&&job.cursor<job.ids.length&&
-      job.cursor%Math.max(1,Number(job.partSize)||25)===0){job.status='paused';break;}
-  }
-  job.status=job.stopRequested?'stopped':job.cursor>=job.ids.length?'completed':'paused';
- }catch(e){
-  job.status='paused';mf442Failure(job,'Saved checkpoint preserved: '+String(e?.message||e));
- }finally{
-  clearInterval(keepAlive);
-  MF439.working=false;
-  mf439ReleaseLease();
-  mf442ReleaseProcess('metadata');
-  mf439SaveJob();mf439PaintJob();
-  MF442.index=null;MF442.indexLibrary=null;
-  if(job.changed)try{v53InvalidateLibraryCache();render();}catch(_){}
- }
-};
-function mf442Health(){
- const current=mf442ProcessLease();
- const coverLease=mf442CoverLockIsActive(),metadataLease=mf442MetadataLockIsActive();
- const cover=MF424.job,meta=mf442NormalizeJob(MF439.job||mf439ReadJob());
- return {
-  version:442,scope:'Current account · this browser profile (not cross-device)',
-  lock:current?{kind:current.kind,owner:current.token===MF442.owner?'this tab':'another tab',expiresInSeconds:Math.max(0,Math.ceil((current.expires-Date.now())/1000))}:null,
-  cover:{state:cover?.status||'idle',done:Math.max(0,Number(cover?.cursor)||0),total:cover?.ids?.length||0,
-   recovered:Math.max(0,Number(cover?.fixed)||0),leaseActive:coverLease},
-  metadata:{state:meta?.status||'idle',done:meta?.cursor||0,total:meta?.ids.length||0,
-   fields:meta?.changed||0,leaseActive:metadataLease,checkpointValid:!!meta,
-   warnings:meta?.errors.length||0},
-  activity:{saveCountThisSession:MF442.saves,lastError:MF442.lastError||null}
- };
-}
-function mf442HealthMarkup(){
- const h=mf442Health();
- return '<section class="mf442-health" data-mf-setting-id="recovery-health">'+
-  '<div class="mf442-health-heading">'+mf425Icon('shield',21)+'<div><strong>Recovery Integrity & Diagnostics</strong>'+
-  '<p>Current account · local browser coordination, checkpoints and save status</p></div></div>'+
-  '<div class="mf442-health-grid">'+
-   '<div><strong>'+mf424Escape(h.cover.state)+'</strong><small>Cover queue · '+h.cover.done+' / '+h.cover.total+'</small></div>'+
-   '<div><strong>'+mf424Escape(h.metadata.state)+'</strong><small>Metadata queue · '+h.metadata.done+' / '+h.metadata.total+'</small></div>'+
-   '<div><strong>'+mf424Escape(h.lock?h.lock.kind+' · '+h.lock.owner:'Available')+'</strong><small>Recovery process lock</small></div>'+
-   '<div><strong>'+h.metadata.warnings+'</strong><small>Metadata warning records</small></div>'+
-  '</div><p>Two browser tabs cannot safely apply covers and metadata for the same account at the same time. The second job waits for a manual resume. This is a local-browser guard, not a cross-device lock. Existing saved progress is never cleared by a diagnostic refresh.</p>'+
-  (h.activity.lastError?'<p class="mf442-warning">'+mf424Escape(h.activity.lastError)+'</p>':'')+
-  '<div class="mf442-health-actions"><button type="button" class="btn btn-ghost" onclick="App.mf442RefreshHealth()">'+mf425Icon('search',16)+' Refresh health</button>'+
-   '<button type="button" class="btn btn-ghost" onclick="App.mf442ExportHealth()">'+mf425Icon('download',16)+' Export diagnostics</button></div></section>';
-}
-function mf442RefreshHealth(){
- const root=document.querySelector('.mf442-health');
- if(!root)return;
- const temp=document.createElement('div');temp.innerHTML=mf442HealthMarkup();
- if(temp.firstElementChild)root.replaceWith(temp.firstElementChild);
-}
-function mf442ExportHealth(){
- const report=JSON.stringify(mf442Health(),null,2);
- const blob=new Blob([report],{type:'application/json'});
- const url=URL.createObjectURL(blob),link=document.createElement('a');
- link.href=url;link.download='mediaflow-v442-recovery-health.json';
- document.body.appendChild(link);link.click();link.remove();
- setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-const mf442WorkspaceBase=mf441WorkspaceHtml;
-mf441WorkspaceHtml=function(){
- const html=mf442WorkspaceBase.apply(this,arguments);
- return html.replace('</section>',mf442HealthMarkup()+'</section>');
-};
-Object.assign(App,{mf442RefreshHealth,mf442ExportHealth});
-const mf442BackupBase=v148BuildFullBackup;
-v148BuildFullBackup=function(){
- const backup=mf442BackupBase.apply(this,arguments);
- if(backup){
-  backup.mediaFlowVersion=442;backup.backupVersion=442;
-  const manifest=backup.backupManifest||(backup.backupManifest={});
-  manifest.includes={...(manifest.includes||{}),v442RecoveryHardening:true};
-  manifest.v442={version:442,accountScopedCrossTabCoordination:true,
-   metadataCheckpointAfterConfirmedSave:true,existingDataAndRatingsPreserved:true};
- }
- return backup;
-};
-window.MediaFlowV442=Object.freeze({
- version:442,health:mf442Health,renderHealth:mf442HealthMarkup,
- validateJob:mf442NormalizeJob,signature:mf442TitleSignature,
- processOwned:mf442ProcessOwned
-});
-/* MediaFlow v443 — configured/public recovery APIs work without an API test.
- * Gateway status is resolved on demand, with a bounded per-account cache.
- * This module does not add fictitious adapters, cloud secrets or data writes. */
-const MF443_VERSION=443;
-const MF443_BASE_COVER_ENABLED=MF424_DEFAULT.enabled.slice();
-const MF443_BASE_COVER_PRIORITIES=MF424_DEFAULT.priorities.slice();
-const MF443={account:'',checkedAt:0,pending:null,lastError:'',migrated:false};
-function mf443Account(){return String(AUTH_USER?.id||'');}
-function mf443ReadyCoverProviders(){
- return MF424_PROVIDER_META.filter(p=>MF434_COVER.has(p.id)&&
-  mf434ProviderStatus(p.id)?.configured===true&&mf434ProviderStatus(p.id)?.testable===true)
-  .map(p=>p.id);
-}
-function mf443MaybeEnableDefaultCovers(){
- const configured=mf443ReadyCoverProviders();
- if(!configured.length)return;
- // Default recovery previously excluded gateway adapters even when configured.
- // Migrate ONLY unchanged default selections; never overwrite custom provider choices.
- const previous=S.settings?.v424Covers;
- const baseline=MF443_BASE_COVER_ENABLED;
- const unchanged=previous&&Array.isArray(previous.enabled)&&
-  previous.enabled.length===baseline.length&&
-  baseline.every(id=>previous.enabled.includes(id));
- MF424_DEFAULT.enabled=[...new Set([...baseline,...configured])];
- MF424_DEFAULT.priorities=[...new Set([...MF443_BASE_COVER_PRIORITIES,...configured])];
- if(unchanged){
-  S.settings.v424Covers={...previous,
-   enabled:[...new Set([...previous.enabled,...configured])],
-   priorities:[...new Set([...(previous.priorities||[]),...configured])]};
-  Promise.resolve(saveState()).catch(e=>console.warn('v443 default cover migration',e));
- }
-}
-function mf443RepaintProviderSettings(){
- if(String(S.view||'')!=='settings')return;
- try{
-  const cover=document.querySelector('.mf430-settings-provider-list');
-  if(cover){
-   const wrap=document.createElement('div');wrap.innerHTML=mf425SettingsMarkup();
-   const next=wrap.querySelector('.mf430-settings-provider-list');
-   if(next)cover.replaceWith(next);
-  }
-  const metadata=document.querySelector('.mf439-provider-list');
-  if(metadata){
-   const wrap=document.createElement('div');wrap.innerHTML=mf439SettingsHtml();
-   const next=wrap.querySelector('.mf439-provider-list');
-   if(next)metadata.replaceWith(next);
-  }
-  if(typeof mf438Paint==='function')mf438Paint();
-  if(typeof mf434RefreshPanel==='function')mf434RefreshPanel();
- }catch(e){console.warn('v443 provider settings refresh:',String(e?.message||e));}
-}
-async function mf443EnsureGateway(force=false){
- const account=mf443Account();
- if(!account||!supabase)return null;
- if(MF443.account!==account){
-  MF443.account=account;MF443.checkedAt=0;MF443.lastError='';
-  MF424_DEFAULT.enabled=MF443_BASE_COVER_ENABLED.slice();
-  MF424_DEFAULT.priorities=MF443_BASE_COVER_PRIORITIES.slice();
-  MF434.status=null;mf434EnableAdapters();
- }
- if(!force&&MF443.checkedAt&&Date.now()-MF443.checkedAt<5*60*1000)
-  return MF434.status;
- if(MF443.pending)return MF443.pending;
- MF443.pending=(async()=>{
-  try{
-   const state=await mf434Call('status');
-   if(account!==mf443Account())return null; // Never cross account boundaries.
-   if(!Array.isArray(state?.providers))throw Error('Gateway returned no provider list');
-   MF434.status=state;
-   MF443.checkedAt=Date.now();MF443.lastError='';
-   mf434EnableAdapters();
-   mf443MaybeEnableDefaultCovers();
-   mf443RepaintProviderSettings();
-   return state;
-  }catch(e){
-   MF443.lastError=String(e?.message||e).slice(0,160);
-   MF443.checkedAt=Date.now(); // Avoid repeated silent retry storms.
-   console.warn('v443 gateway status temporarily unavailable:',MF443.lastError);
-   return MF434.status;
-  }finally{MF443.pending=null;}
- })();
- return MF443.pending;
-}
-// The Check connections button is optional diagnostics, not a prerequisite.
-mf434RefreshGateway=async function(){
- await mf443EnsureGateway(true);
- mf443RepaintProviderSettings();
-};
-App.mf434RefreshGateway=mf434RefreshGateway;
-// Resumed background cover jobs must have the same gateway readiness as manual jobs.
-const mf443CoverRunBase=mf424Run;
-mf424Run=async function(...args){
- if(!MF424.job||MF424.running)return;
- await mf443EnsureGateway();
- return mf443CoverRunBase.apply(this,args);
-};
-const mf443CoverConfigBase=App.mf425OpenConfig;
-App.mf425OpenConfig=async function(...args){
- await mf443EnsureGateway();
- return mf443CoverConfigBase?.apply(this,args);
-};
-App.mf424OpenConfig=()=>App.mf425OpenConfig('settings');
-const mf443InstantBase=App.mf425Instant;
-App.mf425Instant=async function(...args){
- await mf443EnsureGateway();
- return mf443InstantBase?.apply(this,args);
-};
-MediaFlowRuntime.registerPageEnhancer('settings',()=>{
- if(String(S.view||'')==='settings')void mf443EnsureGateway();
-});
-const mf443BackupBase=v148BuildFullBackup;
-v148BuildFullBackup=function(){
- const backup=mf443BackupBase.apply(this,arguments);
- if(backup){
-  backup.mediaFlowVersion=443;backup.backupVersion=443;
-  const manifest=backup.backupManifest||(backup.backupManifest={});
-  manifest.includes={...(manifest.includes||{}),v443AutomaticProviderAvailability:true};
- }
- return backup;
-};
-window.MediaFlowV443=Object.freeze({version:443,
- ensureGateway:mf443EnsureGateway,
- readyCoverProviders:mf443ReadyCoverProviders,
- state:()=>({gatewayAvailable:Boolean(MF434.status?.providers),lastError:MF443.lastError})});
-/* MediaFlow v444 — accessible themed confirmations shared by both recovery engines.
- * The native browser confirm() blocks rendering and cannot inherit MediaFlow themes.
- * Only user-initiated actions show this dialog; no recovery writes occur here. */
-const MF444_VERSION=444;
-const MF444={current:null};
-function mf444Confirm(title,detail,action='Continue',destructive=false,count=0,kind='metadata'){
- if(MF444.current)return Promise.resolve(false);
- if(typeof mf397SetMenu==='function')mf397SetMenu(false);
- return new Promise(resolve=>{
-  const opener=document.activeElement;
-  const root=document.createElement('div');
-  root.id='mf444-confirm';
-  root.className='mf444-overlay mf425-themed';
-  const esc=value=>mf424Escape(String(value??''));
-  const number=Number.isSafeInteger(Number(count))&&Number(count)>0?Number(count):0;
-  const graphic=destructive?'shield':kind==='cover'?'images':'database';
-  const kindName=kind==='cover'?'COVER RECOVERY':'METADATA RECOVERY';
-  root.innerHTML='<div class="mf444-backdrop" aria-hidden="true"></div>'+
-   '<section class="mf444-dialog" role="alertdialog" aria-modal="true" aria-labelledby="mf444-title" aria-describedby="mf444-description" tabindex="-1">'+
-   '<header class="mf444-head"><span class="mf444-symbol">'+mf425Icon(graphic,24)+'</span>'+
-   '<div class="mf444-heading"><small>'+esc(kindName)+'</small><h2 id="mf444-title">'+esc(title)+'</h2></div>'+
-   '<button class="mf444-close" type="button" data-mf444-dismiss aria-label="Close confirmation">'+mf425Icon('x',20)+'</button></header>'+
-   '<div class="mf444-body"><p id="mf444-description">'+esc(detail)+'</p>'+
-   (number?'<div class="mf444-count"><strong>'+number.toLocaleString()+'</strong><span>Selected title'+(number===1?'':'s')+'</span></div>':'')+
-   '<div class="mf444-info"><span>'+mf425Icon('shield',19)+'</span><p><strong>Existing Library data stays protected.</strong><small>Recovery safeguards, confirmed changes and saved progress remain in place.</small></p></div>'+
-   '</div><footer class="mf444-actions"><button class="btn btn-ghost" type="button" data-mf444-dismiss>Cancel</button>'+
-   '<button class="btn '+(destructive?'btn-danger':'btn-primary')+'" type="button" data-mf444-approve>'+mf425Icon(destructive?'shield':'check',17)+esc(action)+'</button></footer>'+
-   '</section>';
-  const dialog=root.querySelector('.mf444-dialog');
-  const dismiss=approved=>{
-   if(MF444.current?.root!==root)return;
-   document.removeEventListener('keydown',key,true);
-   root.remove();MF444.current=null;
-   if(opener?.isConnected&&typeof opener.focus==='function')opener.focus();
-   resolve(Boolean(approved));
-  };
-  const key=event=>{
-   if(event.key==='Escape'){event.preventDefault();event.stopPropagation();dismiss(false);return;}
-   if(event.key!=='Tab')return;
-   const focusables=[...root.querySelectorAll('button:not([disabled])')];
-   if(!focusables.length)return;
-   if(event.shiftKey&&document.activeElement===focusables[0]){event.preventDefault();focusables.at(-1).focus();}
-   else if(!event.shiftKey&&document.activeElement===focusables.at(-1)){event.preventDefault();focusables[0].focus();}
-  };
-  root.querySelectorAll('[data-mf444-dismiss]').forEach(button=>button.addEventListener('click',()=>dismiss(false)));
-  root.querySelector('[data-mf444-approve]').addEventListener('click',()=>dismiss(true));
-  document.body.appendChild(root);
-  document.addEventListener('keydown',key,true);
-  MF444.current={root,dismiss};
-  root.querySelector('[data-mf444-dismiss]')?.focus();
- });
-}
-// v427 cover confirmations retain their safety/approval semantics, now sharing
-// exactly the same UI as Metadata Recovery.
-mf427Confirm=function(title,detail,action='Continue',destructive=false){
- return mf444Confirm(title,detail,action,destructive,0,'cover');
-};
-// Decide which side has room each time the FAB opens. When task progress is
-// visible on a narrow screen the + button moves left; otherwise it sits right.
-const mf444PreviousSetMenu=mf397SetMenu;
-mf397SetMenu=function(open){
- const result=mf444PreviousSetMenu.apply(this,arguments);
- const menu=document.getElementById('mf397-fan'),fab=document.getElementById('mf397-fab');
- if(open&&menu&&fab){
-  const rect=fab.getBoundingClientRect(),viewport=window.innerWidth||document.documentElement.clientWidth;
-  const width=Math.min(310,Math.max(1,viewport-24));
-  menu.classList.toggle('mf444-align-right',rect.right-width<12&&rect.left+width<viewport-12);
- }
- return result;
-};
-window.MediaFlowV444=Object.freeze({version:444,confirm:mf444Confirm,open:()=>!!MF444.current});
-/* MediaFlow v445 — Unified Cover + Metadata Recovery Workspace.
- * One accessible entry surface. Existing v424/v425 cover and v439 metadata
- * engines own provider requests, user confirmations, checkpoints and writes.
- * Opening this workspace never starts network traffic or recovery work.
- */
-const MF445_VERSION=445;
-const MF445={mode:'cover',opener:null,coverEntry:'settings',oneId:'',metadataId:''};
-const mf445Esc=value=>mf424Escape(String(value??''));
-const mf445Icon=(name,size=17)=>mf425Icon(name,size);
-function mf445Providers(mode){
- if(mode==='cover'){
-  const enabled=new Set(mf424Defaults().enabled);
-  return MF424_PROVIDER_META.map(p=>({
-   id:p.id,name:p.name||p.id,available:Number(p.limit)>0,enabled:enabled.has(p.id),
-   detail:Number(p.limit)>0?'Provider adapter ready':(p.credentials?'Configuration or authorization needed':'Adapter unavailable'),
-   setup:Number(p.limit)<=0
-  }));
- }
- const enabled=new Set(mf439Preferences().enabled);
- return mf439Available().map(id=>{
-  const gateway=MF439_GATEWAY.includes(id);
-  const status=gateway&&typeof mf434ProviderStatus==='function'?mf434ProviderStatus(id):null;
-  const available=!gateway||Boolean(status?.configured&&status?.testable);
-  const label=(typeof MF434_LABELS==='object'&&MF434_LABELS?.[id])||
-   MF438_EXTRA_CATALOG?.find(x=>x[0]===id)?.[1]||id;
-  return {id,name:label,available,enabled:enabled.has(id),setup:!available,
-   detail:gateway?(available?'Gateway configured':status?.testable===false?'Integration unavailable':'Configuration required'):'Public API · subject to quotas'};
- });
-}
-function mf445StatusText(mode){
- const job=mode==='cover'?MF424.job:(MF439.job||mf439ReadJob());
- if(!job)return 'No saved recovery job';
- const total=Array.isArray(job.ids)?job.ids.length:0;
- return String(job.status||'ready')+' · '+Number(job.cursor||0).toLocaleString()+' / '+total.toLocaleString()+' titles';
-}
-function mf445CategoryIcon(cat){
- const url=typeof v144SafeIconUrl==='function'?v144SafeIconUrl(cat.iconUrl||''):'';
- if(url)return '<img src="'+mf445Esc(url)+'" alt="" loading="lazy" decoding="async">';
- if(String(cat.icon||'').trim())return '<span aria-hidden="true">'+mf445Esc(cat.icon)+'</span>';
- return mf445Icon('layers',18);
-}
-function mf445Categories(){
- const categories=(S.categories||[]).filter(c=>c&&c.id!=null);
- const counts=new Map();
- for(const item of S.library||[]){
-  if(item?.categoryId!=null){
-   const id=String(item.categoryId);counts.set(id,(counts.get(id)||0)+1);
-  }
- }
- return '<details class="mf445-section mf445-categories"><summary>'+
-  mf445Icon('layers',17)+' <strong>Library categories</strong><span>'+categories.length+' categories</span>'+
-  mf445Icon('chevronDown',16)+'</summary>'+
-  '<p>Categories are for organizing titles. They never restrict which API is queried. Cover Recovery lets you choose the target scope.</p>'+
-  '<div class="mf445-category-grid">'+categories.map(c=>{
-   const count=counts.get(String(c.id))||0;
-   return '<details class="mf445-category"><summary><span class="mf445-category-art">'+mf445CategoryIcon(c)+'</span>'+
-    '<span class="mf445-category-label"><strong>'+mf445Esc(c.name||c.id)+'</strong><small>'+count.toLocaleString()+' titles</small></span>'+
-    mf445Icon('chevronDown',15)+'</summary><p>'+count.toLocaleString()+
-    ' titles in this category. Provider availability is independent of the category name.</p></details>';
-  }).join('')+'</div></details>';
-}
-function mf445SourceHtml(mode){
- const list=mf445Providers(mode),ready=list.filter(p=>p.available&&p.enabled).length;
- return '<section class="mf445-section mf445-providers"><header><div><strong>'+mf445Icon(mode==='cover'?'images':'database',17)+
-  ' '+(mode==='cover'?'Cover':'Metadata')+' providers</strong><small>'+ready+' enabled & available · '+list.length+' registered</small></div>'+
-  '<button type="button" class="btn btn-ghost" onclick="App.mf445Settings(\'v221-settings-api-providers\')">'+mf445Icon('settings',15)+' API Setup</button></header>'+
-  '<div class="mf445-provider-grid">'+list.map(p=>{
-   const status=!p.available?'Unavailable':p.enabled?'Enabled':'Disabled';
-   return '<div class="mf445-provider" data-status="'+(p.available?p.enabled?'enabled':'disabled':'unavailable')+'">'+
-    '<span class="mf445-provider-symbol">'+mf445Icon(p.available?'check':'plug',17)+'</span>'+
-    '<span class="mf445-provider-info"><strong>'+mf445Esc(p.name)+'</strong><small>'+mf445Esc(p.detail)+'</small></span>'+
-    '<span class="mf445-provider-status">'+status+'</span>'+
-    (p.setup?'<button type="button" class="mf445-provider-setup" onclick="App.mf445Settings(\'v221-settings-api-providers\')" aria-label="Set up '+mf445Esc(p.name)+'">'+mf445Icon('settings',15)+'</button>':'')+
-    '</div>';
-  }).join('')+'</div><small class="mf445-provider-note">Providers are configured independently for each recovery engine. Registered does not mean connected.</small></section>';
-}
-function mf445CurrentIds(){
- if(MF445.oneId&&MF445.mode==='cover')return [String(MF445.oneId)];
- if(MF445.metadataId&&MF445.mode==='metadata')return [String(MF445.metadataId)];
- return typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds().map(String):[];
-}
-function mf445Panel(mode){
- const root=document.getElementById('mf445-workspace');
- if(!root)return;
- MF445.mode=mode==='metadata'?'metadata':'cover';
- root.querySelectorAll('[data-mf445-tab]').forEach(button=>{
-  const active=button.dataset.mf445Tab===MF445.mode;
-  button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;
- });
- const metadata=MF445.mode==='metadata',ids=mf445CurrentIds();
- const pane=root.querySelector('[data-mf445-panel]');
- pane.setAttribute('aria-labelledby','mf445-tab-'+MF445.mode);
- const status=mf445StatusText(MF445.mode);
- pane.innerHTML='<p class="mf445-intro">'+(metadata?
-  'Recover missing descriptions, genres, external ratings and other verified fields without overwriting saved values.':
-  'Recover missing artwork or choose a verified alternative, while keeping existing artwork and external IDs protected.')+'</p>'+
-  '<div class="mf445-summary" role="status"><span>'+mf445Icon('check',17)+' <strong>'+ids.length.toLocaleString()+
-  '</strong> selected '+(ids.length===1?'title':'titles')+'</span><span>'+mf445Icon('layers',16)+' '+mf445Esc(status)+'</span></div>'+
-  mf445SourceHtml(MF445.mode)+mf445Categories()+
-  '<div class="mf445-actions">'+(metadata?
-   '<button type="button" class="btn btn-primary" '+(ids.length===1?'':'disabled')+' onclick="App.mf445Start(\'preview\')">'+
-    mf445Icon('search',17)+' Preview one title</button>'+
-   '<button type="button" class="btn btn-primary" '+(ids.length&&!MF445.metadataId?'':'disabled')+
-   ' onclick="App.mf445Start(\'batch\')">'+mf445Icon('database',17)+' Recover selected titles</button>':
-   '<button type="button" class="btn btn-primary" onclick="App.mf445Start(\'cover\')">'+mf445Icon('images',17)+
-   ' Configure Cover Recovery</button>')+
-   '<button type="button" class="btn btn-ghost" onclick="App.mf445Settings(\''+
-   (metadata?'v221-settings-metadata-recovery':'v221-settings-cover-recovery')+'\')">'+mf445Icon('settings',16)+
-   ' '+(metadata?'Metadata':'Cover')+' preferences</button></div>'+
-  '<p class="mf445-safe">'+mf445Icon('shield',16)+
-  ' Opening this workspace never starts a scan. The original confirmation, scope selection, API preferences, checkpoint and safe-write rules remain in effect.</p>';
-}
-function mf445Close(){
- const root=document.getElementById('mf445-workspace');
- if(!root)return;
- root.remove();
- const opener=MF445.opener;MF445.opener=null;
- if(opener?.isConnected&&typeof opener.focus==='function')opener.focus({preventScroll:true});
-}
-function mf445Open(mode='cover',options={}){
- const root=document.getElementById('mf445-workspace');
- const same=!!root;
- if(!same){
-  MF445.opener=document.activeElement;
-  MF445.coverEntry=String(options?.entry||'settings');
-  MF445.oneId=String(options?.id||'');
-  MF445.metadataId=String(options?.id||'');
-  const overlay=document.createElement('div');overlay.id='mf445-workspace';
-  overlay.className='mf424-modal mf425-themed mf445-overlay';
-  overlay.innerHTML='<div class="mf424-shade" data-mf445-dismiss aria-hidden="true"></div>'+
-   '<section class="mf424-dialog mf445-dialog" role="dialog" aria-modal="true" aria-labelledby="mf445-title" aria-describedby="mf445-intro" tabindex="-1">'+
-   '<header class="mf445-header"><span>'+mf445Icon('layers',22)+'</span><div><small>MEDIAFLOW RECOVERY</small>'+
-   '<h2 id="mf445-title">Unified Recovery Workspace</h2></div>'+
-   '<button class="btn btn-ghost" type="button" data-mf445-dismiss aria-label="Close Recovery Workspace">'+mf445Icon('x',18)+'</button></header>'+
-   '<p class="mf445-lead" id="mf445-intro">One workspace. Two independent recovery systems.</p>'+
-   '<nav class="mf445-tabs" role="tablist" aria-label="Recovery type">'+
-   '<button type="button" role="tab" id="mf445-tab-cover" aria-controls="mf445-panel" data-mf445-tab="cover">'+mf445Icon('images',17)+' Cover Recovery</button>'+
-   '<button type="button" role="tab" id="mf445-tab-metadata" aria-controls="mf445-panel" data-mf445-tab="metadata">'+mf445Icon('database',17)+' Metadata Recovery</button></nav>'+
-   '<div class="mf445-body" id="mf445-panel" role="tabpanel" data-mf445-panel tabindex="0"></div></section>';
-  overlay.querySelectorAll('[data-mf445-dismiss]').forEach(button=>button.addEventListener('click',mf445Close));
-  overlay.querySelectorAll('[data-mf445-tab]').forEach(button=>button.addEventListener('click',()=>mf445Panel(button.dataset.mf445Tab)));
-  overlay.addEventListener('keydown',event=>{
-   if(event.key==='Escape'){event.preventDefault();event.stopPropagation();mf445Close();return;}
-   if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)&&event.target.closest('[role="tablist"]')){
-    event.preventDefault();
-    const next=event.key==='Home'?'cover':event.key==='End'?'metadata':
-     event.target.dataset.mf445Tab==='cover'?'metadata':'cover';
-    mf445Panel(next);overlay.querySelector('[data-mf445-tab="'+next+'"]')?.focus();return;
-   }
-   if(event.key!=='Tab')return;
-   const focusable=[...overlay.querySelectorAll('button:not([disabled]),[tabindex="0"],summary')].filter(el=>el.getClientRects().length);
-   if(!focusable.length)return;
-   if(event.shiftKey&&document.activeElement===focusable[0]){event.preventDefault();focusable.at(-1).focus();}
-   else if(!event.shiftKey&&document.activeElement===focusable.at(-1)){event.preventDefault();focusable[0].focus();}
-  });
-  document.body.appendChild(overlay);
- }
- if(options?.id){
-  MF445.oneId=String(options.id);MF445.metadataId=String(options.id);
- }
- mf445Panel(mode);
- if(!same)document.querySelector('#mf445-workspace [data-mf445-dismiss]')?.focus();
-}
-function mf445Start(action){
- const ids=mf445CurrentIds(),oneId=MF445.metadataId||(ids.length===1?ids[0]:'');
- const entry=MF445.coverEntry==='settings'&&ids.length&&!MF445.oneId?'library':MF445.coverEntry;
- const id=MF445.oneId;
- if(action==='preview'&&(!oneId||ids.length!==1)){showToast('Select exactly one Library title to preview.');return;}
- if(action==='batch'&&(!ids.length||MF445.metadataId)){showToast('Select Library titles before recovering metadata.');return;}
- mf445Close();
- if(action==='cover')return mf445OriginalCoverConfig(entry,id);
- if(action==='preview')return mf445OriginalMetadataOpen(oneId);
- if(action==='batch')return App.mf439ConfirmBatch();
-}
-function mf445Settings(section){
- mf445Close();
- return mf441Settings(section||'v221-settings-recovery-workspace');
-}
-// Preserve original engine launchers. Redirection only changes entry points,
-// never recovery requests, confirmation rules or title-safe writes.
-const mf445OriginalCoverConfig=App.mf425OpenConfig;
-const mf445OriginalMetadataOpen=App.mf439Open;
-App.mf425OpenConfig=(entry='settings',id='')=>mf445Open('cover',{entry,id});
-App.mf424OpenConfig=()=>mf445Open('cover');
-App.mf439Open=id=>mf445Open('metadata',{id});
-App.mf441OpenCover=()=>mf445Open('cover');
-App.mf441OpenMetadata=()=>mf445Open('metadata');
-Object.assign(App,{mf445Open,mf445Close,mf445Panel,mf445Start,mf445Settings});
-// The original per-title quick Fix Cover/Fix Metadata actions remain accessible.
-// Add the combined route explicitly to saved-title details.
-const mf445TitleDetailsBase=v181TitleDetailsHtml;
-v181TitleDetailsHtml=function(item){
- const html=mf445TitleDetailsBase.apply(this,arguments);
- if(item?.id==null||!html.includes('class="v181-detail-actions"'))return html;
- const id=mf445Esc(item.id).replace(/'/g,'&#39;');
- const action='<button type="button" class="btn btn-ghost" onclick="App.mf445Open(\'cover\',{id:\''+id+'\'})">'+
-  mf445Icon('layers',16)+' Covers + Metadata Recovery</button>';
- return html.replace(/(<div class="v181-detail-actions"[^>]*>)/,'$1'+action);
-};
-window.MediaFlowV445=Object.freeze({version:445,open:mf445Open,close:mf445Close,providers:mf445Providers,
- categories:mf445Categories,launch:mf445Start});
-/* MediaFlow v446 — actionable unified recovery provider toggles and five safe scopes.
- * v424/v425 and v439/v442 still own all provider calls, job queues, locks,
- * confirmations and title writes; the workspace only selects immutable inputs.
- */
-const MF446_VERSION=446;
-const MF446_STATUS=[['planned','Planned'],['active','Active'],['paused','On Hold'],['completed','Completed'],['dropped','Dropped']];
-const MF446_MODES=[['all','All'],['library','Library'],['category','By Category'],['categoryStatus','By Category → Status'],['selected','Selected Titles']];
-const MF446={draft:{cover:null,metadata:null},pendingBatchIds:null,coverPreparedMode:''};
-function mf446CleanScope(value){
- const validModes=new Set(MF446_MODES.map(x=>x[0]));
- const cats=new Set((S.categories||[]).filter(c=>c?.id!=null).map(c=>String(c.id)));
- const statuses=new Set(MF446_STATUS.map(s=>s[0]));
- const categories=[...new Set(Array.isArray(value?.categories)?value.categories.map(String).filter(x=>cats.has(x)):[])];
- const pairs={};
- for(const id of categories){
-  const allowed=Array.isArray(value?.pairs?.[id])?value.pairs[id]:[];
-  pairs[id]=[...new Set(allowed.map(String).filter(s=>statuses.has(s)))];
- }
- return {mode:validModes.has(value?.mode)?value.mode:'selected',categories,pairs};
-}
-function mf446State(mode){
- if(!MF446.draft[mode]){
-  const stored=S.settings?.v446RecoveryScopes?.[mode];
-  MF446.draft[mode]=mf446CleanScope(stored);
-  if(!stored&&mode==='cover')MF446.draft[mode].mode=typeof mf436SelectedLibraryIds==='function'&&mf436SelectedLibraryIds().length?'selected':'all';
- }
- return MF446.draft[mode];
-}
-function mf446StoreScope(mode){
- S.settings=S.settings||{};
- const scopes={...(S.settings.v446RecoveryScopes||{})};
- scopes[mode]=mf446CleanScope(MF446.draft[mode]);
- S.settings.v446RecoveryScopes=scopes;
- Promise.resolve(saveState()).catch(err=>console.warn('Recovery scope preferences not saved:',err));
-}
-function mf446CurrentLibraryRows(){
- const filters=S.histFilters||{};
- try{
-  const config=typeof v181EnsureLibrarySettings==='function'?v181EnsureLibrarySettings(S.settings||DEFAULT_SETTINGS):null;
-  if(config?.mode==='dynamic'&&typeof v181DynamicRows==='function')return v181DynamicRows();
-  if(typeof v53FilteredLibrary==='function')return v53FilteredLibrary(
-   filters.libCategory||'all',filters.libStatus||'all',filters.libPriority||'all',filters.libSearch||'');
- }catch(err){console.warn('Current Library filter unavailable:',err);}
- // Fail closed instead of silently including the entire Library.
- return [];
-}
-function mf446ScopeIds(mode){
- const saved=(S.library||[]).filter(item=>item?.id!=null);
- const forced=mode==='cover'?MF445.oneId:MF445.metadataId;
- if(forced)return saved.filter(item=>String(item.id)===String(forced)).map(item=>String(item.id));
- const scope=mf446State(mode);
- if(scope.mode==='selected'){
-  const selected=new Set(typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds().map(String):[]);
-  return saved.filter(item=>selected.has(String(item.id))).map(item=>String(item.id));
- }
- if(scope.mode==='library'){
-  const view=new Set(mf446CurrentLibraryRows().filter(x=>x?.id!=null).map(x=>String(x.id)));
-  return saved.filter(item=>view.has(String(item.id))).map(item=>String(item.id));
- }
- if(scope.mode==='all')return saved.map(item=>String(item.id));
- const chosen=new Set(scope.categories);
- return saved.filter(item=>{
-  const category=String(item.categoryId||'');
-  if(!chosen.has(category))return false;
-  return scope.mode==='category'||(scope.pairs[category]||[]).includes(String(item.status||'planned'));
- }).map(item=>String(item.id));
-}
-function mf446SourceHtml(mode){
- const providers=mf445Providers(mode);
- const enabled=providers.filter(p=>p.enabled&&p.available).length;
- return '<section class="mf445-section mf445-providers mf446-providers">'+
-  '<header><div><strong>'+mf425Icon(mode==='cover'?'images':'database',17)+' '+(mode==='cover'?'Cover':'Metadata')+
-  ' providers</strong><small data-mf446-provider-count>'+enabled+' available and enabled · '+providers.length+' registered</small></div>'+
-  '<button type="button" class="btn btn-ghost" onclick="App.mf445Settings(\'v221-settings-api-providers\')">'+mf425Icon('settings',15)+' API Setup</button></header>'+
-  '<div class="mf446-provider-tools"><button type="button" onclick="App.mf446ProviderAll('+JSON.stringify(mode)+',true)">Enable available</button>'+
-  '<button type="button" onclick="App.mf446ProviderAll('+JSON.stringify(mode)+',false)">Disable all</button></div>'+
-  '<div class="mf445-provider-grid">'+providers.map(p=>{
-   const id=String(p.id);
-   if(!/^[a-z][a-z0-9_-]{0,60}$/i.test(id))return '';
-   const disabled=!p.available;
-   return '<div class="mf445-provider mf446-provider" data-mf446-provider="'+mf445Esc(id)+'" data-status="'+(disabled?'unavailable':p.enabled?'enabled':'disabled')+'">'+
-    '<label class="mf446-provider-check"><input type="checkbox" data-mf446-toggle="'+mf445Esc(id)+'" '+
-    (p.enabled&&p.available?'checked ':'')+(disabled?'disabled ':'')+
-    'onchange="App.mf446ToggleProvider('+mf445Esc(JSON.stringify(mode))+','+mf445Esc(JSON.stringify(id))+',this.checked)">'+
-    '<span class="mf445-provider-info"><strong>'+mf445Esc(p.name)+'</strong><small>'+mf445Esc(p.detail)+'</small></span></label>'+
-    '<span class="mf445-provider-status">'+(disabled?'Unavailable':p.enabled?'Enabled':'Disabled')+'</span>'+
-    (disabled?'<button class="mf445-provider-setup" type="button" onclick="App.mf445Settings(\'v221-settings-api-providers\')" aria-label="Set up '+mf445Esc(p.name)+'">'+mf425Icon('settings',15)+'</button>':'')+
-    '</div>';
-  }).join('')+'</div><small class="mf445-provider-note">Enable or disable APIs here; each recovery engine saves its own provider preferences. Unavailable adapters need Setup first.</small></section>';
-}
-function mf446ToggleProvider(mode,id,on){
- if(!['cover','metadata'].includes(mode))return;
- const item=mf445Providers(mode).find(x=>x.id===id);
- if(!item||!item.available){showToast('This API is unavailable. Open API Setup to configure it.');return;}
- const prop=mode==='cover'?'v424Covers':'v439Metadata',current=mode==='cover'?mf424Defaults():mf439Preferences();
- const next=new Set(current.enabled);
- if(on)next.add(id);else next.delete(id);
- S.settings=S.settings||{};
- S.settings[prop]={...(S.settings[prop]||{}),enabled:[...next]};
- const providerRoot=document.querySelector('#mf445-workspace .mf446-providers');
- if(providerRoot){
-  const row=[...providerRoot.querySelectorAll('[data-mf446-provider]')].find(n=>n.dataset.mf446Provider===id);
-  if(row){
-   row.dataset.status=on?'enabled':'disabled';
-   const input=row.querySelector('input[data-mf446-toggle]');if(input)input.checked=!!on;
-   const label=row.querySelector('.mf445-provider-status');if(label)label.textContent=on?'Enabled':'Disabled';
-  }
-  const ready=mf445Providers(mode).filter(p=>p.enabled&&p.available).length;
-  const summary=providerRoot.querySelector('[data-mf446-provider-count]');
-  if(summary)summary.textContent=ready+' available and enabled · '+mf445Providers(mode).length+' registered';
- }
- mf446UpdateSummary();
- Promise.resolve(saveState()).catch(err=>console.warn('Recovery provider settings not saved:',err));
-}
-function mf446ProviderAll(mode,on){
- if(!['cover','metadata'].includes(mode))return;
- const prop=mode==='cover'?'v424Covers':'v439Metadata',current=mode==='cover'?mf424Defaults():mf439Preferences();
- const available=mf445Providers(mode).filter(p=>p.available).map(p=>p.id);
- const next=on?[...new Set([...current.enabled,...available])]:current.enabled.filter(id=>!available.includes(id));
- S.settings=S.settings||{};
- S.settings[prop]={...(S.settings[prop]||{}),enabled:next};
- mf445Panel(mode);
- Promise.resolve(saveState()).catch(err=>console.warn('Recovery provider settings not saved:',err));
-}
-function mf446CategoryRows(mode){
- const scope=mf446State(mode);
- const statusMode=scope.mode==='categoryStatus';
- const valid=!(mode==='cover'?MF445.oneId:MF445.metadataId)&&(scope.mode==='category'||statusMode);
- const cats=(S.categories||[]).filter(c=>c?.id!=null);
- const count=new Map();
- for(const item of S.library||[])if(item?.categoryId!=null){
-  const key=String(item.categoryId);count.set(key,(count.get(key)||0)+1);
- }
- return '<details class="mf446-categories" '+(valid?'open':'')+' '+(valid?'':'hidden')+'>'+
-  '<summary>'+mf425Icon('layers',16)+' Choose categories <small>'+scope.categories.length+' / '+cats.length+' chosen</small>'+mf425Icon('chevronDown',15)+'</summary>'+
-  '<div class="mf446-category-tools"><button type="button" onclick="App.mf446AllCategories(true)">Select all</button>'+
-  '<button type="button" onclick="App.mf446AllCategories(false)">Clear selection</button></div>'+
-  '<div class="mf445-category-grid mf446-category-grid">'+cats.map(c=>{
-   const id=String(c.id),isOn=scope.categories.includes(id),statuses=scope.pairs[id]||[];
-   return '<div class="mf446-category"><label class="mf446-category-top">'+
-    '<input type="checkbox" '+(isOn?'checked ':'')+'data-mf446-category="'+mf445Esc(id)+'" onchange="App.mf446ToggleCategory('+mf445Esc(JSON.stringify(id))+',this.checked)">'+
-    '<span class="mf445-category-art">'+mf445CategoryIcon(c)+'</span>'+
-    '<span class="mf445-category-label"><strong>'+mf445Esc(c.name||id)+'</strong><small>'+Number(count.get(id)||0).toLocaleString()+' titles</small></span></label>'+
-    (isOn&&statusMode?'<details class="mf446-statuses" open><summary>Statuses ('+statuses.length+' / '+MF446_STATUS.length+')</summary>'+
-    '<div>'+MF446_STATUS.map(([status,label])=>
-     '<label><input type="checkbox" '+(statuses.includes(status)?'checked ':'')+
-     'onchange="App.mf446ToggleStatus('+mf445Esc(JSON.stringify(id))+','+JSON.stringify(status)+',this.checked)">'+mf445Esc(label)+'</label>').join('')+
-    '</div></details>':'')+'</div>';
-  }).join('')+'</div></details>';
-}
-function mf446ScopeHtml(mode){
- const forced=mode==='cover'?MF445.oneId:MF445.metadataId;
- const state=mf446State(mode);
- const ids=mf446ScopeIds(mode);
- const scope=forced?'single':state.mode;
- const selected=typeof mf436SelectedLibraryIds==='function'?mf436SelectedLibraryIds().length:0;
- const cap=mode==='metadata'?Math.max(1,Math.min(250,Number(mf439Preferences().maxBatch)||250)):0;
- return '<section class="mf445-section mf446-scope" aria-label="Recovery scope">'+
-  '<header><strong>'+mf425Icon('layers',17)+' Recovery scope</strong><small>Choose exactly which saved titles are eligible</small></header>'+
-  '<label class="mf446-scope-mode">Title scope <select data-mf446-scope onchange="App.mf446SelectScope(this.value)" '+(forced?'disabled':'')+'>'+
-  (forced?'<option value="single" selected>This Title</option>':MF446_MODES.map(([id,label])=>'<option value="'+id+'" '+(scope===id?'selected':'')+'>'+mf445Esc(label)+'</option>').join(''))+
-  '</select></label>'+
-  (scope==='library'?'<p class="mf446-explanation">Current Library search, category, status and priority filters, across every page. A snapshot is taken when recovery begins.</p>':'')+
-  (scope==='selected'?'<p class="mf446-explanation">'+selected.toLocaleString()+' checked title(s) in MediaFlow. Use Library checkboxes to change your selection.</p>':'')+
-  (scope==='all'?'<p class="mf446-explanation">Every saved title in your Library, including all categories and statuses.</p>':'')+
-  mf446CategoryRows(mode)+
-  '<div class="mf446-count" role="status" aria-live="polite"><strong data-mf446-in-scope>'+ids.length.toLocaleString()+
-  '</strong> titles in scope'+(cap&&ids.length>cap?' · <b>first '+cap.toLocaleString()+' per metadata batch</b>':'')+
-  (cap&&ids.length?' · batch limit '+cap.toLocaleString():'')+'</div></section>';
-}
-function mf446SelectScope(value){
- const mode=MF445.mode,scope=mf446State(mode);
- if(!MF446_MODES.some(row=>row[0]===value))return;
- scope.mode=value;
- mf446StoreScope(mode);mf445Panel(mode);
-}
-function mf446ToggleCategory(id,on){
- const mode=MF445.mode,scope=mf446State(mode);
- if(!(S.categories||[]).some(c=>String(c?.id)===id))return;
- const values=new Set(scope.categories);
- if(on){values.add(id);if(!scope.pairs[id]||!scope.pairs[id].length)scope.pairs[id]=MF446_STATUS.map(x=>x[0]);}
- else values.delete(id);
- scope.categories=[...values];mf446StoreScope(mode);mf445Panel(mode);
-}
-function mf446AllCategories(on){
- const scope=mf446State(MF445.mode);
- scope.categories=on?(S.categories||[]).filter(c=>c?.id!=null).map(c=>String(c.id)):[];
- if(on)for(const id of scope.categories)if(!scope.pairs[id]?.length)scope.pairs[id]=MF446_STATUS.map(s=>s[0]);
- mf446StoreScope(MF445.mode);mf445Panel(MF445.mode);
-}
-function mf446ToggleStatus(category,status,on){
- const scope=mf446State(MF445.mode);
- if(!scope.categories.includes(category)||!MF446_STATUS.some(x=>x[0]===status))return;
- const checked=new Set(scope.pairs[category]||[]);
- if(on)checked.add(status);else checked.delete(status);
- scope.pairs[category]=[...checked];
- mf446StoreScope(MF445.mode);mf445Panel(MF445.mode);
-}
-function mf446UpdateSummary(){
- const root=document.getElementById('mf445-workspace');if(!root)return;
- const mode=MF445.mode,ids=mf446ScopeIds(mode);
- const ready=mf445Providers(mode).some(p=>p.available&&p.enabled);
- const label=root.querySelector('.mf445-summary>span:first-child');
- if(label)label.innerHTML=mf425Icon('layers',17)+' <strong>'+ids.length.toLocaleString()+'</strong> in recovery scope';
- const section=root.querySelector('.mf446-scope [data-mf446-in-scope]');
- if(section)section.textContent=ids.length.toLocaleString();
- const cap=mode==='metadata'?mf439Preferences().maxBatch:Infinity;
- const actionButtons=root.querySelectorAll('.mf445-actions .btn-primary');
- for(const button of actionButtons){
-  const action=button.getAttribute('onclick')||'';
-  button.disabled=!ready||(action.includes('preview')?ids.length!==1:
-   action.includes('batch')&&!!MF445.metadataId?true:!ids.length);
- }
- if(mode==='metadata'){
-  const note=root.querySelector('.mf446-scope .mf446-count');
-  if(note)note.innerHTML='<strong data-mf446-in-scope>'+ids.length.toLocaleString()+'</strong> titles in scope'+
-   (ids.length>cap?' · <b>first '+cap+' per metadata batch</b>':'')+' · batch limit '+cap;
- }
-}
-const mf446PreviousSourceHtml=mf445SourceHtml;
-mf445SourceHtml=function(mode){return mf446SourceHtml(mode);};
-const mf446PreviousCategoryHtml=mf445Categories;
-mf445Categories=function(){return mf446ScopeHtml(MF445.mode);};
-const mf446PreviousPanel=mf445Panel;
-mf445Panel=function(mode){
- mf446PreviousPanel.apply(this,arguments);
- // Original actions use selected Library checkboxes, not the current workspace
- // scope; replace eligibility before users can launch a job.
- mf446UpdateSummary();
-};
-const mf446OriginalCandidates=mf439BatchCandidates;
-mf439BatchCandidates=function(){
- if(Array.isArray(MF446.pendingBatchIds)){
-  const max=Math.max(1,Math.min(250,Number(mf439Preferences().maxBatch)||250));
-  return MF446.pendingBatchIds.slice(0,max);
- }
- return mf446OriginalCandidates.apply(this,arguments);
-};
-function mf446ApplyCoverScope(selected){
- const input=document.querySelector('#mf425-scope [name="mf425-scope-mode"]');
- if(!input||MF425.oneId)return;
- const state=mf446State('cover'),mode=state.mode;
- MF425.locked=false;
- MF425.selected=['library','selected'].includes(mode)?selected.slice():[];
- const mapMode=mode==='library'?'selected':mode;
- input.value=mapMode;
- if(mode==='library'){
-  const option=input.querySelector('option[value="selected"]');
-  if(option)option.textContent='Library (current filters, '+selected.length.toLocaleString()+')';
- }
- const categories=document.querySelectorAll('#mf425-scope input[data-mf425-category]');
- for(const checkbox of categories)checkbox.checked=state.categories.includes(checkbox.value);
- mf425ScopeChange();
- if(mode==='categoryStatus'){
-  for(const checkbox of document.querySelectorAll('#mf425-scope input[data-mf425-status]'))
-   checkbox.checked=(state.pairs[checkbox.dataset.mf425Status]||[]).includes(checkbox.value);
-  mf425UpdateCount();
- }
- if(['library','selected'].includes(mode)){
-  // v436's title review UI must match the actual immutable selected IDs.
-  const prev=document.querySelector('#mf436-selection-summary');
-  const before=document.getElementById('mf425-categories');
-  const rendered=MF425.selected.length?mf436SelectedDetails():'';
-  if(prev){if(rendered)prev.outerHTML=rendered;else prev.remove();}
-  else if(rendered)before?.insertAdjacentHTML('beforebegin',rendered);
-  const set=new Set(MF425.selected);
-  MF436.reviewIds=(S.library||[]).filter(t=>set.has(String(t?.id))).slice(0,36).map(t=>String(t.id));
-  mf425ScopeChange();
- }
-}
-const mf446PreviousStart=App.mf445Start;
-async function mf446Start(action){
- const mode=MF445.mode,ids=mf446ScopeIds(mode),ready=mf445Providers(mode).some(p=>p.available&&p.enabled);
- if(!ready){showToast('Enable at least one available '+mode+' provider before starting.');return;}
- if(!ids.length){showToast('There are no Library titles in the chosen recovery scope.');return;}
- if(action==='cover'&&mode==='cover'){
-  const scope=ids.slice();
-  // Use v445 -> v425 launch; immediately prefill its original safe scope UI.
-  const result=mf446PreviousStart('cover');
-  mf446ApplyCoverScope(scope);
-  return result;
- }
- if(mode!=='metadata')return;
- if(action==='preview'){
-  if(ids.length!==1){showToast('Choose a scope containing exactly one title to preview.');return;}
-  mf445Close();return mf445OriginalMetadataOpen(ids[0]);
- }
- if(action==='batch'){
-  if(MF445.metadataId){showToast('Use Preview for a single saved title.');return;}
-  if(MF446.pendingBatchIds){showToast('A metadata recovery confirmation is already open.');return;}
-  // Keep the selected IDs through both confirmations in v442/v439. v439 reads
-  // the candidate snapshot only after any unfinished-queue confirmation.
-  MF446.pendingBatchIds=ids.slice();
-  mf445Close();
-  try{return await App.mf439ConfirmBatch();}
-  finally{MF446.pendingBatchIds=null;}
- }
-}
-App.mf445Start=mf446Start;
-// Move the Cover Setup shortcut to the shared widget footer, immediately
-// before Recovery Settings. Both rows now have New Recovery actions.
-const mf446OldCoverRow=mf441CoverRow;
-mf441CoverRow=function(state){
- const html=mf446OldCoverRow.apply(this,arguments);
- return html.replace('onclick="App.mf441OpenCover()">'+mf425Icon('settings',15)+' Setup',
-  'onclick="App.mf445Open(&#39;cover&#39;)">'+mf425Icon('images',15)+' New Recovery');
-};
-const mf446OldWidget=mf441WidgetHtml;
-mf441WidgetHtml=function(prefs,state){
- const html=mf446OldWidget.apply(this,arguments);
- return html.replace('<div class="mf441-widget-foot"><button type="button" onclick="App.mf441Settings()">',
-  '<div class="mf441-widget-foot mf446-widget-foot"><button type="button" onclick="App.mf446Setup()">'+mf425Icon('settings',15)+
-  ' Setup</button><button type="button" onclick="App.mf441Settings()">');
-};
-function mf446Setup(){return mf441Settings('v221-settings-api-providers');}
-App.mf446Setup=mf446Setup;
-Object.assign(App,{mf446ToggleProvider,mf446ProviderAll,mf446SelectScope,
- mf446ToggleCategory,mf446AllCategories,mf446ToggleStatus,mf446Start});
-window.MediaFlowV446=Object.freeze({version:446,providers:mf445Providers,
- scopeIds:mf446ScopeIds,scopes:MF446_MODES.map(x=>x[0]),sourceHtml:mf446SourceHtml,
- scopeHtml:mf446ScopeHtml,coverRow:mf441CoverRow,widget:mf441WidgetHtml});
-/* MediaFlow v447 — universal recovery shortcuts and real sequential Cover → Metadata.
- * Existing v424, v439 and v442 engines own all writes, user confirmations, locks
- * and checkpoints. This module only supplies entry points and a scoped handoff.
- */
-const MF447_VERSION=447;
-const MF447_SHORTCUTS=['floating','library','editor','details','collections','order','widget'];
-const MF447={active:'cover',keepCombined:false,contextIds:null,contextLabel:'',arming:null,handoff:false};
-const mf447Escape=x=>mf424Escape(String(x??''));
-function mf447Prefs(){
- const data=S.settings?.v447RecoveryShortcuts||{};
- return Object.fromEntries(MF447_SHORTCUTS.map(key=>[key,data[key]!==false]));
-}
-function mf447SaveShortcut(key,on){
- if(!MF447_SHORTCUTS.includes(key))return;
- S.settings=S.settings||{};S.settings.v447RecoveryShortcuts={...mf447Prefs(),[key]:Boolean(on)};
- Promise.resolve(saveState()).catch(err=>console.warn('Shortcut preference not saved',err));
- if(key==='floating')try{render();}catch(_){}
- if(key==='widget')mf441Paint();
- showToast('Recovery shortcut preference saved.');
-}
-function mf447AllowedIds(ids){
- const available=new Set((S.library||[]).filter(x=>x?.id!=null).map(x=>String(x.id)));
- return [...new Set((Array.isArray(ids)?ids:[]).map(String).filter(id=>available.has(id)))];
-}
-function mf447ScopeSnapshot(){
- const scope=MF447.contextIds&&mf446State('cover').mode==='selected'?
-  mf447AllowedIds(MF447.contextIds):mf446ScopeIds('cover');
- return mf447AllowedIds(scope);
-}
-function mf447ComboKey(){return 'mediaflow-v447-combined:'+mf439Account();}
-function mf447ReadCombo(){
- try{
-  const raw=JSON.parse(localStorage.getItem(mf447ComboKey())||'null');
-  if(!raw||raw.schema!==1||raw.account!==mf439Account()||
-     !['cover','ready-metadata','metadata','completed'].includes(raw.stage)||
-     !Array.isArray(raw.ids)||raw.ids.length>250)return null;
-  // Widget paints must not scan the entire Library (100k titles possible).
-  // Resolve membership against the current account only at stage transitions.
-  const ids=[...new Set(raw.ids.filter(id=>['string','number'].includes(typeof id)).map(String).filter(Boolean))];
-  if(ids.length!==raw.ids.length)return null;
-  return {...raw,ids};
- }catch(_){return null;}
-}
-function mf447WriteCombo(combo){
- try{
-  if(combo)localStorage.setItem(mf447ComboKey(),JSON.stringify(combo));
-  else localStorage.removeItem(mf447ComboKey());
- }catch(err){console.warn('Combined recovery checkpoint unavailable',err);showToast('Combined handoff could not be saved. Use independent recovery actions.');}
-}
-function mf447Combo(){return mf447ReadCombo();}
-async function mf447ClearCombo(){
- if(MF447.handoff||MF424.running||MF439.working){showToast('Pause the active recovery first.');return;}
- const combo=mf447Combo();
- if(combo&&combo.stage!=='completed'&&
-    !await mf444Confirm('Clear combined recovery shortcut?',
-    'Remove the combined-stage handoff. Existing cover and metadata checkpoints and recovered Library fields remain unchanged.',
-    'Clear Handoff',true,combo.ids.length,'cover'))return;
- mf447WriteCombo(null);mf441Paint();
-}
-function mf447Open(kind='cover',options={}){
- if(!['cover','metadata','both'].includes(kind))kind='cover';
- MF447.active=kind;
- const ids=Array.isArray(options?.ids)?mf447AllowedIds(options.ids):null;
- if(ids&&!ids.length){showToast('This collection or queue has no saved Library titles to recover.');return;}
- MF447.contextIds=ids?.length?ids:null;
- MF447.contextLabel=ids?.length?String(options.label||'Selected titles'):'';
- if(ids?.length){
-  MF446.draft.cover={...mf446State('cover'),mode:'selected'};
-  MF446.draft.metadata={...mf446State('metadata'),mode:'selected'};
- }else if(!options?.id&&typeof mf436SelectedLibraryIds==='function'&&mf436SelectedLibraryIds().length&&
-          ['cover','metadata','both'].includes(kind)){
-  // A quick action should initially honor checked titles, without removing
-  // the option to switch to All, current Library, or categories.
-  MF446.draft.cover={...mf446State('cover'),mode:'selected'};
-  MF446.draft.metadata={...mf446State('metadata'),mode:'selected'};
- }
- mf445Open(kind==='both'?'cover':kind,{entry:options?.entry||'shortcut',id:options?.id||''});
- if(kind==='both')mf445Panel('both');
-}
-const mf447OriginalClose=mf445Close;
-mf445Close=function(){
- const result=mf447OriginalClose.apply(this,arguments);
- MF447.contextIds=null;MF447.contextLabel='';MF447.active='cover';
- return result;
-};
-App.mf445Close=mf445Close;
-const mf447PreviousScopeIds=mf446ScopeIds;
-mf446ScopeIds=function(mode){
- if(MF447.contextIds&&mf446State(mode).mode==='selected'&&
-    !(mode==='cover'?MF445.oneId:MF445.metadataId))return mf447AllowedIds(MF447.contextIds);
- return mf447PreviousScopeIds.apply(this,arguments);
-};
-function mf447EnhanceTabs(){
- const root=document.getElementById('mf445-workspace'),tabs=root?.querySelector('.mf445-tabs');
- if(!tabs||tabs.querySelector('[data-mf445-tab="both"]'))return;
- const btn=document.createElement('button');btn.type='button';btn.role='tab';
- btn.id='mf445-tab-both';btn.dataset.mf445Tab='both';btn.setAttribute('aria-controls','mf445-panel');
- btn.innerHTML=mf425Icon('layers',17)+' Recover Both';
- btn.addEventListener('click',()=>mf445Panel('both'));
- tabs.appendChild(btn);tabs.classList.add('mf447-three-tabs');
-}
-function mf447BothPanel(){
- const root=document.getElementById('mf445-workspace'),pane=root?.querySelector('[data-mf445-panel]');
- if(!pane)return;
- const ids=mf447ScopeSnapshot(),cap=mf439Preferences().maxBatch;
- const coverReady=mf445Providers('cover').some(p=>p.available&&p.enabled);
- const metadataReady=mf445Providers('metadata').some(p=>p.available&&p.enabled);
- root.querySelectorAll('[data-mf445-tab]').forEach(btn=>{
-  const active=btn.dataset.mf445Tab==='both';btn.setAttribute('aria-selected',String(active));btn.tabIndex=active?0:-1;
- });
- pane.setAttribute('aria-labelledby','mf445-tab-both');
- pane.innerHTML='<p class="mf445-intro">Cover Recovery runs first. After its final review is resolved, Metadata Recovery starts only with your confirmation. Both engines keep their independent provider and safety settings.</p>'+
-  '<div class="mf445-summary"><span>'+mf425Icon('layers',17)+' <strong>'+ids.length.toLocaleString()+
-  '</strong> titles in scope</span><span>'+mf425Icon('shield',16)+' Two protected stages</span></div>'+
-  (MF447.contextLabel?'<p class="mf447-context">'+mf425Icon('check',15)+' '+mf447Escape(MF447.contextLabel)+' · switch scope at any time</p>':'')+
-  mf446ScopeHtml('cover')+
-  '<div class="mf447-stage"><strong>'+mf425Icon('images',18)+' 1. Cover providers</strong>'+
-  mf446SourceHtml('cover')+'</div>'+
-  '<div class="mf447-stage"><strong>'+mf425Icon('database',18)+' 2. Metadata providers</strong>'+
-  mf446SourceHtml('metadata')+'</div>'+
-  '<div class="mf447-combined-note">'+mf425Icon('shield',17)+
-  ' Both stages use the same title snapshot, with a maximum of '+cap.toLocaleString()+
-  ' titles per combined job. Any larger scope is limited to the first '+cap.toLocaleString()+
-  ' saved titles. Manual cover reviews must be resolved before metadata begins.</div>'+
-  '<div class="mf445-actions"><button type="button" class="btn btn-primary" '+(!ids.length||!coverReady||!metadataReady?'disabled':'')+
-  ' onclick="App.mf447StartCombined()">'+mf425Icon('layers',18)+' Configure Combined Recovery</button>'+
-  '<button type="button" class="btn btn-ghost" onclick="App.mf445Settings(\'v221-settings-recovery-workspace\')">'+mf425Icon('settings',16)+' Recovery settings</button></div>';
-}
-const mf447PreviousPanel=mf445Panel;
-mf445Panel=function(mode){
- const both=mode==='both'||(MF447.keepCombined&&mode==='cover');
- MF447.active=both?'both':mode;
- mf447PreviousPanel(both?'cover':mode);
- mf447EnhanceTabs();
- if(both)mf447BothPanel();
- else document.querySelectorAll('#mf445-workspace [data-mf445-tab="both"]').forEach(el=>{el.setAttribute('aria-selected','false');el.tabIndex=-1;});
-};
-App.mf445Panel=mf445Panel;App.mf445Open=mf447Open;
-for(const name of ['mf446SelectScope','mf446ToggleCategory','mf446ToggleStatus','mf446AllCategories']){
- const previous=App[name];
- App[name]=function(){
-  if(MF447.active!=='both')return previous.apply(this,arguments);
-  MF447.keepCombined=true;
-  try{return previous.apply(this,arguments);}
-  finally{MF447.keepCombined=false;}
- };
-}
-function mf447ApiReady(kind){return mf445Providers(kind).some(p=>p.available&&p.enabled);}
-function mf447StartCombined(){
- if(!AUTH_USER||!MF424.ready){showToast('Sign in and let Cover Recovery initialize first.');return;}
- if(MF424.running||MF439.working){showToast('Pause the active recovery process before starting another job.');return;}
- if(!mf447ApiReady('cover')||!mf447ApiReady('metadata')){
-  showToast('Enable at least one available provider for each recovery engine.');return;
- }
- const previous=mf447Combo();
- if(previous&&!['completed'].includes(previous.stage)){
-  showToast('A combined recovery is unfinished. Complete or clear it before starting a new one.');return;
- }
- const ids=mf447ScopeSnapshot(),max=mf439Preferences().maxBatch,selected=ids.slice(0,max);
- if(!selected.length){showToast('Choose at least one saved Library title.');return;}
- if(ids.length>max)showToast('Combined Recovery uses the first '+max+' titles in the chosen scope. The original scope remains unchanged.');
- const missing=new Set((S.library||[]).filter(mf424Missing).map(x=>String(x.id)));
- MF447.arming={schema:1,account:mf439Account(),ids:selected,created:Date.now(),stage:'configuring',coverId:null};
- if(!selected.some(id=>missing.has(id))){
-  // Nothing to search in the cover stage. Metadata still requires its own
-  // explicit confirmation through the existing v439/v442 engine.
-  const intent={...MF447.arming,stage:'ready-metadata',coverId:null};
-  MF447.arming=null;mf447WriteCombo(intent);mf445Close();
-  showToast('All scoped titles already have covers. Confirm the Metadata Recovery stage.');
-  void mf447ContinueCombined();return;
- }
- const result=App.mf445Start('cover'); // Existing v446 scope → original v425 config.
- const input=document.querySelector('#mf425-scope [name="mf425-scope-mode"]');
- if(!input){
-  MF447.arming=null;showToast('Could not open the Cover Recovery configuration.');return result;
- }
- if(!MF425.oneId){
-  MF425.selected=selected.slice();MF425.locked=false;input.value='selected';
-  const option=input.querySelector('option[value="selected"]');
-  if(option)option.textContent='Combined Recovery · '+selected.length+' titles';
-  mf425ScopeChange();
- }
- return result;
-}
-const mf447OriginalStartCover=App.mf424Start;
-App.mf424Start=async function(){
- const old=MF424.job?.id||'';
- const armed=MF447.arming;
- const result=await mf447OriginalStartCover.apply(this,arguments);
- if(armed&&MF447.arming===armed&&MF424.job?.id&&MF424.job.id!==old&&
-    Array.isArray(MF424.job.ids)){
-  // Only arm after the original confirmation and durable cover job creation.
-  mf447WriteCombo({...armed,stage:'cover',coverId:MF424.job.id});
-  MF447.arming=null;mf447CheckCombo();
- }
- return result;
-};
-function mf447CheckCombo(){
- const combo=mf447Combo();if(!combo)return;
- if(combo.stage==='cover'){
-  const job=MF424.job;
-  if(!job||job.id!==combo.coverId||job.account!==mf424Account())return;
-  if(job.status!=='complete'||MF424.running||Number(job.pending)>0)return;
-  const ready={...combo,stage:'ready-metadata'};
-  mf447WriteCombo(ready);showToast('Cover stage complete. Metadata Recovery is ready for confirmation.');
-  mf441Paint();
-  if(!MF447.handoff)queueMicrotask(()=>{void mf447ContinueCombined();});
- }else if(combo.stage==='metadata'){
-  const job=MF439.job||mf439ReadJob();
-  if(job&&job.status==='completed'&&job.startedAt===combo.metadataAt){
-   mf447WriteCombo({...combo,stage:'completed'});
-   showToast('Cover + Metadata Recovery completed.');
-   mf441Paint();
-  }
- }
-}
-const mf447OriginalShowWidget=mf441Show;
-mf441Show=function(prefs,state){
- if(prefs.visibility==='hidden')return false;
- const combo=mf447Combo();
- if(combo&&combo.stage!=='completed')return true;
- return mf447OriginalShowWidget.apply(this,arguments);
-};
-const mf447OriginalCoverPaint=mf424Paint;
-mf424Paint=function(){
- const result=mf447OriginalCoverPaint.apply(this,arguments);
- const combo=mf447Combo();
- if(combo?.stage==='cover'&&MF424.job?.id===combo.coverId&&
-    MF424.job.status==='complete'&&!MF424.running){
-  queueMicrotask(mf447CheckCombo);
- }
- return result;
-};
-const mf447OriginalRunCover=mf424Run;
-mf424Run=async function(){
- const result=await mf447OriginalRunCover.apply(this,arguments);
- mf447CheckCombo();return result;
-};
-const mf447OriginalPaintMetadata=mf439PaintJob;
-mf439PaintJob=function(){
- const result=mf447OriginalPaintMetadata.apply(this,arguments);
- if(MF439.job?.status==='completed'&&!MF439.working)mf447CheckCombo();
- return result;
-};
-async function mf447ContinueCombined(){
- if(MF447.handoff)return;
- const combo=mf447Combo();if(!combo||combo.stage!=='ready-metadata')return;
- if(combo.coverId){
-  const job=MF424.job;
-  if(!job||job.id!==combo.coverId||job.account!==mf424Account()||job.status!=='complete'||MF424.running){
-   showToast('Finish the matching Cover Recovery job and all pending reviews before continuing.');return;
-  }
- }
- if(MF439.working||MF424.running){showToast('Finish the active recovery stage first.');return;}
- const ids=mf447AllowedIds(combo.ids).slice(0,mf439Preferences().maxBatch);
- if(!ids.length||!mf447ApiReady('metadata')){showToast('Enable a metadata provider and keep the saved titles available.');return;}
- MF447.handoff=true;const previous=MF439.job;
- MF446.pendingBatchIds=ids;
- try{
-  await App.mf439ConfirmBatch(); // User confirmation + existing lease/overwrite safeguards.
-  if(MF439.job&&MF439.job!==previous&&Array.isArray(MF439.job.ids)&&
-     MF439.job.ids.length===ids.length&&MF439.job.ids.every((id,i)=>String(id)===ids[i])){
-   mf447WriteCombo({...combo,stage:'metadata',metadataAt:MF439.job.startedAt});
-   mf447CheckCombo();
-  }else showToast('Metadata stage not started. Continue it later from Background Processes.');
- }catch(err){console.warn('Combined metadata handoff failed:',err);showToast('Metadata stage not started; saved cover progress is safe.');}
- finally{MF446.pendingBatchIds=null;MF447.handoff=false;mf441Paint();}
-}
-function mf447ComboControls(){
- const combo=mf447Combo();
- if(!combo)return '';
- const job=combo.stage==='cover'?MF424.job:combo.stage==='metadata'?(MF439.job||mf439ReadJob()):null;
- const done=combo.stage==='completed',ready=combo.stage==='ready-metadata';
- return '<div class="mf447-combo-status" role="status"><span>'+mf425Icon('layers',16)+
-  ' <strong>Combined Recovery</strong><small>'+mf447Escape(done?'Complete':ready?'Cover complete · metadata confirmation needed':
-   combo.stage==='cover'?'Cover stage · '+String(job?.status||'waiting'):
-   'Metadata stage · '+String(job?.status||'running'))+'</small></span>'+
-  (ready?'<button type="button" onclick="App.mf447ContinueCombined()">'+mf425Icon('database',15)+' Continue Metadata</button>':'')+
-  ((done||combo.stage==='cover'&&(!job||job.id!==combo.coverId||job.status==='stopped')||combo.stage==='metadata'&&job?.status==='paused')?'<button type="button" onclick="App.mf447ClearCombo()">'+mf425Icon('x',15)+' '+(done?'Dismiss':'Clear Handoff')+'</button>':'')+
-  '</div>';
-}
-const mf447OriginalWidget=mf441WidgetHtml;
-mf441WidgetHtml=function(prefs,state){
- let html=mf447OriginalWidget.apply(this,arguments);
- if(!mf447Prefs().widget)return html;
- const anchor='<div class="mf441-widget-foot mf446-widget-foot">';
- if(html.includes(anchor))html=html.replace(anchor,mf447ComboControls()+anchor);
- return html.replace(anchor,anchor+'<button type="button" onclick="App.mf447Open(\'both\',{entry:\'floating\'})">'+
-  mf425Icon('layers',15)+' Recover Both</button>');
-};
-const mf447Actions=[
- ['cover','Cover Recovery','images'],['metadata','Metadata Recovery','database'],['both','Recover Both','layers']
-];
-function mf447Buttons(options={}){
- const compact=options.compact!==false,ids=options.ids||null;
- const arg=ids?{ids,label:options.label||'Selected titles'}:options.id?{id:options.id}:{entry:options.entry||'shortcut'};
- const serialized=mf447Escape(JSON.stringify(arg));
- return '<div class="mf447-shortcut-group" role="group" aria-label="Recovery actions">'+
-  mf447Actions.map(([kind,label,icon])=>'<button type="button" class="btn '+(compact?'btn-sm ':'')+'btn-ghost" '+
-   'onclick="App.mf447Open(\''+kind+'\','+serialized+')" title="'+label+'">'+mf425Icon(icon,16)+' '+label+'</button>').join('')+'</div>';
-}
-const mf447PreviousDetails=v181TitleDetailsHtml;
-v181TitleDetailsHtml=function(item){
- let html=mf447PreviousDetails.apply(this,arguments);
- if(!mf447Prefs().details||item?.id==null)return html;
- // Replace v445's cover-only "combined" link with a real two-stage route.
- html=html.replace(/onclick="App\.mf445Open\('cover',\{id:/g,'onclick="App.mf447Open(\'both\',{id:');
- const id=mf447Escape(JSON.stringify(String(item.id)));
- const buttons='<button class="btn btn-sm btn-ghost" type="button" onclick="App.mf447Open(\'cover\',{id:'+id+'})">'+mf425Icon('images',16)+' Fix Cover</button>'+
-  '<button class="btn btn-sm btn-ghost" type="button" onclick="App.mf447Open(\'metadata\',{id:'+id+'})">'+mf425Icon('database',16)+' Fix Metadata</button>';
- // The original v439 Fix Metadata action remains; avoid a duplicate button.
- return html.includes('data-mf439-details-action="1"')?
-  html.replace(/(<div class="v181-detail-actions"[^>]*>)/,'$1'+buttons.replace(/<button class="btn btn-sm btn-ghost" type="button" onclick="App\.mf447Open\('metadata',[\s\S]*?<\/button>/,'') ):
-  html.replace(/(<div class="v181-detail-actions"[^>]*>)/,'$1'+buttons);
-};
-const mf447PreviousEditor=libraryModalHtml;
-libraryModalHtml=function(item){
- let html=String(mf447PreviousEditor.apply(this,arguments)||'');
- if(!mf447Prefs().editor||!item?.id)return html;
- const buttons=mf447Buttons({id:String(item.id)});
- if(html.includes('mf439-editor-action'))return html.replace('<div class="mf439-editor-action">','<div class="mf439-editor-action mf447-editor-actions">'+buttons);
- if(html.includes('mf425-editor-tools'))return html.replace(/(<div class="mf425-editor-tools"[^>]*>)/,'$1'+buttons);
- return html;
-};
-const mf447PreviousLibrary=renderLibrary;
-renderLibrary=function(){
- let html=String(mf447PreviousLibrary.apply(this,arguments)||'');
- if(!mf447Prefs().library||!html.includes('mf425-tools-button'))return html;
- const button=/<button[^>]*mf425-tools-button[^>]*>[\s\S]*?<\/button>/;
- return html.replace(button,match=>match+mf447Buttons({entry:'library'}));
-};
-const mf447PreviousCollection=v274CollectionDetailHtml;
-v274CollectionDetailHtml=function(c){
- const html=mf447PreviousCollection.apply(this,arguments);
- if(!mf447Prefs().collections||!c)return html;
- const ids=mf447AllowedIds(c.titleIds);
- return html.replace('<div class="mf274-hero-actions">','<div class="mf274-hero-actions">'+
-  mf447Buttons({ids,label:'Collection: '+String(c.title||'Untitled')}));
-};
-const mf447PreviousQuickbar=v354QuickBar;
-v354QuickBar=function(){
- const html=mf447PreviousQuickbar.apply(this,arguments);
- if(!mf447Prefs().order)return html;
- // Personal Order is a distinct title queue, not the entire Library.
- const ids=typeof v138OrderedItems==='function'?
-  mf447AllowedIds(v138OrderedItems().map(item=>item?.id).filter(Boolean)):[];
- return html.replace('<div class="mf354-quick-switch"',mf447Buttons({ids,label:'Personal Order titles'})+'<div class="mf354-quick-switch"');
-};
-const mf447PreviousFloat=mf397Markup;
-mf397Markup=function(){
- let html=mf447PreviousFloat.apply(this,arguments);
- if(!mf447Prefs().floating)return html.replace(/<button[^>]*mf436-cover-action[^>]*>[\s\S]*?<\/button>/,'');
- const target='      </div>\n      <button type="button" id="mf397-fab"';
- if(!html.includes(target))return html;
- const additions=[
-  ['metadataRecovery','New Metadata Recovery','database','05'],
-  ['bothRecovery','New Combined Recovery','layers','06']
- ].map(([action,label,icon,n])=>
-  '        <button type="button" class="mf397-fan-action mf447-float-action" data-action="'+action+'">'+
-  '<span class="mf397-action-symbol">'+mf425Icon(icon,20)+'</span>'+
-  '<span><strong>'+label+'</strong><small>Configure in the unified workspace</small></span><em>'+n+'</em></button>\n').join('');
- return html.replace(target,additions+target);
-};
-const mf447PreviousFloatAction=mf397Action;
-mf397Action=function(action){
- if(['coverRecovery','metadataRecovery','bothRecovery'].includes(action)){
-  mf397SetMenu(false);
-  if(!AUTH_USER){showToast('Sign in before starting recovery.');return;}
-  if((action==='coverRecovery'||action==='bothRecovery')&&!MF424.ready){
-   showToast('Cover Recovery is initializing; open this action once storage is ready.');return;
-  }
-  return mf447Open(action==='bothRecovery'?'both':action==='metadataRecovery'?'metadata':'cover',{entry:'floating'});
- }
- return mf447PreviousFloatAction.apply(this,arguments);
-};
-const mf447PreviousSettings=mf441WorkspaceHtml;
-mf441WorkspaceHtml=function(){
- const html=mf447PreviousSettings.apply(this,arguments);
- const inputs=MF447_SHORTCUTS.map(key=>{
-  const titles={floating:'Floating + menu',library:'Library toolbar',editor:'Add/Edit Title (saved titles)',details:'Title Details',
-   collections:'Collection details',order:'Personal Order',widget:'Background Processes widget'};
-  return '<label><input type="checkbox" '+(mf447Prefs()[key]?'checked ':'')+
-   'onchange="App.mf447SaveShortcut(\''+key+'\',this.checked)">'+mf447Escape(titles[key])+'</label>';
- }).join('');
- const section='<fieldset class="mf447-settings-shortcuts"><legend>'+mf425Icon('layers',16)+' Recovery Actions & Shortcuts</legend>'+
-  '<p>Enable or hide shortcut groups without changing the recovery engines, provider preferences or saved jobs.</p>'+
-  '<div>'+inputs+'</div><button type="button" class="btn btn-ghost" onclick="App.mf447Open(\'both\')">'+
-  mf425Icon('layers',16)+' Open Combined Recovery</button></fieldset>';
- const anchor='<fieldset class="mf441-widget-preferences">';
- return html.includes(anchor)?html.replace(anchor,section+anchor):html+section;
-};
-document.addEventListener('DOMContentLoaded',()=>{ // Resume safe handoff visibility without auto-scanning.
- const combo=mf447Combo();if(combo?.stage==='ready-metadata')mf441Paint();
-},{once:true});
-Object.assign(App,{mf447Open,mf447SaveShortcut,mf447StartCombined,mf447ContinueCombined,
- mf447ClearCombo,mf447CheckCombo});
-window.MediaFlowV447=Object.freeze({version:447,open:mf447Open,buttons:mf447Buttons,
- prefs:mf447Prefs,scope:mf447ScopeSnapshot,combo:mf447Combo,check:mf447CheckCombo,
- shortcuts:MF447_SHORTCUTS.slice()});
-/* MediaFlow v448 — Smart Auto-Fill & Automatic Recovery.
- * Existing v424/v439/v442 jobs retain control of API calls, locks, safe writes,
- * confirmation dialogs and checkpoints. v448 adds opt-in safety policies,
- * confidence labels and a bounded evidence-review queue.
- */
-const MF448_VERSION=448;
-const MF448_DEFAULT={coverPolicy:'original',coverConfidence:98,
- metadataPolicy:'original',metadataConfidence:94,collectReviews:true};
-const MF448={reviewQueue:null,reviewAccount:'',window:null,policyActive:false};
-function mf448Prefs(){
- const data=S.settings?.v448SmartRecovery||{};
- const cp=['original','strict','review'].includes(data.coverPolicy)?data.coverPolicy:'original';
- const mp=['original','review'].includes(data.metadataPolicy)?data.metadataPolicy:'original';
- const int=(n,floor,ceil,def)=>Number.isFinite(Number(n))?Math.max(floor,Math.min(ceil,Math.floor(Number(n)))):def;
- return {...MF448_DEFAULT,...data,coverPolicy:cp,metadataPolicy:mp,
-  coverConfidence:int(data.coverConfidence,95,99,98),
-  metadataConfidence:int(data.metadataConfidence,94,99,
-   Math.round(Math.max(.94,Math.min(.99,Number(S.settings?.v439Metadata?.minimumConfidence)||.94))*100)),
-  collectReviews:data.collectReviews!==false,
-  dashboardAutoSave:!!S.settings?.v430MissingCoversAutoSave};
-}
-function mf448Set(key,value){
- const valid=['coverPolicy','coverConfidence','metadataPolicy','metadataConfidence','collectReviews','dashboardAutoSave'];
- if(!valid.includes(key))return;
- if(key==='dashboardAutoSave'){
-  const checked=!!value;
-  if(typeof App.mf430SetMissingAutoSave==='function')App.mf430SetMissingAutoSave(checked);
-  else{S.settings=S.settings||{};S.settings.v430MissingCoversAutoSave=checked;}
- }else{
-  S.settings=S.settings||{};
-  S.settings.v448SmartRecovery={...(S.settings.v448SmartRecovery||{}),[key]:value};
- }
- mf448Persist();
- if(document.getElementById('mf445-workspace'))mf445Panel(MF447.active==='both'?'both':MF445.mode);
- mf441Paint();
-}
-function mf448Persist(){
- Promise.resolve(saveState()).catch(error=>{console.warn('Smart recovery settings save failed',error);showToast('Smart Recovery settings could not be saved.');});
-}
-function mf448PolicyCover(){
- return MF424.job?.mf448Options?.coverPolicy?MF424.job.mf448Options:mf448Prefs();
-}
-function mf448PolicyMetadata(){
- return MF439.job?.mf448Options?.metadataPolicy?MF439.job.mf448Options:mf448Prefs();
-}
-function mf448MetaAccount(){return String(mf439Account());}
-function mf448ReviewKey(){return 'mediaflow-v448-review:'+mf448MetaAccount();}
-function mf448ReadReviews(){
- const account=mf448MetaAccount();
- if(MF448.reviewAccount!==account){
-  MF448.reviewAccount=account;MF448.reviewQueue=[];
-  try{
-   const rows=JSON.parse(localStorage.getItem(mf448ReviewKey())||'[]');
-   if(Array.isArray(rows))MF448.reviewQueue=rows.filter(x=>
-    x&&typeof x.id==='string'&&Number.isFinite(Number(x.at))&&
-    ['low-confidence','conflict','manual-review'].includes(x.reason)).slice(-250);
-  }catch(error){console.warn('Could not read metadata review index',error);}
- }
- return MF448.reviewQueue;
-}
-function mf448StoreReviews(){
- try{localStorage.setItem(mf448ReviewKey(),JSON.stringify(mf448ReadReviews().slice(-250)));}
- catch(error){console.warn('Could not persist metadata review index',error);}
-}
-function mf448QueueReview(preview){
- if(!mf448PolicyMetadata().collectReviews||!MF439.working||!MF439.job||!preview?.titleId)return;
- const pending=(preview.proposals||[]).filter(p=>
-  !p.protected&&!p.same&&!p.hasOriginal&&
-  (p.status==='conflict'||p.status==='review'||mf448PolicyMetadata().metadataPolicy==='review'));
- if(!pending.length)return;
- const conflicts=pending.filter(x=>x.disagree).length;
- const reason=mf448PolicyMetadata().metadataPolicy==='review'?'manual-review':
-  conflicts?'conflict':'low-confidence';
- const id=String(preview.titleId),queue=mf448ReadReviews();
- const existing=queue.findIndex(row=>row.id===id);
- if(existing>=0)queue.splice(existing,1);
- queue.push({id,at:Date.now(),reason,fields:Math.min(100,pending.length),
-  providers:Math.min(50,Number(preview.providers?.length)||0)});
- if(queue.length>250)queue.splice(0,queue.length-250);
- mf448StoreReviews();
-}
-const mf448OriginalProposals=mf439Proposals;
-mf439Proposals=function(item,results){
- const preview=mf448OriginalProposals.apply(this,arguments);
- mf448QueueReview(preview);
- return preview;
-};
-const mf448OriginalMetaPreferences=mf439Preferences;
-mf439Preferences=function(){
- const prefs=mf448OriginalMetaPreferences.apply(this,arguments),policy=mf448PolicyMetadata();
- const configured=S.settings?.v448SmartRecovery?.metadataConfidence;
- const explicit=configured!==null&&configured!==undefined&&Number.isFinite(Number(configured));
- return {...prefs,minimumConfidence:explicit||MF439.job?.mf448Options?.metadataConfidence!=null?
-  policy.metadataConfidence/100:Math.max(.94,Number(prefs.minimumConfidence)||.94)};
-};
-const mf448OriginalMetaApply=mf439Apply;
-mf439Apply=function(item,preview,mode='review'){
- if(mode==='automatic'&&mf448PolicyMetadata().metadataPolicy==='review'){
-  // The job still advances with a checkpoint and review index, but never
-  // commits any proposed metadata without the user's per-title preview.
-  return {changed:0,legacy:0,fields:0,ratings:0,reviewOnly:true};
- }
- return mf448OriginalMetaApply.apply(this,arguments);
-};
-const mf448OriginalCoverSaveJob=mf424SaveJob;
-mf424SaveJob=async function(){
- if(MF424.job&&!MF424.job.mf448Options)
-  MF424.job.mf448Options={coverPolicy:mf448Prefs().coverPolicy,coverConfidence:mf448Prefs().coverConfidence};
- return mf448OriginalCoverSaveJob.apply(this,arguments);
-};
-const mf448OriginalMetaSaveJob=mf439SaveJob;
-mf439SaveJob=function(){
- if(MF439.job&&!MF439.job.mf448Options)
-  MF439.job.mf448Options={metadataPolicy:mf448Prefs().metadataPolicy,
-   metadataConfidence:mf448Prefs().metadataConfidence,collectReviews:mf448Prefs().collectReviews};
- return mf448OriginalMetaSaveJob.apply(this,arguments);
-};
-const mf448OriginalCoverProcess=mf424Process;
-mf424Process=async function(item){
- const policy=mf448PolicyCover();
- if(policy.coverPolicy==='original')return mf448OriginalCoverProcess.apply(this,arguments);
- if(!mf424Missing(item)){MF424.job.skipped++;return;}
- const expected=Number(item.modifiedAt)||0,candidates=await mf424Candidates(item);
- if(!candidates.length){MF424.job.unresolved++;mf424Note('unresolved','No verified cover found',item.id);return;}
- const selected=candidates.slice().sort((a,b)=>Number(b.confidence)-Number(a.confidence));
- const best=selected[0],threshold=Math.max(.95,policy.coverConfidence/100);
- const trusted=best.idMatch===true&&Number(best.confidence)>=threshold;
- const alternatives=selected.filter(x=>x.idMatch===true&&Number(x.confidence)>=threshold&&x.url!==best.url);
- // The strict policy is stronger than the original engine. Conflicting
- // verified artworks or anything without saved direct-ID evidence stay manual.
- if(policy.coverPolicy==='review'||!trusted||alternatives.length){
-  mf424QueueReview(item,candidates);
-  if(alternatives.length)mf424Note('review','Conflicting verified cover candidates; manual decision required',item.id);
-  return;
- }
- if(await mf424Apply(item,best,expected)){
-  MF424.job.fixed++;mf424Note('recovered','Strict verified auto-fill: '+best.provider,item.id);
- }else{
-  MF424.job.unresolved++;mf424Note('conflict','Title changed or cover validation failed',item.id);
- }
-};
-const mf448OriginalInstantCandidates=mf425CandidatesHtml;
-mf425CandidatesHtml=function(candidates,item){
- let raw=mf448OriginalInstantCandidates.apply(this,arguments);
- let card=0;
- raw=raw.replace(/(<article class="mf425-candidate"[^>]*>)/g,match=>{
-  const candidate=candidates[card++];if(!candidate)return match;
-  const verified=candidate.idMatch===true&&Number(candidate.confidence)>=.95;
-  const pct=Math.round(Math.max(0,Math.min(1,Number(candidate.confidence)||0))*100);
-  return match+'<span class="mf448-candidate-confidence '+(verified?'verified':'review')+'">'+
-   mf425Icon(verified?'shield':'search',13)+' '+pct+'% · '+(verified?'Direct ID match':'Manual review')+'</span>';
- });
- const policy=mf448Prefs();
- // Candidate cards remain interactive. Evidence is explanatory only: a
- // title-only match never becomes auto-verified from this badge.
- return raw.replace(/(<div class="mf425-found-count"[^>]*>)/,
-  '$1<span class="mf448-evidence-caption">Manual review for ambiguous matches · saved external IDs required for automatic recovery.</span>')+
-  '<div class="mf448-instant-policy">'+mf425Icon('shield',15)+
-  (policy.dashboardAutoSave?
-  ' Dashboard: auto-save and go next only for one uniquely verified image.':
-  ' Dashboard: Save cover & Next remains manual until enabled in Smart Recovery.')+'</div>';
-};
-function mf448ConfigHtml(kind='both'){
- const p=mf448Prefs(),isCover=kind==='cover'||kind==='both',isMeta=kind==='metadata'||kind==='both';
- const select=(key,rows,val)=>'<select data-mf448-key="'+key+'" onchange="App.mf448Set(\''+key+'\',this.value)">'+
-  rows.map(([id,label])=>'<option value="'+id+'" '+(id===val?'selected':'')+'>'+mf424Escape(label)+'</option>').join('')+'</select>';
- const number=(key,val,low,high)=>'<input type="number" data-mf448-key="'+key+'" inputmode="numeric" min="'+low+'" max="'+high+'" step="1" value="'+val+
-  '" onchange="App.mf448Set(\''+key+'\',Math.max('+low+',Math.min('+high+',Number(this.value)||'+low+')))">';
- const check=(key,on,title)=>'<label class="mf448-checkbox"><input type="checkbox" data-mf448-key="'+key+'" '+(on?'checked ':'')+
-  'onchange="App.mf448Set(\''+key+'\',this.checked)">'+title+'</label>';
- return '<section class="mf448-settings" data-mf-setting-id="smart-recovery" aria-label="Smart Auto-Fill Recovery">'+
-  '<header><span>'+mf425Icon('shield',19)+'</span><div><strong>Smart Auto-Fill & Automatic Recovery</strong>'+
-  '<small>Confidence gates, opt-in automation and protected manual review</small></div></header>'+
-  '<div class="mf448-grid">'+
-  (isCover?'<div class="mf448-policy"><strong>'+mf425Icon('images',16)+' Cover auto-fill</strong>'+
-    '<label>Automatic selection policy'+select('coverPolicy',[
-     ['original','Verified ID matching (existing behavior)'],
-     ['strict','Strict ID-verified / no competing artwork'],
-     ['review','Manual review for every candidate']],p.coverPolicy)+'</label>'+
-    '<label>Strict minimum confidence (%)'+number('coverConfidence',p.coverConfidence,95,99)+'</label>'+
-    check('dashboardAutoSave',p.dashboardAutoSave,'Dashboard: automatically save one uniquely ID-verified cover and advance to next title')+
-    '<small>Existing covers are never automatically replaced. Manual matches remain available.</small></div>':'')+
-  (isMeta?'<div class="mf448-policy"><strong>'+mf425Icon('database',16)+' Metadata auto-fill</strong>'+
-    '<label>Batch behavior'+select('metadataPolicy',[
-     ['original','Fill verified missing fields (existing behavior)'],
-     ['review','Review all candidates manually; no batch writes']],p.metadataPolicy)+'</label>'+
-    '<label>Minimum evidence confidence (%)'+number('metadataConfidence',p.metadataConfidence,94,99)+'</label>'+
-    check('collectReviews',p.collectReviews,'Remember ambiguous / conflicting title matches for manual review')+
-    '<small>Only empty, unprotected, agreed-upon fields can auto-fill. Personal ratings, progress and existing values remain protected.</small></div>':'')+
-  '</div><div class="mf448-tools"><button class="btn btn-ghost" type="button" onclick="App.mf448OpenReviews()">'+
-  mf425Icon('search',15)+' Metadata review queue ('+mf448ReadReviews().length+')</button>'+
-  '<small>Saved per account in this browser · up to 250 review references</small></div></section>';
-}
-const mf448OriginalPanel=mf445Panel;
-mf445Panel=function(mode){
- const result=mf448OriginalPanel.apply(this,arguments);
- const root=document.getElementById('mf445-workspace'),panel=root?.querySelector('[data-mf445-panel]');
- if(panel&&!panel.querySelector('.mf448-settings')){
-  const anchor=panel.querySelector('.mf445-actions');
-  if(anchor)anchor.insertAdjacentHTML('beforebegin',mf448ConfigHtml(mode==='both'?'both':mode));
- }
- return result;
-};
-App.mf445Panel=mf445Panel;
-const mf448OriginalWorkspace=mf441WorkspaceHtml;
-mf441WorkspaceHtml=function(){
- const html=mf448OriginalWorkspace.apply(this,arguments),anchor='<fieldset class="mf447-settings-shortcuts">';
- return html.includes(anchor)?html.replace(anchor,mf448ConfigHtml('both')+anchor):html+mf448ConfigHtml('both');
-};
-const mf448OriginalMetadataSettings=mf439SettingsHtml;
-mf439SettingsHtml=function(){
- const html=mf448OriginalMetadataSettings.apply(this,arguments);
- return html.replace('<div id="mf439-batch-status"',mf448ConfigHtml('metadata')+'<div id="mf439-batch-status"');
-};
-function mf448OpenReviews(){
- document.getElementById('mf448-review-dialog')?.remove();
- const catalog=new Map((S.library||[]).filter(item=>item?.id!=null).map(item=>[String(item.id),item]));
- const rows=mf448ReadReviews().slice().reverse().filter(x=>catalog.has(x.id));
- const root=document.createElement('div');root.id='mf448-review-dialog';root.className='mf424-modal mf425-themed mf448-review-overlay';
- root.innerHTML='<div class="mf424-shade" data-mf448-close></div>'+
-  '<section class="mf424-dialog mf448-dialog" role="dialog" aria-modal="true" aria-label="Metadata candidates requiring manual review">'+
-  '<header><div><small>SMART RECOVERY</small><h2>'+mf425Icon('search',20)+' Metadata review queue</h2>'+
-  '<p>Low-confidence, conflicting or manual-review candidates. Nothing in this list is automatically written.</p></div>'+
-  '<button type="button" class="btn btn-ghost" data-mf448-close>'+mf425Icon('x',17)+' Close</button></header>'+
-  '<div class="mf448-review-list">'+(rows.length?rows.map(x=>{
-   const item=catalog.get(x.id);
-   return '<div class="mf448-review-row"><span><strong>'+mf424Escape(item?.title||x.id)+'</strong>'+
-    '<small>'+mf424Escape(x.reason.replace(/-/g,' '))+' · '+Number(x.fields)+' fields · '+new Date(x.at).toLocaleString()+'</small></span>'+
-    '<button type="button" class="btn btn-sm" onclick="App.mf448PreviewReview('+mf424Escape(JSON.stringify(x.id))+')">'+
-    mf425Icon('search',15)+' Preview</button></div>';
-  }).join(''):'<p class="mf448-empty">No titles need manual metadata review yet.</p>')+'</div>'+
-  '<div class="mf448-review-footer"><button type="button" class="btn btn-ghost" onclick="App.mf448ClearReviews()">'+mf425Icon('x',15)+' Clear review list</button></div></section>';
- root.querySelectorAll('[data-mf448-close]').forEach(el=>el.addEventListener('click',()=>mf448CloseReviews()));
- root.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();mf448CloseReviews();}});
- document.body.appendChild(root);root.querySelector('[data-mf448-close]')?.focus();
-}
-function mf448CloseReviews(){document.getElementById('mf448-review-dialog')?.remove();}
-function mf448PreviewReview(id){
- const record=mf448ReadReviews().find(x=>x.id===String(id));
- if(!record||(S.library||[]).every(x=>String(x?.id)!==String(id))){showToast('The selected Library title is no longer available.');return;}
- mf448CloseReviews();mf445Close();
- return mf445OriginalMetadataOpen(String(id)); // Original single-title evidence preview.
-}
-async function mf448ClearReviews(){
- const count=mf448ReadReviews().length;
- if(count&&!await mf444Confirm('Clear metadata review references?',
-  'Remove '+count+' review shortcuts from this browser. Saved metadata and ongoing recovery checkpoints will not change.',
-  'Clear review list',true,count,'metadata'))return;
- MF448.reviewQueue=[];mf448StoreReviews();mf448OpenReviews();
-}
-Object.assign(App,{mf448Set,mf448OpenReviews,mf448CloseReviews,mf448PreviewReview,mf448ClearReviews});
-window.MediaFlowV448=Object.freeze({version:448,prefs:mf448Prefs,
- settings:mf448ConfigHtml,review:mf448ReadReviews,strictPolicy:mf448PolicyCover,
- metadataPolicy:mf448PolicyMetadata});
-/* MediaFlow v449 — Top-aligned Add/Edit recovery actions and Library toolbar cleanup.
- * Pure presentation. All v424/v439/v447 recovery actions, title saving,
- * draft protection and provider settings remain under their existing owners.
- */
-const MF449_VERSION=449;
-function mf449DraftButtons(){
- const actions=[['images','Cover Recovery'],['database','Metadata Recovery'],
-  ['layers','Recover Both'],['search','Fix Metadata']];
- return '<div class="mf449-editor-action-row mf449-editor-draft-actions" role="group" aria-label="Recovery actions (save title first)">'+
-  actions.map(([icon,label])=>'<button class="btn btn-sm btn-ghost" type="button" disabled '+
-   'title="Save this title first to enable recovery" aria-label="'+mf424Escape(label)+' — save title first">'+
-   mf425Icon(icon,16)+' '+label+'</button>').join('')+'</div>';
-}
-function mf449TransformEditor(raw,item){
- // v239/v240 editor wrappers are stable; modify the returned markup only.
- // No DOM edits to the active form while the user is typing.
- try{
-  const host=document.createElement('div');host.innerHTML=raw;
-  const editor=host.querySelector('.v240-library-editor,.v238-library-editor');
-  const title=editor?.querySelector('.modal-title');
-  if(!editor||!title)return raw;
-  const saved=!!item?.id;
-  const toolbar=document.createElement('section');
-  toolbar.className='mf449-editor-recovery-toolbar';
-  toolbar.setAttribute('aria-label','Title recovery actions');
-  toolbar.setAttribute('data-mf449-toolbar',saved?'saved':'draft');
-  if(saved){
-   // v447 inserts the three choices into v439's editor-action wrapper.
-   // Move those actual nodes — preserving inline actions and any provider
-   // preference logic — rather than constructing duplicate buttons.
-   const group=editor.querySelector('.mf439-editor-action .mf447-shortcut-group, .mf447-editor-actions .mf447-shortcut-group');
-   if(group)toolbar.appendChild(group);
-   else if(typeof mf447Prefs==='function'&&mf447Prefs().editor&&typeof mf447Buttons==='function'){
-    const parsed=document.createElement('div');parsed.innerHTML=mf447Buttons({id:String(item.id)});
-    if(parsed.firstElementChild)toolbar.appendChild(parsed.firstElementChild);
-   }
-   const metadata=editor.querySelector('.mf439-editor-action > button[onclick*="mf439Open"]');
-   if(metadata)toolbar.appendChild(metadata);
-   else{
-    const button=document.createElement('button');button.type='button';button.className='btn btn-sm btn-ghost';
-    button.innerHTML=mf425Icon('search',16)+' Fix Metadata';
-    button.addEventListener('click',()=>App.mf439Open(String(item.id)));
-    toolbar.appendChild(button);
-   }
-   // Remove only the now-empty injection wrapper; leave adjacent recovery
-   // settings, title metadata editors and save controls unchanged.
-   editor.querySelectorAll('.mf439-editor-action').forEach(el=>{
-    if(!el.querySelector('button,input,select,textarea'))el.remove();
-   });
-  }else{
-   // Unsaved draft has no durable Library ID. Four visible but disabled
-   // actions communicate the feature without risking Library-wide recovery.
-   toolbar.innerHTML=mf449DraftButtons()+
-    '<small class="mf449-draft-note">'+mf425Icon('shield',14)+
-    ' Save this title before starting recovery. You can still edit its fields normally.</small>';
-  }
-  title.before(toolbar);
-  return host.innerHTML;
- }catch(error){
-  console.warn('v449 recovery toolbar relocation failed, preserving editor markup',error);
-  return raw;
- }
-}
-const mf449PreviousEditor=libraryModalHtml;
-libraryModalHtml=function(item){
- return mf449TransformEditor(String(mf449PreviousEditor.apply(this,arguments)||''),item);
-};
-function mf449CleanLibraryMarkup(raw){
- raw=String(raw||'');
- // v425's original one-off button duplicates v447's Cover Recovery action.
- // Keep v447's Cover / Metadata / Recover Both controls intact in both
- // Normal and Dynamic Library toolbars, regardless of layout or selection.
- let html=raw.replace(/<button\b(?=[^>]*\bmf425-tools-button\b)[^>]*>[\s\S]*?<\/button>/g,'');
- html=html.replace(/<div class="mf425-library-tools">\s*<\/div>/g,'');
- return html;
-}
-const mf449PreviousLibrary=renderLibrary;
-renderLibrary=function(){return mf449CleanLibraryMarkup(mf449PreviousLibrary.apply(this,arguments));};
-window.MediaFlowV449=Object.freeze({version:449,draft:mf449DraftButtons,transform:mf449TransformEditor,cleanLibrary:mf449CleanLibraryMarkup});
-/* MediaFlow v450 — Universal metadata expansion and source-specific external ratings.
- * Additive only: old envelopes, manually protected fields, personal scores,
- * progress, covers, IDs and recovery matching remain owned by their v437/v439 code.
- */
-const MF450_VERSION=450;
-const MF450_EXTRA_FIELDS={
- shared:[
-  ['subtitle','Subtitle'],['originalReleaseDate','Original release date'],
-  ['endDate','End / final release date'],['productionCompanies','Production companies','list'],
-  ['contentWarnings','Content warnings','list'],['associatedWorks','Related works','list']
- ],
- anime:[
-  ['animeFormat','Anime format'],['animeAdaptedFrom','Adapted from'],
-  ['animeEpisodeCount','Episode count (source metadata)','number'],
-  ['animeEpisodeMinutes','Episode duration (minutes)','decimal'],
-  ['animeStudios','Animation studios','list'],['animeThemes','Themes','list']
- ],
- manga:[
-  ['mangaDemographic','Demographic'],['mangaPublicationStatus','Publication status'],
-  ['readingDirection','Reading direction'],['mangaImprint','Imprint'],
-  ['mangaOriginalUrl','Official manga URL','url']
- ],
- movie:[
-  ['cinematographers','Cinematographers','list'],['filmEditors','Film editors','list'],
-  ['filmComposers','Score composers','list'],['filmFestivals','Festival selections','list']
- ],
- tv:[
-  ['tvEpisodeMinutes','Episode length (minutes)','decimal'],
-  ['tvLastAirDate','Last air date'],['tvStreamingServices','Streaming services','list'],
-  ['tvOfficialEpisodeGuide','Official episode guide','url']
- ],
- book:[
-  ['isbn10','ISBN-10'],['isbn13','ISBN-13'],['bookFormat','Book format'],
-  ['bookPublicationDate','Publication date'],['bookSubjects','Subjects','list'],
-  ['audiobookDurationMinutes','Audiobook duration (minutes)','decimal']
- ],
- comic:[
-  ['comicCharacters','Characters','list'],['comicUniverse','Universe'],
-  ['comicStoryArc','Story arc'],['comicCollection','Collected edition']
- ],
- game:[
-  ['gameDirectors','Game directors','list'],['gameGenres','Game genres','list'],
-  ['gameReleaseDate','Release date'],['gameStoreUrl','Official store URL','url'],
-  ['gamePlaytimeHours','Estimated playtime (hours)','decimal'],
-  ['gameRatingBoard','Content rating board']
- ],
- visual_novel:[
-  ['vnScenarioWriters','Scenario writers','list'],['vnPlatforms','Platforms','list'],
-  ['vnLanguages','Supported languages','list'],['vnPlaytimeHours','Estimated length (hours)','decimal'],
-  ['vnOriginalReleaseDate','Original release date']
- ],
- music:[
-  ['albumBarcode','Album barcode / UPC'],['albumLanguage','Language'],
-  ['albumReleaseDate','Album release date'],['albumDurationMinutes','Album duration (minutes)','decimal'],
-  ['albumGenres','Album genres','list'],['albumCredits','Music credits','list']
- ],
- interactive_fiction:[
-  ['ifSeries','Series'],['ifReleaseDate','Release date'],
-  ['ifLanguages','Available languages','list'],['ifCompetition','Competition / award'],
-  ['ifGenres','IF genres','list'],['ifStoryWords','Approximate words','number']
- ],
- other:[
-  ['otherFormat','Media format'],['otherPublisher','Publisher / creator'],
-  ['otherOfficialUrl','Official URL','url'],['otherEdition','Edition']
- ]
-};
-for(const [media,fields] of Object.entries(MF450_EXTRA_FIELDS)){
- let group=MF437_FIELDS.find(row=>row[0]===media);
- if(!group){group=[media,'Other media',[]];MF437_FIELDS.push(group);}
- for(const field of fields){
-  if(MF437_FIELD_MAP.has(field[0]))continue;
-  group[2].push(field);MF437_FIELD_MAP.set(field[0],field);
- }
-}
-const MF450_EXTRA_RATINGS=[
- ['rawg','RAWG',5],['googlebooks','Google Books',5],['audible','Audible',5]
-];
-for(const row of MF450_EXTRA_RATINGS)if(!MF437_RATING_MAP.has(row[0])){
- MF437_RATING_SOURCES.push(row);MF437_RATING_MAP.set(row[0],row);
-}
-/* VNDB's official public API returns 10–100, not a 0–10 score.
- * Previously saved scores retain their explicit stored scales unchanged. */
-const mf450Vndb=MF437_RATING_MAP.get('vndb');
-if(mf450Vndb)mf450Vndb[2]=100;
-const MF450_EXTRA_IDS=[
- ['google_books','Google Books'],['openlibrary_work','Open Library Work'],
- ['openlibrary_edition','Open Library Edition'],['audible','Audible'],
- ['rawg','RAWG'],['comicbookroundup','Comic Book Roundup'],
- ['storygraph','The StoryGraph'],['hardcover','Hardcover'],['goodreads','Goodreads']
-];
-for(const [key,name] of MF450_EXTRA_IDS)if(!V377_ID_PROVIDERS.some(row=>row[0]===key))
- V377_ID_PROVIDERS.push([key,name,'Optional verified external identifier']);
-/* Distinct, offline-capable provider marks; no remote image dependency.
- * They are identification marks, not claims of official vendor logos. */
-const MF450_MARKS={
- imdb:'IMDb',trakt:'trakt',rottentomatoes_critics:'🍅',
- rottentomatoes_audience:'🍿',mal:'MAL',anilist:'AL',kitsu:'K',
- tmdb:'TMDB',simkl:'simkl',anidb:'AniDB',tvmaze:'TV',
- metacritic:'MC',letterboxd:'●●●',goodreads:'g',
- storygraph:'SG',hardcover:'HC',igdb:'IGDB',opencritic:'OC',
- steam:'STEAM',backloggd:'B',vndb:'VNDB',mangaupdates:'MU',
- rateyourmusic:'RYM',discogs:'D',ifdb:'IFDB',
- rawg:'RAWG',googlebooks:'G Books',audible:'A'
-};
-function mf450ProviderMark(key){
- const symbol=MF450_MARKS[key]||String(key).slice(0,5).toUpperCase();
- return '<span class="mf450-source-mark" data-mf450-source="'+escapeHtml(key)+'" aria-hidden="true">'+escapeHtml(symbol)+'</span>';
-}
-function mf450CanonicalRating(key){
- const normal=String(key||'').toLowerCase().replace(/[^a-z0-9]/g,'');
- const synonyms={
-  rottentomatoes:'rottentomatoes_critics',rottentomatoescritics:'rottentomatoes_critics',
-  rottentomatoesaudience:'rottentomatoes_audience',
-  rtaudience:'rottentomatoes_audience',rtcritics:'rottentomatoes_critics',
-  myanimelist:'mal',malofficial:'mal',themoviedb:'tmdb',
-  googlebooksrating:'googlebooks',steamreviews:'steam'
- };
- if(synonyms[normal])return synonyms[normal];
- return MF437_RATING_SOURCES.find(row=>row[0].replace(/[^a-z0-9]/g,'')===normal)?.[0]||null;
-}
-function mf450NormalizeRatingMap(input){
- const raw=input&&typeof input==='object'&&!Array.isArray(input)?input:{};
- const result={},priority={};
- for(const [key,rating] of Object.entries(raw)){
-  const canonical=mf450CanonicalRating(key);
-  if(!canonical)continue;
-  const data=rating&&typeof rating==='object'&&!Array.isArray(rating)?rating:{score:rating};
-  const value=data.score??data.value;
-  if(value===null||value===undefined||String(value).trim()==='')continue;
-  const scale=Number(data.scale??MF437_RATING_MAP.get(canonical)?.[2]);
-  const score=Number(value),votes=data.votes??data.voteCount??null;
-  const count=votes===null||String(votes).trim()===''?null:Number(votes);
-  if(!Number.isFinite(score)||!Number.isFinite(scale)||scale<=0||scale>100000||
-     score<0||score>scale||(count!==null&&(!Number.isSafeInteger(count)||count<0)))continue;
-  const entry={score,scale,votes:count};
-  const level=key===canonical?2:1;
-  if(!(canonical in result)||level>priority[canonical]){
-   result[canonical]=entry;priority[canonical]=level;
-  }else if(level===priority[canonical]&&JSON.stringify(result[canonical])!==JSON.stringify(entry)){
-   /* Two conflicting aliases never silently produce a guessed winner. */
-   delete result[canonical];priority[canonical]=3;
-  }
- }
- return result;
-}
-const mf450BaseTranslateGateway=mf439TranslateGateway;
-mf439TranslateGateway=function(provider,record,item){
- const row=mf450BaseTranslateGateway.apply(this,arguments);
- if(!row)return row; // Keep original verified gateway/ID evidence check.
- const raw=record.fields&&typeof record.fields==='object'?record.fields:{};
- const type=item?.universalMetadata?.mediaType||'unspecified';
- const fields={...row.fields};
- const assign=(field,value)=>{if(value!=null&&value!==''&&MF437_FIELD_MAP.has(field))fields[field]=value;};
- for(const key of ['originalTitle','episodeCount','chapterCount','volumeCount','authors',
-  'platforms','directors','cast','countries','budget'])
-  if(raw[key]!==undefined&&MF437_FIELD_MAP.has(key))assign(key,raw[key]);
- if(raw.cast&&type==='tv')assign('tvCast',raw.cast);
- if(raw.artists&&type==='music')assign('albumArtists',raw.artists);
- if(raw.artists&&type==='manga')assign('mangaArtists',raw.artists);
- if(raw.developers&&type==='game')assign('gameDevelopers',raw.developers);
- if(raw.episodeCount&&type==='anime')assign('animeEpisodeCount',raw.episodeCount);
- if(raw.publishers&&type==='manga')assign('mangaPublisher',Array.isArray(raw.publishers)?raw.publishers.join(', '):raw.publishers);
- if(raw.publishers&&type==='comic')assign('comicPublisher',Array.isArray(raw.publishers)?raw.publishers.join(', '):raw.publishers);
- if(raw.cast&&type==='anime')assign('animeVoiceCast',raw.cast);
- if(raw.genres&&type==='game')assign('gameGenres',raw.genres);
- if(raw.genres&&type==='music')assign('albumGenres',raw.genres);
- row.fields=fields;
- row.ratings=mf450NormalizeRatingMap({...record.ratings,...row.ratings});
- return row;
-};
-/* All public/gateway proposals still pass through v439 verification,
- * confidence thresholds, protected-field and conflict checks. */
-const mf450BaseProposals=mf439Proposals;
-mf439Proposals=function(item,results){
- const safe=(Array.isArray(results)?results:[]).map(row=>({
-  ...row,ratings:mf450NormalizeRatingMap(row.ratings)
- }));
- return mf450BaseProposals.call(this,item,safe);
-};
-const mf450BaseApply=mf439Apply;
-mf439Apply=function(item,preview,mode){
- const before={...((item?.universalMetadata||{}).externalRatings||{})};
- const result=mf450BaseApply.apply(this,arguments);
- if(!result?.changed||!item?.universalMetadata)return result;
- const env=item.universalMetadata;
- env.schemaVersion=Math.max(2,Number(env.schemaVersion)||1);
- for(const p of preview?.proposals||[]){
-  if(!p.selected||!p.token?.startsWith('rating.'))continue;
-  const key=p.token.slice(7),choice=p.options?.[p.choice]||p.options?.[0];
-  const provider=choice?.sources?.[0];
-  if(!provider||before[key]?.score!=null||env.externalRatings?.[key]?.score==null)continue;
-  const provenance=env.provenance?.[p.token];
-  if(provenance?.source!==provider.provider||provenance.verified!==true)continue;
-  if(provider.recordId!=null)
-   provenance.recordId=String(provider.recordId).slice(0,200);
-  env.externalRatings[key].sourceRecordId=provenance.recordId||'';
- }
- return result;
-};
-const mf450BaseSaveCapture=mf437SaveCapture;
-mf437SaveCapture=function(item,previous,capture){
- const changed=mf450BaseSaveCapture.apply(this,arguments);
- if(changed&&item?.universalMetadata)
-  item.universalMetadata.schemaVersion=Math.max(2,Number(item.universalMetadata.schemaVersion)||1);
- return changed;
-};
-function mf450RatingTiles(item){
- const meta=mf437Normalized(item?.universalMetadata);
- return MF437_RATING_SOURCES.map(([key,label])=>{
-  const score=meta.externalRatings[key];
-  if(score?.score===null||score?.score===undefined)return '';
-  const value=Number(score.score),max=Number(score.scale);
-  if(!Number.isFinite(value)||!Number.isFinite(max)||max<=0||value<0||value>max)return '';
-  const prov=meta.provenance['rating.'+key]||{};
-  const labelText=prov.source==='manual'?'Manually entered':
-   prov.verified===true?'Verified provider data':'Saved external rating';
-  const by=prov.source&&prov.source!=='manual'?' · '+String(prov.source):'';
-  const votes=Number(score.votes);
-  const voteText=score.votes!=null&&Number.isSafeInteger(votes)&&votes>=0?
-   '<small>'+escapeHtml(votes.toLocaleString())+' votes</small>':'';
-  const record=prov.recordId?' · Record '+String(prov.recordId).slice(0,100):'';
-  return '<div class="mf437-rating-display mf450-rating-display">'+
-   '<div class="mf450-rating-provider">'+mf450ProviderMark(key)+
-   '<small>'+escapeHtml(label)+'</small></div>'+
-   '<strong>'+escapeHtml(String(value))+' <span>/ '+escapeHtml(String(max))+'</span></strong>'+
-   voteText+'<small title="'+escapeHtml(labelText+by+record)+'">'+escapeHtml(labelText+by)+'</small>'+
-   '</div>';
- }).filter(Boolean).join('');
-}
-const mf450BaseEditor=libraryModalHtml;
-libraryModalHtml=function(item){
- const html=String(mf450BaseEditor.apply(this,arguments)||'');
- if(!html.includes('mf437-ratings'))return html;
- try{
-  const root=document.createElement('div');root.innerHTML=html;
-  const tag=root.querySelector('.mf437-ratings > summary small');
-  if(tag)tag.textContent='Original scales · manual or verified recovery';
-  const hint=root.querySelector('.mf437-ratings > .hint');
-  if(hint)hint.textContent='Ratings can be entered manually or recovered from enabled verified providers. Each score keeps its original scale and source. Recovery never changes your personal rating.';
-  root.querySelectorAll('.mf437-rating').forEach((el,index)=>{
-   const key=MF437_RATING_SOURCES[index]?.[0],heading=el.querySelector('strong');
-   if(heading&&key)heading.insertAdjacentHTML('afterbegin',mf450ProviderMark(key));
-  });
-  return root.innerHTML;
- }catch(e){console.warn('v450 editor enhancement preserved original HTML',e);return html;}
-};
-const mf450BaseDetails=v181TitleDetailsHtml;
-v181TitleDetailsHtml=function(item){
- const html=String(mf450BaseDetails.apply(this,arguments)||'');
- if(!html.includes('mf437-details'))return html;
- try{
-  const root=document.createElement('div');root.innerHTML=html;
-  const section=root.querySelector('.mf437-details');
-  const label=[...section.querySelectorAll('.v181-detail-section-label')]
-   .find(x=>x.textContent.includes('External ratings'));
-  const grid=label?.nextElementSibling;
-  if(grid?.classList.contains('mf437-detail-grid')){
-   const replacement=mf450RatingTiles(item);
-   if(replacement)grid.innerHTML=replacement;
-  }
-  return root.innerHTML;
- }catch(e){console.warn('v450 ratings detail enhancement preserved original HTML',e);return html;}
-};
-const mf450BaseBackup=v148BuildFullBackup;
-v148BuildFullBackup=function(){
- const out=mf450BaseBackup.apply(this,arguments);
- if(out){
-  out.mediaFlowVersion=450;out.backupVersion=450;
-  const manifest=out.backupManifest||(out.backupManifest={});
-  manifest.includes={...(manifest.includes||{}),universalMetadataV2:true,providerRatingProvenance:true};
-  manifest.v450={schemaVersion:2,additiveFields:true,originalRatingScales:true,
-   libraryMigrationRequired:false};
- }
- return out;
-};
-window.MediaFlowV450=Object.freeze({
- version:450,schemaVersion:2,fields:MF450_EXTRA_FIELDS,extraRatings:MF450_EXTRA_RATINGS,
- normalizeRatings:mf450NormalizeRatingMap,canonical:mf450CanonicalRating,
- ratingTiles:mf450RatingTiles,mark:mf450ProviderMark
-});
-/* MediaFlow v451 — explicit recovery stopping and safe priority handoff.
- * Priority operates on saved title IDs, never snapshots or writes Library records.
- * Active jobs drain at the current title boundary before their checkpoint moves.
- */
-const MF451_VERSION=451;
-const MF451={intent:null,preparing:false,restoring:false,checking:false,preview:false,journal:null,activeAccount:mf439Account()};
-function mf451Key(){return 'mediaflow-v451-priority:'+mf439Account();}
-function mf451CoverKey(){return 'mf451-suspended-cover:'+mf439Account();}
-function mf451Read(){
- try{const x=JSON.parse(localStorage.getItem(mf451Key())||'null');
-  return x?.account===mf439Account()&&x?.schema===1?x:null;
- }catch(_){return null;}
-}
-function mf451Store(j){
- MF451.journal=j;
- try{if(j)localStorage.setItem(mf451Key(),JSON.stringify(j));
-  else localStorage.removeItem(mf451Key());
- }catch(e){console.warn('Priority journal unavailable',e);showToast('Could not save the priority checkpoint.');return false;}
- return true;
-}
-function mf451SavedId(id){
- const key=String(id||'');
- return key&&(S.library||[]).some(t=>String(t?.id)===key)?key:'';
-}
-function mf451CoverPending(job){return !!(job&&job.account===mf424Account()&&
- Array.isArray(job.ids)&&job.cursor<job.ids.length&&!['complete','stopped'].includes(job.status));}
-function mf451MetaPending(job){return !!(job&&job.account===mf439Account()&&
- Array.isArray(job.ids)&&job.cursor<job.ids.length&&!['completed','stopped'].includes(job.status));}
-function mf451Wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
-async function mf451Drain(timeout=90000){
- const deadline=Date.now()+timeout;
- while((MF424.running||MF439.working||MF442.process)&&Date.now()<deadline)await mf451Wait(100);
- return !MF424.running&&!MF439.working&&!MF442.process;
-}
-async function mf451PauseActive(){
- const owner=mf442ProcessLease();
- if(owner&&owner.token!==MF442.owner){
-  showToast('Another tab owns recovery. Stop or pause that tab before prioritizing a title.');return false;
- }
- if(MF424.job&&MF424.running){
-  MF424.job.pauseRequested=true;
-  await mf424SaveJob();
- }
- if(MF439.working){
-  MF439.cancel=true;
-  if(MF439.job){MF439.job.status='paused';mf439SaveJob();}
-  MF439.controller?.abort();
- }
- if(!await mf451Drain()){
-  showToast('The current provider request has not finished. Its checkpoint is safe; retry the priority action after it stops.');
-  return false;
- }
- if(MF424.job&&MF424.job.status==='running'){
-  MF424.job.status='paused';MF424.job.pauseRequested=true;await mf424SaveJob();
- }
- if(MF439.job&&MF439.job.status==='running'){
-  MF439.job.status='paused';mf439SaveJob();
- }
- return true;
-}
-async function mf451Prepare(kind,id){
- id=mf451SavedId(id);
- if(!id||!['cover','metadata','both'].includes(kind))return false;
- if(MF451.preparing||MF451.restoring){showToast('Recovery queue handoff is already in progress.');return false;}
- if(MF451.journal||mf451Read()){showToast('A priority title is already active. Finish or resume its interrupted jobs first.');return false;}
- MF451.preparing=true;
- let savedCover=false,savedMeta=false,created=false;
- const wasCover=MF424.running,wasMetadata=MF439.working;
- try{
-  if(!await mf451PauseActive())return false;
-  const cover=MF424.job,metadata=MF439.job||mf439ReadJob();
-  if(kind!=='metadata'&&mf451CoverPending(cover)){
-   // Use the recovery IndexedDB, not localStorage (100k title queues can
-   // exceed browser localStorage limits). Save before replacing main job.
-   const saved={...cover,status:'paused',pauseRequested:true,stopRequested:false,hardStop:false};
-   await mf424Storage('put',mf451CoverKey(),saved);savedCover=true;
-  }
-  const oldMeta=kind==='both'&&mf451MetaPending(metadata)?{
-   ...metadata,status:'paused',stopRequested:false
-  }:null;
-  savedMeta=!!oldMeta;
-  const combo=kind==='both'?mf447Combo():null;
-  const journal={schema:1,account:mf439Account(),kind,id,started:Date.now(),
-   coverBackup:savedCover,metadataBackup:oldMeta,combinedBackup:combo,
-   autoResume:true,coverWasRunning:wasCover,metadataWasRunning:wasMetadata,
-   priorityCoverId:'',state:'configuring'};
-  if(!mf451Store(journal))throw Error('Priority journal could not be persisted');
-  created=true;
-  if(savedCover){MF424.job=null;await mf424Storage('delete',mf424Key());}
-  if(savedMeta){MF439.job=null;localStorage.removeItem(mf439StateKey());}
-  if(combo&&combo.stage!=='completed')mf447WriteCombo(null);
-  mf441Paint();return true;
- }catch(err){
-  console.warn('Priority handoff failed; preserving original queue',err);
-  if(savedCover&&!created)try{await mf424Storage('delete',mf451CoverKey());}catch(_){}
-  showToast('Could not safely interrupt recovery. Existing checkpoints were preserved.');
-  return false;
- }finally{MF451.preparing=false;}
-}
-function mf451Ready(j){
- if(!j||j.account!==mf439Account()||MF424.running||MF439.working||MF442.process)return false;
- if(j.kind==='metadata')return !document.getElementById('mf439-recovery-modal');
- if(j.kind==='both')return mf447Combo()?.stage==='completed';
- if(!j.priorityCoverId)return false;
- return MF424.job?.id===j.priorityCoverId&&
-  MF424.job.status==='complete'&&Number(MF424.job.pending||0)===0;
-}
-async function mf451Restore({force=false}={}){
- const j=MF451.journal||mf451Read();
- if(!j||MF451.restoring||MF451.preparing)return false;
- if(!force&&!mf451Ready(j))return false;
- if(MF424.running||MF439.working||MF442.process)return false;
- MF451.restoring=true;
- try{
-  if(j.coverBackup){
-   const backup=await mf424Storage('get',mf451CoverKey());
-   if(!backup||backup.account!==mf424Account())throw Error('Original cover checkpoint unavailable');
-   if(MF424.job&&MF424.job.id!==backup.id)
-    await mf424Storage('put','mf451-last-priority-report:'+mf439Account(),MF424.job);
-   MF424.job={...backup,status:'paused',stopRequested:false,
-    pauseRequested:true,hardStop:false};
-   await mf424SaveJob();
-   await mf424Storage('delete',mf451CoverKey());
-  }
-  if(j.metadataBackup){
-   MF439.job={...j.metadataBackup,status:'paused',stopRequested:false};
-   mf439SaveJob();
-  }
-  if(j.kind==='both'){
-   mf447WriteCombo(j.combinedBackup?.stage!=='completed'?j.combinedBackup:null);
-  }
-  mf451Store(null);
-  const shouldResume=force?true:j.autoResume;
-  if(shouldResume&&j.coverWasRunning&&MF424.job&&
-     MF424.job.cursor<MF424.job.ids.length){
-   MF424.job.pauseRequested=false;
-   await mf424SaveJob();App.mf424Resume();
-  }else if(shouldResume&&j.metadataWasRunning&&MF439.job&&
-     MF439.job.cursor<MF439.job.ids.length){
-   App.mf439Resume();
-  }else if(shouldResume&&j.kind==='metadata'){
-   if(j.coverWasRunning&&MF424.job)App.mf424Resume();
-   else if(j.metadataWasRunning&&MF439.job)App.mf439Resume();
-  }
-  showToast('Priority recovery finished. Interrupted checkpoints restored'+(shouldResume?' and eligible work resumed.':'.'));
-  mf441Paint();return true;
- }catch(err){console.warn('Priority recovery restore failed',err);
-  showToast('Priority completed, but restoring an interrupted checkpoint failed. Retry Resume Interrupted.');return false;
- }finally{MF451.restoring=false;}
-}
-function mf451ScheduleRestore(){
- if(MF451.checking||MF451.restoring||MF451.preparing)return;
- const j=MF451.journal||mf451Read();
- if(!j||!j.autoResume||!mf451Ready(j))return;
- MF451.checking=true;
- queueMicrotask(()=>{MF451.checking=false;void mf451Restore();});
-}
-async function mf451Stop(kind,{confirm=true}={}){
- if(!['cover','metadata','all'].includes(kind))return;
- const hasCover=(kind==='all'||kind==='cover')&&!!MF424.job,
- hasMetadata=(kind==='all'||kind==='metadata')&&!!MF439.job;
- if(!hasCover&&!hasMetadata&&!MF451.journal){showToast('No recovery jobs to stop.');return;}
- if(confirm&&!await mf444Confirm(kind==='all'?'Stop all recoveries?':'Stop '+kind+' recovery?',
-  'Stop requesting new provider results, abort active requests when possible and preserve completed Library changes. Unprocessed titles will not restart automatically. Checkpoints remain available for manual resumption.',
-  kind==='all'?'Stop All':'Stop Recovery',true,0,kind==='metadata'?'metadata':'cover'))return;
- // Disable automatic priority handoff before stopping: completing a job must
- // never silently restart something after the user pressed Stop.
- const j=MF451.journal||mf451Read();
- if(j){j.autoResume=false;j.state='stopped';mf451Store(j);}
- if(hasCover){
-  const job=MF424.job;job.stopRequested=true;job.pauseRequested=false;job.hardStop=true;
-  for(const controller of MF424.activeControllers||[])try{controller.abort();}catch(_){}
-  if(!MF424.running)job.status='stopped';
-  await mf424SaveJob();
- }
- if(hasMetadata){
-  MF439.cancel=true;MF439.controller?.abort();
-  MF439.job.stopRequested=true;
-  if(!MF439.working)MF439.job.status='stopped';
-  mf439SaveJob();
- }
- if(kind==='all'){
-  const combo=mf447Combo();
-  if(combo&&combo.stage!=='completed')mf447WriteCombo(null);
- }
- mf424Paint();mf439PaintJob();mf441Paint();
- showToast('Recovery stopping. Finished work remains saved; pending work will not resume automatically.');
-}
-async function mf451ClearAll(){
- if(!await mf444Confirm('Discard all unfinished recovery queues?',
-  'Stop current recovery and delete unfinished cover, metadata, combined and interrupted priority checkpoints. Previously saved Library artwork and metadata will remain unchanged.',
-  'Discard Queues',true,0,'cover'))return;
- await mf451Stop('all',{confirm:false});
- if(!await mf451Drain()){showToast('A provider request is still finishing. Clear queues once it stops.');return;}
- MF424.job=null;MF439.job=null;MF451.intent=null;mf451Store(null);
- try{await mf424Storage('delete',mf424Key());
-  await mf424Storage('delete',mf451CoverKey());}catch(e){console.warn('Unable to clear IndexedDB recovery queue',e);}
- try{localStorage.removeItem(mf439StateKey());}catch(_){}
- mf447WriteCombo(null);mf424Paint();mf439PaintJob();mf441Paint();
- showToast('Pending recovery queues discarded. Already saved Library changes were preserved.');
-}
-const mf451BaseRunCover=mf424Run;
-mf424Run=async function(){
- const result=await mf451BaseRunCover.apply(this,arguments);
- mf451ScheduleRestore();return result;
-};
-const mf451BaseRunMetadata=mf439RunBatch;
-mf439RunBatch=async function(){
- const result=await mf451BaseRunMetadata.apply(this,arguments);
- mf451ScheduleRestore();return result;
-};
-const mf451BaseResumeMetadata=mf439Resume;
-mf439Resume=function(){
- if(!MF439.job)MF439.job=mf439ReadJob();
- if(MF439.job){MF439.job.stopRequested=false;mf439SaveJob();}
- return mf451BaseResumeMetadata.apply(this,arguments);
-};
-App.mf439Resume=mf439Resume;
-const mf451BaseResumeCover=App.mf424Resume;
-App.mf424Resume=async function(){
- if(MF424.job){MF424.job.hardStop=false;await mf424SaveJob();}
- return mf451BaseResumeCover.apply(this,arguments);
-};
-const mf451BaseOpen=App.mf447Open;
-App.mf447Open=function(kind='cover',options={}){
- const id=mf451SavedId(options?.id);
- MF451.intent=id?{kind,id}:null;
- return mf451BaseOpen.apply(this,arguments);
-};
-const mf451BaseStartCover=App.mf424Start;
-App.mf424Start=async function(){
- const intent=MF451.intent,oneId=mf451SavedId(MF425?.oneId);
- const priority=oneId&&intent?.id===oneId&&intent.kind!=='metadata';
- const journal=MF451.journal||mf451Read();
- if(priority&&!journal){
-  if(!await mf451Prepare(intent.kind==='both'?'both':'cover',oneId))return;
- }
- const active=MF451.journal||mf451Read(),before=MF424.job?.id||'';
- const result=await mf451BaseStartCover.apply(this,arguments);
- if(priority&&active&&MF424.job?.id&&MF424.job.id!==before){
-  active.priorityCoverId=MF424.job.id;active.state='cover';mf451Store(active);
- }else if(priority&&active&&!MF424.job){
-  showToast('Priority cover job was not started. Resume Interrupted when ready.');
- }
- mf451ScheduleRestore();return result;
-};
-const mf451BaseCombined=App.mf447StartCombined;
-App.mf447StartCombined=async function(){
- const ids=mf447ScopeSnapshot(),id=ids.length===1?mf451SavedId(ids[0]):'';
- if(id){
-  MF451.intent={kind:'both',id};
-  if(!await mf451Prepare('both',id))return;
- }
- const result=mf451BaseCombined.apply(this,arguments);
- mf441Paint();return result;
-};
-const mf451BaseStartWorkspace=App.mf445Start;
-App.mf445Start=async function(action){
- if(action==='preview'){
-  const ids=mf446ScopeIds('metadata'),id=ids.length===1?mf451SavedId(ids[0]):'';
-  if(id){
-   MF451.intent={kind:'metadata',id};
-   if(!await mf451Prepare('metadata',id))return;
-   MF451.preview=true;
-  }
- }
- return mf451BaseStartWorkspace.apply(this,arguments);
-};
-const mf451BaseClosePreview=mf439Close;
-mf439Close=function(){
- const result=mf451BaseClosePreview.apply(this,arguments);
- if(MF451.preview){MF451.preview=false;mf451ScheduleRestore();}
- return result;
-};
-App.mf439Close=mf439Close;
-const mf451BaseReviewSave=mf424ReviewSave;
-mf424ReviewSave=async function(){
- const result=await mf451BaseReviewSave.apply(this,arguments);
- mf451ScheduleRestore();return result;
-};
-const mf451BasePaintCover=mf424Paint;
-mf424Paint=function(){
- const result=mf451BasePaintCover.apply(this,arguments);
- mf451ScheduleRestore();return result;
-};
-const mf451BasePaintMetadata=mf439PaintJob;
-mf439PaintJob=function(){
- const result=mf451BasePaintMetadata.apply(this,arguments);
- mf451ScheduleRestore();return result;
-};
-const mf451BaseCoverRow=mf441CoverRow;
-mf441CoverRow=function(s){
- const html=mf451BaseCoverRow.apply(this,arguments);
- const j=s.cover;
- if(!j||['complete','stopped'].includes(j.status))return html;
- return html.replace('</div></article>','<button type="button" class="mf451-stop" onclick="App.mf451Stop(&#39;cover&#39;)">'+mf425Icon('square',15)+' Stop</button></div></article>');
-};
-const mf451BaseMetadataRow=mf441MetadataRow;
-mf441MetadataRow=function(s){
- const html=mf451BaseMetadataRow.apply(this,arguments);
- const j=s.metadata;
- if(!j)return html;
- if(j.status==='stopped')return html.replace('</div></article>','<button type="button" class="mf451-resume" onclick="App.mf439Resume()">'+mf425Icon('play',15)+' Resume</button></div></article>').replace('No active job','Stopped safely · pending titles preserved');
- if(j.status==='completed')return html;
- return html.replace('</div></article>','<button type="button" class="mf451-stop" onclick="App.mf451Stop(&#39;metadata&#39;)">'+mf425Icon('square',15)+' Stop</button></div></article>');
-};
-const mf451BaseWidget=mf441WidgetHtml;
-mf441WidgetHtml=function(prefs,state){
- const html=mf451BaseWidget.apply(this,arguments);
- const journal=MF451.journal||mf451Read();
- const controls='<button type="button" class="mf451-stop" onclick="App.mf451Stop(&#39;all&#39;)">'+
-  mf425Icon('square',15)+' Stop All</button>'+
-  (journal?'<button type="button" class="mf451-resume" onclick="App.mf451ResumeInterrupted()">'+
-   mf425Icon('play',15)+' Resume Interrupted</button>':'')+
-  '<button type="button" class="mf451-discard" onclick="App.mf451ClearAll()">'+
-   mf425Icon('trash2',15)+' Discard Queues</button>';
- return html.replace(/(<div class="mf441-widget-foot[^"]*">)/,'$1'+controls);
-};
-const mf451BaseWorkspace=mf441WorkspaceHtml;
-mf441WorkspaceHtml=function(){
- const html=mf451BaseWorkspace.apply(this,arguments);
- const j=MF451.journal||mf451Read();
- const controls='<section class="mf451-workspace-controls">'+
-  '<strong>'+mf425Icon('listOrdered',17)+' Recovery queue control</strong>'+
-  '<p>Single-title Cover, Metadata and Recover Both operations take priority. Interrupted jobs keep their original checkpoints and can resume when priority work finishes.</p>'+
-  '<div><button type="button" class="btn btn-ghost mf451-stop" onclick="App.mf451Stop(&#39;all&#39;)">'+mf425Icon('square',15)+' Stop All Recoveries</button>'+
-  (j?'<button type="button" class="btn btn-ghost" onclick="App.mf451ResumeInterrupted()">'+mf425Icon('play',15)+' Resume Interrupted</button>':'')+
-  '<button type="button" class="btn btn-ghost mf451-discard" onclick="App.mf451ClearAll()">'+mf425Icon('trash2',15)+' Discard Queues</button></div>'+
-  (j?'<small>Priority title: '+mf424Escape(mf451SavedId(j.id)?mf439Item(j.id)?.title||'Saved title':'Unavailable title')+
-  ' · '+mf424Escape(j.kind)+' · interrupted checkpoints preserved</small>':'')+
-  '</section>';
- const last=html.lastIndexOf('</section>');
- return last<0?html:html.slice(0,last)+controls+html.slice(last);
-};
-async function mf451ResumeInterrupted(){
- const j=MF451.journal||mf451Read();
- if(!j){showToast('No interrupted recovery checkpoints to resume.');return;}
- if(MF424.running||MF439.working||MF442.process){
-  showToast('Finish or stop the current priority process before resuming older jobs.');return;
- }
- if(!mf451Ready(j)){
-  if(!await mf444Confirm('End priority recovery and resume interrupted jobs?',
-   'The priority run has not finished yet. Its already saved title changes will remain, but unprocessed priority items will be cancelled to restore the older queue.',
-   'Resume Older Jobs',true,0,j.kind==='metadata'?'metadata':'cover'))return;
-  if(j.kind==='cover'||j.kind==='both')await mf451Stop('cover',{confirm:false});
-  if(j.kind==='metadata')MF439.controller?.abort();
-  if(!await mf451Drain()){showToast('Waiting for the current provider request to exit safely. Try Resume Interrupted again.');return;}
- }
- return mf451Restore({force:true});
-}
-Object.assign(App,{mf451Stop,mf451ClearAll,mf451ResumeInterrupted});
-window.MediaFlowV451=Object.freeze({
- version:451,priority:()=>MF451.journal||mf451Read(),
- stop:mf451Stop,prepare:mf451Prepare,restore:mf451Restore,
- controls:()=>mf441WidgetHtml(mf441Prefs(),mf441State())
-});
-MF451.journal=mf451Read();
-/* MediaFlow v452 — recovery provider bulk controls, clean title editor actions,
- * and complete semantic stopping actions in the Background Processes widget.
- * Reuses all v424/v439/v442/v447/v451 checkpoint and provider safety systems. */
-const MF452_VERSION=452;
-const MF452_ICON_PATHS=Object.freeze({
-  selectAll:'<rect x="3" y="3" width="7" height="7" rx="1"/><path d="m4.5 6.5 1.3 1.3L8 5.3"/><rect x="14" y="3" width="7" height="7" rx="1"/><path d="m15.5 6.5 1.3 1.3L19 5.3"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="m4.5 17.5 1.3 1.3L8 16.3"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="m15.5 17.5 1.3 1.3L19 16.3"/>',
-  deselectAll:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M5 6.5h3M16 6.5h3M5 17.5h3M16 17.5h3"/>',
-  stop:'<rect x="5" y="5" width="14" height="14" rx="2"/>',
-  stopTitle:'<rect x="3" y="4" width="11" height="16" rx="2"/><path d="M6 9h5M6 13h5"/><rect x="17" y="9" width="5" height="6" rx="1"/>',
-  stopPart:'<rect x="3" y="4" width="10" height="7" rx="1"/><rect x="3" y="14" width="10" height="7" rx="1"/><rect x="17" y="9" width="5" height="6" rx="1"/>',
-  stopAll:'<rect x="2" y="5" width="8" height="14" rx="1"/><rect x="14" y="5" width="8" height="14" rx="1"/>',
-  discard:'<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v6M14 11v6"/>'
-});
-function mf452Icon(type,size=16){
- const paths=MF452_ICON_PATHS[type]||MF452_ICON_PATHS.stop;
- return '<svg class="mf452-icon mf452-icon-'+type+'" viewBox="0 0 24 24" width="'+size+'" height="'+size+
-  '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';
-}
-function mf452Button(action,label,icon,cls='',title=''){
- return '<button type="button" data-v225-iconified="1" class="mf452-control '+cls+
-  '" onclick="'+mf424Escape(action)+'"'+(title?' title="'+mf424Escape(title)+'"':'')+
-  '>'+mf452Icon(icon,15)+' <span>'+mf424Escape(label)+'</span></button>';
-}
-function mf452ProviderToolbar(mode){
- const kind=mode==='metadata'?'metadata':'cover',q=JSON.stringify(kind);
- return '<div class="mf446-provider-tools mf452-provider-tools" role="group" aria-label="'+
-  (kind==='cover'?'Cover':'Metadata')+' provider bulk selection">'+
-  mf452Button('App.mf446ProviderAll('+q+',true)','Select All','selectAll','mf452-provider-select','Enable every available '+kind+' provider')+
-  mf452Button('App.mf446ProviderAll('+q+',false)','Deselect All','deselectAll','mf452-provider-deselect','Disable every '+kind+' provider')+'</div>';
-}
-// The "Both" tab uses mf446SourceHtml twice; keep the intended panel when
-// selecting cover providers OR metadata providers.
-const mf452BaseSource=mf446SourceHtml;
-mf446SourceHtml=function(mode){
- const html=String(mf452BaseSource.apply(this,arguments)||'');
- return html.replace(/<div class="mf446-provider-tools">[\s\S]*?<\/div>/,
-  mf452ProviderToolbar(mode));
-};
-function mf452SaveProviders(mode,enabled){
- if(!['cover','metadata'].includes(mode))return false;
- S.settings=S.settings||{};
- const prop=mode==='cover'?'v424Covers':'v439Metadata';
- S.settings[prop]={...(S.settings[prop]||{}),enabled};
- Promise.resolve(saveState()).catch(e=>console.warn('Provider preference persistence failed',e));
- const current=document.getElementById('mf445-workspace');
- if(current){
-  const active=MF447?.active==='both'||current.querySelector('[data-mf445-tab="both"][aria-selected="true"]')?'both':(MF445.mode||mode);
-  mf445Panel(active);
- }
- return true;
-}
-mf446ProviderAll=function(mode,on){
- if(!['cover','metadata'].includes(mode))return;
- const candidates=mf445Providers(mode).filter(row=>row.available);
- const enabled=on?candidates.map(row=>row.id):[];
- mf452SaveProviders(mode,enabled);
-};
-mf446ToggleProvider=function(mode,id,on){
- if(!['cover','metadata'].includes(mode))return;
- const rows=mf445Providers(mode),candidate=rows.find(row=>row.id===id);
- if(!candidate||!candidate.available){
-  showToast('This provider is unavailable. Configure its credentials in API Setup.');return;
- }
- const existing=new Set((mode==='cover'?mf424Defaults():mf439Preferences()).enabled);
- if(on)existing.add(id);else existing.delete(id);
- mf452SaveProviders(mode,[...existing]);
-};
-App.mf446ProviderAll=mf446ProviderAll;
-App.mf446ToggleProvider=mf446ToggleProvider;
-// Eliminate the redundant one-off Fix Metadata action, but never hide the
-// functional Metadata Recovery (and Recover Both) actions.
-function mf452CleanTitleRecovery(raw){
- if(!String(raw).includes('Fix Metadata'))return raw;
- try{
-  const host=document.createElement('div');host.innerHTML=raw;
-  const buttons=host.querySelectorAll(
-   '.mf449-editor-recovery-toolbar button,.mf449-editor-draft-actions button,'+
-   '.mf439-editor-action button,.v181-detail-actions button');
-  for(const button of buttons){
-   const isFix=/^\s*Fix Metadata\s*$/i.test(button.textContent.trim());
-   const rawClick=button.getAttribute('onclick')||'';
-   if(isFix&&(!rawClick||rawClick.includes('mf439Open')))button.remove();
-  }
-  host.querySelectorAll('.mf439-editor-action').forEach(el=>{
-   if(!el.querySelector('button,input,select,textarea'))el.remove();
-  });
-  return host.innerHTML;
- }catch(e){console.warn('v452 title recovery cleanup skipped',e);return raw;}
-}
-const mf452BaseEditor=libraryModalHtml;
-libraryModalHtml=function(){return mf452CleanTitleRecovery(String(mf452BaseEditor.apply(this,arguments)||''));};
-const mf452BaseDetails=v181TitleDetailsHtml;
-v181TitleDetailsHtml=function(){return mf452CleanTitleRecovery(String(mf452BaseDetails.apply(this,arguments)||''));};
-// The draft title has no stable ID. It should display exactly the three
-// existing recovery routes, disabled until the title is saved.
-const mf452BaseDraft=mf449DraftButtons;
-mf449DraftButtons=function(){
- return mf452CleanTitleRecovery(mf452BaseDraft.apply(this,arguments));
-};
-// Metadata jobs use their EXISTING configured batchSize (normally 25) to
-// define one part. The durable stop boundary is saved with the job.
-function mf452StopBoundary(job){
- if(!job||!job.stopRequested&&!(job.stopAfterTitle||job.stopAtCursor))return false;
- if(!job.stopRequested&&(job.stopAfterTitle||
-   Number(job.stopAtCursor)>0&&job.cursor>=Number(job.stopAtCursor))){
-  job.stopRequested=true;
-  job.stopAfterTitle=false;job.stopAtCursor=0;
-  mf439SaveJob();
- }
- return Boolean(job.stopRequested);
-}
-async function mf452CoverStopAfter(kind){
- const j=MF424.job;
- if(!j||['complete','stopped'].includes(j.status))return;
- if(!MF424.running){
-  j.stopRequested=true;j.status='stopped';
- }else if(kind==='title'){
-  j.stopAfterTitle=true;j.stopAfterPart=false;
- }else{
-  j.stopAfterPart=true;j.stopAfterTitle=false;
- }
- await mf424SaveJob();mf424Paint();mf441Paint();
- showToast(MF424.running?'Cover Recovery will stop after the current '+(kind==='title'?'title.':'part.'):'Cover Recovery stopped; checkpoint preserved.');
-}
-function mf452MetadataStopAfter(kind){
- const j=MF439.job;
- if(!j||['completed','stopped'].includes(j.status))return;
- if(!MF439.working){
-  j.stopRequested=true;j.status='stopped';
- }else if(kind==='title'){
-  j.stopAfterTitle=true;j.stopAtCursor=0;
- }else{
-  const partSize=mf439Preferences().batchSize;
-  j.stopAfterTitle=false;j.stopAtCursor=Math.min(j.ids.length,(Math.floor(j.cursor/partSize)+1)*partSize);
-  j.stopPartSize=partSize;
- }
- mf439SaveJob();mf439PaintJob();mf441Paint();
- showToast(MF439.working?'Metadata Recovery will stop after the current '+(kind==='title'?'title.':'part.'):'Metadata Recovery stopped; checkpoint preserved.');
-}
-const mf452BaseResumeCover=App.mf424Resume;
-App.mf424Resume=async function(){
- if(MF424.job){
-  MF424.job.stopAfterTitle=false;
-  MF424.job.stopAfterPart=false;
-  MF424.job.stopRequested=false;
-  MF424.job.hardStop=false;
-  await mf424SaveJob();
- }
- return mf452BaseResumeCover.apply(this,arguments);
-};
-const mf452BaseResumeMeta=App.mf439Resume;
-App.mf439Resume=function(){
- if(MF439.job){
-  MF439.job.stopAfterTitle=false;MF439.job.stopAtCursor=0;
-  MF439.job.stopRequested=false;mf439SaveJob();
- }
- return mf452BaseResumeMeta.apply(this,arguments);
-};
-function mf452StopRow(raw,kind,j){
- const html=String(raw||''),active=kind==='cover'?Boolean(MF424.running):Boolean(MF439.working&&j?.status==='running');
- // v451 uses a missing 'square' icon alias (renders as Images): rebuild the
- // Stop button with a dedicated square, and add explicit stop boundaries.
- const clean=html.replace(/<button\b[^>]*class="mf451-stop"[\s\S]*?<\/button>/g,'');
- if(!j||['complete','completed','stopped'].includes(j.status))return clean;
- const stop=mf452Button("App.mf451Stop('"+kind+"')",'Stop Now','stop','mf451-stop mf452-stop-now');
- const title=active?mf452Button("App.mf452StopAfter('"+kind+"','title')",
-  'Stop After Title','stopTitle','mf452-after-title'):'';
- const part=active?mf452Button("App.mf452StopAfter('"+kind+"','part')",
-  'Stop After Part','stopPart','mf452-after-part',
-  kind==='metadata'?'Finish the current '+mf439Preferences().batchSize+'-title metadata part before stopping':'Finish the current cover part before stopping'):'';
- return clean.replace('</div></article>',stop+title+part+'</div></article>');
-}
-const mf452BaseCoverRow=mf441CoverRow;
-mf441CoverRow=function(s){return mf452StopRow(mf452BaseCoverRow.apply(this,arguments),'cover',s.cover);};
-const mf452BaseMetaRow=mf441MetadataRow;
-mf441MetadataRow=function(s){return mf452StopRow(mf452BaseMetaRow.apply(this,arguments),'metadata',s.metadata);};
-// Both fixed 'square' and 'trash2' failed in the v425 icon map. Replace the
-// entire icon inside these controls, in both floating and Settings workspaces.
-function mf452ReplaceStopIcons(raw){
- const host=document.createElement('div');host.innerHTML=raw;
- host.querySelectorAll('button.mf451-stop,button.mf451-discard').forEach(button=>{
-  const click=button.getAttribute('onclick')||'';
-  const stopAll=click.includes("mf451Stop('all')")||click.includes('mf451Stop(&#39;all&#39;)');
-  const discard=click.includes('mf451ClearAll()');
-  if(!stopAll&&!discard)return;
-  const label=(button.textContent||'').trim();
-  button.dataset.v225Iconified='1';
-  button.querySelectorAll('svg.mf425-icon,.v225-btn-icon').forEach(icon=>icon.remove());
-  button.insertAdjacentHTML('afterbegin',mf452Icon(discard?'discard':'stopAll',15));
-  button.setAttribute('aria-label',label);
- });
- return host.innerHTML;
-}
-const mf452BaseWidget=mf441WidgetHtml;
-mf441WidgetHtml=function(){return mf452ReplaceStopIcons(mf452BaseWidget.apply(this,arguments));};
-const mf452BaseWorkspace=mf441WorkspaceHtml;
-mf441WorkspaceHtml=function(){return mf452ReplaceStopIcons(mf452BaseWorkspace.apply(this,arguments));};
-App.mf452StopAfter=function(kind,which){
- if(!['cover','metadata'].includes(kind)||!['title','part'].includes(which))return;
- return kind==='cover'?mf452CoverStopAfter(which):mf452MetadataStopAfter(which);
-};
-window.MediaFlowV452=Object.freeze({
- version:452,sourceHtml:mf446SourceHtml,toolbar:mf452ProviderToolbar,icon:mf452Icon,
- clean:mf452CleanTitleRecovery,boundary:mf452StopBoundary,
- stopAfter:App.mf452StopAfter,coverRow:mf441CoverRow,metadataRow:mf441MetadataRow,
- widget:mf441WidgetHtml
-});
-/* MediaFlow v453 — category recovery presets + provider controls.
- * Enabled-but-pending never becomes falsely "configured". */
-const MF453_VERSION=453;
-const MF453={category:'',quick:null,session:0,scanning:false,refreshing:false};
-const mf453Esc=x=>mf424Escape(String(x??''));
-function mf453Category(id){return(S.categories||[]).find(c=>String(c?.id)===String(id))||null;}
-function mf453Presets(){return S.settings?.v453RecoveryPresets||{};}
-function mf453ProvidersFor(mode,category){
- const ids=mf453Presets()[String(category)]?.[mode];
- return Array.isArray(ids)?[...new Set(ids.filter(x=>typeof x==='string'))]:
- (mode==='cover'?mf424Defaults():mf439Preferences()).enabled.slice();
-}
-function mf453SavePreset(cat,mode,providers){
- if(!mf453Category(cat)||!['cover','metadata'].includes(mode))return;
- const registered=new Set(mf445Providers(mode).map(p=>p.id));
- const preset={...mf453Presets()},row={...(preset[cat]||{})};
- if(providers===null)delete row[mode];
- else row[mode]=[...new Set(providers.filter(p=>registered.has(p)))];
- if(Object.keys(row).length)preset[cat]=row;else delete preset[cat];
- S.settings=S.settings||{};S.settings.v453RecoveryPresets=preset;
- Promise.resolve(saveState()).catch(e=>console.warn('Recovery preset save failed',e));
-}
-function mf453PresetToggle(cat,mode,id,enabled){
- if(!mf453Category(cat)||!mf445Providers(mode).some(p=>p.id===id))return;
- const ids=new Set(mf453ProvidersFor(mode,cat));
- if(enabled)ids.add(id);else ids.delete(id);
- mf453SavePreset(cat,mode,[...ids]);mf453PaintPresets();
-}
-function mf453PresetBulk(cat,mode,choice){
- if(!mf453Category(cat)||!['cover','metadata'].includes(mode))return;
- const values=choice==='available'?mf445Providers(mode).filter(p=>p.available).map(p=>p.id):
-  choice==='none'?[]:null;
- mf453SavePreset(cat,mode,values);mf453PaintPresets();
-}
-function mf453PresetFields(cat,mode){
- const keys=new Set(mf453ProvidersFor(mode,cat));
- const personal=Array.isArray(mf453Presets()[cat]?.[mode]);
- const arg=x=>mf453Esc(JSON.stringify(x));
- return '<section class="mf453-preset-group"><header><strong>'+mf425Icon(mode==='cover'?'images':'database',18)+
-  (mode==='cover'?' Cover providers':' Metadata providers')+'</strong><small>'+
-  (personal?'Custom preset':'Global defaults')+' · '+keys.size+' selected</small></header>'+
- '<div class="mf453-preset-tools">'+[
- ['available','Select available',mf452Icon('selectAll',15)],
- ['none','Deselect all',mf452Icon('deselectAll',15)],
- ['global','Use global',mf425Icon('settings',15)]
- ].map(([v,label,icon])=>'<button type="button" data-v225-iconified="1" onclick="App.mf453PresetBulk('+
- arg(String(cat))+','+arg(mode)+','+arg(v)+')">'+icon+' '+label+'</button>').join('')+'</div>'+
- '<div class="mf453-preset-list">'+mf445Providers(mode).map(p=>'<label class="mf453-preset-provider"><input type="checkbox" '+
- (keys.has(p.id)?'checked ':'')+'onchange="App.mf453PresetToggle('+arg(String(cat))+','+arg(mode)+','+arg(p.id)+
- ',this.checked)"><span><strong>'+mf453Esc(p.name)+'</strong><small>'+
- (p.available?'Ready':'Pending setup / adapter')+'</small></span></label>').join('')+'</div></section>';
-}
-function mf453PresetHtml(){
- const cats=(S.categories||[]).filter(c=>c?.id!=null);
- if(!cats.some(c=>String(c.id)===String(MF453.category)))MF453.category=String(cats[0]?.id||'');
- const cat=mf453Category(MF453.category);
- return '<section class="mf453-presets" data-mf-setting-id="recovery-presets"><header><h3>'+
- mf425Icon('settings',20)+' Recovery Presets</h3><p>Assign Cover and Metadata providers to each category. Quick title recovery will automatically use these selections.</p></header>'+
- (cat?'<label class="mf453-category-select">Category<select onchange="App.mf453ChooseCategory(this.value)">'+
- cats.map(c=>'<option value="'+mf453Esc(c.id)+'" '+(String(c.id)===MF453.category?'selected':'')+'>'+
- mf453Esc(c.name||c.title||c.id)+'</option>').join('')+'</select></label>'+
- '<div class="mf453-category-title">'+mf445CategoryIcon(cat)+' <strong>'+mf453Esc(cat.name||cat.title||cat.id)+
- '</strong></div><div class="mf453-preset-columns">'+
- mf453PresetFields(String(cat.id),'cover')+mf453PresetFields(String(cat.id),'metadata')+'</div>':
- '<p>Add Library categories first to configure their presets.</p>')+
- '<p class="mf453-note">Selecting an unconfigured provider saves your preference but never bypasses missing credentials, licensing or an unimplemented adapter. Configured providers do not need manual testing.</p></section>';
-}
-function mf453PaintPresets(){
- const old=document.querySelector('[data-mf-setting-id="recovery-presets"]');if(!old)return;
- const wrap=document.createElement('div');wrap.innerHTML=mf453PresetHtml();
- old.replaceWith(wrap.firstElementChild);
-}
-function mf453ChooseCategory(id){MF453.category=String(id);mf453PaintPresets();}
-function mf453MountSettings(){
- if(String(S.view||'')!=='settings'||!window.MediaFlowSettingsCenter?.mountSection||
- document.querySelector('.mf365-section[data-mf365-section="v221-settings-recovery-presets"]'))return;
- const body=document.createElement('div');body.innerHTML=mf453PresetHtml();
- window.MediaFlowSettingsRegistry?.registerSetting?.({
- id:'recovery-presets',section:'v221-settings-recovery-presets',
- selector:'[data-mf-setting-id="recovery-presets"]',label:'Recovery Presets',
- keywords:['recovery','presets','category','cover','metadata','providers']});
- window.MediaFlowSettingsCenter.mountSection({
- id:'v221-settings-recovery-presets',title:'RECOVERY PRESETS',
- category:'library',subgroup:'Library maintenance',
- keywords:['category recovery presets','covers','metadata','quick title'],
- nodes:[body]});
-}
-MediaFlowRuntime.registerPageEnhancer('settings',mf453MountSettings);
-const mf453OldWorkspace=mf441WorkspaceHtml;
-mf441WorkspaceHtml=function(){
- const html=String(mf453OldWorkspace.apply(this,arguments)||'');
- const link='<button type="button" onclick="App.mf441Settings(&#39;v221-settings-recovery-presets&#39;)">'+
- mf425Icon('settings',19)+' <span><strong>Recovery Presets</strong><small>Category-specific cover and metadata providers</small></span>'+
- mf425Icon('chevronRight',16)+'</button>';
- return html.replace('</div><fieldset class="mf441-widget-preferences">',link+'</div><fieldset class="mf441-widget-preferences">');
-};
-// v452 bulk buttons were fixed in-place (escaped handlers), and the v446
-// individual checkbox handler is also escaped. Preserve selections for pending
-// connections but only actual working adapters may execute recovery calls.
-const mf453OldSource=mf446SourceHtml;
-mf446SourceHtml=function(mode){
- const wrap=document.createElement('div');
- wrap.innerHTML=String(mf453OldSource.apply(this,arguments)||'');
- const states=new Map(mf445Providers(mode).map(p=>[p.id,p]));
- for(const row of wrap.querySelectorAll('[data-mf446-provider]')){
-  const provider=states.get(row.dataset.mf446Provider);
-  const input=row.querySelector('input[data-mf446-toggle]');
-  if(!provider||!input)continue;
-  input.disabled=false;input.checked=provider.enabled;
-  if(!provider.available){
-   row.dataset.status=provider.enabled?'pending':'unavailable';
-   const status=row.querySelector('.mf445-provider-status');
-   if(status)status.textContent=provider.enabled?'Selected · needs setup':'Needs setup';
-  }
- }
- const section=wrap.querySelector('.mf446-providers');
- if(section){
-  const button=document.createElement('button');button.type='button';
-  button.className='btn btn-ghost mf453-refresh-providers';button.dataset.v225Iconified='1';
-  button.setAttribute('onclick','App.mf453RefreshProviders()');
-  button.innerHTML=mf425Icon('retry',15)+' Refresh API access';
-  section.querySelector('header')?.appendChild(button);
-  const note=section.querySelector('.mf445-provider-note');
-  if(note)note.textContent='You can preselect an unconfigured provider. It is never used until a real adapter, credentials and permissions are ready. Refresh access here without closing your recovery setup.';
- }
- return wrap.innerHTML;
-};
-mf446ToggleProvider=function(mode,id,on){
- if(!['cover','metadata'].includes(mode)||!mf445Providers(mode).some(p=>p.id===id))return;
- const prefs=mode==='cover'?mf424Defaults():mf439Preferences();
- const ids=new Set(prefs.enabled);
- if(on)ids.add(id);else ids.delete(id);
- mf452SaveProviders(mode,[...ids]);
-};
-App.mf446ToggleProvider=mf446ToggleProvider;
-async function mf453RefreshProviders(){
- if(MF453.refreshing)return;MF453.refreshing=true;
- document.querySelectorAll('.mf453-refresh-providers').forEach(b=>{b.disabled=true;b.textContent='Checking…';});
- try{if(typeof mf443EnsureGateway==='function')await mf443EnsureGateway(true);
-  showToast('API readiness refreshed. Your provider selections were kept.');
- }finally{
-  MF453.refreshing=false;
-  if(document.getElementById('mf445-workspace'))
-   mf445Panel(MF447.active==='both'?'both':MF445.mode);
- }
-}
-function mf453Ready(mode,item){
- const selected=new Set(mf453ProvidersFor(mode,item?.categoryId||''));
- return mf445Providers(mode).filter(p=>p.available&&selected.has(p.id)).map(p=>p.id);
-}
-Object.assign(App,{mf453ChooseCategory,mf453PresetToggle,mf453PresetBulk,mf453RefreshProviders});
-window.MediaFlowV453Presets=Object.freeze({
- version:453,configured:mf453ProvidersFor,save:mf453SavePreset,
- html:mf453PresetHtml,ready:mf453Ready
-});
-/* MediaFlow v453 — quick, non-batch per-title recovery preview.
- * API reads only until explicit Apply; uses existing provider verification and
- * v439 field-level safe merge. Original bulk recovery is not replaced. */
-const MF453Quick={current:null,serial:0,loading:false,account:''};
-function mf453QuickRoot(){return document.getElementById('mf453-title-quick');}
-function mf453QuickHtml(){
- const q=MF453Quick.current;if(!q)return '';
- const title=mf439Item(q.id)?.title||'Library title';
- const cover=q.kind!=='metadata',meta=q.kind!=='cover',preview=q.metadata?.preview;
- const old=mf439Item(q.id)?.coverUrl||'';
- const coverPart=cover?'<section class="mf453-quick-group"><h3>'+mf425Icon('images',18)+' New covers</h3>'+
- (q.coverLoading?'<p>Searching configured cover providers…</p>':
- q.covers.length?'<div class="mf453-quick-covers">'+q.covers.map((c,i)=>
-  '<button type="button" class="mf453-quick-cover '+(i===q.coverIndex?'selected':'')+
-  '" onclick="App.mf453PickCover('+i+')" aria-pressed="'+(i===q.coverIndex)+'">'+
-  '<img src="'+mf453Esc(c.url)+'" alt="'+mf453Esc(c.title||title)+'" loading="lazy">'+
-  '<strong>'+mf453Esc(c.title||title)+'</strong><small>'+mf453Esc(c.provider)+
-  ' · '+Math.round(c.confidence*100)+'% match</small></button>').join('')+'</div>':
- '<p>No verified cover matches from ready providers. Your existing cover stays untouched.</p>')+
- (old?'<p class="mf453-current-cover">Current cover: <img src="'+mf453Esc(old)+'" alt="Current cover" loading="lazy"> Replacement requires your confirmation.</p>':'')+
- '</section>':'';
- const metaPart=meta?'<section class="mf453-quick-group"><h3>'+mf425Icon('database',18)+' New metadata</h3>'+
- (q.metaLoading?'<p>Searching verified metadata…</p>':
- preview?'<p>'+preview.results+' matching source records · '+preview.proposals.length+' proposed fields.</p>'+
- '<div class="mf453-quick-fields">'+preview.proposals.map((p,i)=>{
-  const option=p.options[p.choice]||p.options[0],locked=p.hasOriginal||p.protected||p.same;
-  return '<article class="mf453-quick-field"><label><input type="checkbox" '+
-   (p.selected?'checked ':'')+(locked?'disabled ':'')+
-   'onchange="App.mf453PickMetadata('+i+',this.checked)"><strong>'+mf453Esc(p.label)+'</strong></label>'+
-   '<small>Current: '+mf453Esc(mf439DescribeValue(p.token,p.original)).slice(0,170)+
-   ' · '+mf453Esc(p.status)+'</small><div>'+mf453Esc(mf439DescribeValue(p.token,option?.value)).slice(0,260)+
-   '</div><small>Source: '+mf453Esc(option?.sources?.map(s=>s.provider+' · '+s.evidence).join(' / ')||'Unavailable')+'</small>'+
-   (p.options.length>1?'<select onchange="App.mf453MetadataSource('+i+',this.value)" aria-label="Source for '+
-    mf453Esc(p.label)+'">'+p.options.map((o,j)=>'<option value="'+j+'" '+(j===p.choice?'selected':'')+'>'+
-    mf453Esc(o.sources.map(s=>s.provider).join(' + '))+'</option>').join('')+'</select>':'')+
-  '</article>';
- }).join('')+'</div>':'<p>No verified suggestions available from ready providers.</p>')+
- '</section>':'';
- const busy=q.coverLoading||q.metaLoading||q.applying;
- const selected=q.coverIndex>=0||!!preview?.proposals?.some(p=>p.selected);
- const cat=mf453Category(mf439Item(q.id)?.categoryId);
- return '<div class="mf453-quick-inner"><div class="mf453-quick-header"><strong>'+mf453Esc(title)+'</strong>'+
- '<small>Providers: '+mf453Esc(cat?.name||'Global defaults')+' preset · Nothing saved until confirmed</small></div>'+
- (q.pending.length?'<p class="mf453-pending">'+mf425Icon('shield',16)+' Pending access: '+
-  mf453Esc(q.pending.join(', '))+'. Selected for later, but not treated as configured.</p>':'')+
- '<div class="mf453-quick-grid">'+coverPart+metaPart+'</div>'+
- (q.errors.length?'<details><summary>'+q.errors.length+' provider error(s)</summary>'+
-  q.errors.map(e=>'<p>'+mf453Esc(e)+'</p>').join('')+'</details>':'')+
- '<div class="mf453-quick-actions"><button type="button" class="btn btn-ghost" onclick="App.mf453CloseQuick()">'+
- mf425Icon('x',16)+' Cancel</button>'+
- '<button type="button" class="btn btn-primary" onclick="App.mf453ApplyQuick()" '+(!selected||busy?'disabled':'')+'>'+
- mf425Icon('check',16)+' Confirm selected changes</button></div></div>';
-}
-function mf453PaintQuick(){
- const node=mf453QuickRoot()?.querySelector('[data-mf453-quick-content]');
- if(node)node.innerHTML=mf453QuickHtml();
-}
-function mf453PickCover(index){
- const q=MF453Quick.current;if(!q?.covers[Number(index)])return;
- q.coverIndex=q.coverIndex===Number(index)?-1:Number(index);mf453PaintQuick();
-}
-function mf453PickMetadata(index,on){
- const p=MF453Quick.current?.metadata?.preview?.proposals?.[Number(index)];
- if(!p||p.hasOriginal||p.protected||p.same)return;
- p.selected=Boolean(on);mf453PaintQuick();
-}
-function mf453MetadataSource(index,value){
- const p=MF453Quick.current?.metadata?.preview?.proposals?.[Number(index)];
- const n=Number(value);if(!p||!Number.isInteger(n)||n<0||n>=p.options.length)return;
- p.choice=n;p.selected=!p.hasOriginal&&!p.protected&&!p.same;mf453PaintQuick();
-}
-async function mf453ScanQuick(session){
- const q=MF453Quick.current;if(!q||session!==MF453Quick.serial)return;
- const item=mf439Item(q.id);MF453Quick.loading=true;
- try{
-  if(q.kind!=='metadata'){
-   const known=new Set();
-   for(const source of q.coverProviders){
-    if(session!==MF453Quick.serial||q.controller.signal.aborted)break;
-    try{
-     const rows=await mf424Discover(item,source);
-     for(const candidate of rows||[]){
-      if(session!==MF453Quick.serial||q.controller.signal.aborted)break;
-      if(!candidate?.url||!/^https:\/\//.test(candidate.url)||candidate.confidence<.65||known.has(candidate.url))continue;
-      known.add(candidate.url);
-      if(await mf424Image(candidate.url,candidate.provider))q.covers.push(candidate);
-      if(q.covers.length>=12)break;
-     }
-    }catch(e){q.errors.push(source+': '+String(e?.message||e).slice(0,140));}
-    mf453PaintQuick();if(q.covers.length>=12)break;
-   }
-   q.coverLoading=false;mf453PaintQuick();
-  }
-  if(q.kind!=='cover'&&session===MF453Quick.serial&&!q.controller.signal.aborted){
-   q.metadata=await mf439Discover(item,q.metaProviders,()=>{},q.controller.signal);
-   q.metaLoading=false;mf453PaintQuick();
-  }
- }catch(e){q.errors.push(String(e?.message||e).slice(0,180));}
- finally{
-  if(session===MF453Quick.serial){
-   q.coverLoading=false;q.metaLoading=false;MF453Quick.loading=false;mf453PaintQuick();
-  }else MF453Quick.loading=false;
- }
-}
-async function mf453OpenQuick(kind,id){
- kind=['cover','metadata','both'].includes(kind)?kind:'cover';id=String(id||'');
- const item=mf439Item(id);
- if(!item||MF453Quick.current){showToast('Save the title and close any existing quick recovery first.');return;}
- const owner=typeof mf442ProcessLease==='function'?mf442ProcessLease():null;
- if(owner&&owner.token!==MF442.owner){showToast('Another tab owns recovery; stop it before launching quick recovery.');return;}
- let priority=false;
- if(MF424.running||MF439.working||MF442.process){
-  if(!await mf451Prepare(kind,id))return;priority=true;
- }
- if(typeof mf443EnsureGateway==='function')await mf443EnsureGateway();
- const allowed={cover:kind==='metadata'?[]:mf453Ready('cover',item),
- metadata:kind==='cover'?[]:mf453Ready('metadata',item)};
- const pending=[];
- for(const mode of ['cover','metadata']){
-  if(mode==='cover'&&kind==='metadata'||mode==='metadata'&&kind==='cover')continue;
-  const chosen=new Set(mf453ProvidersFor(mode,item.categoryId||''));
-  for(const p of mf445Providers(mode))if(chosen.has(p.id)&&!p.available)pending.push(p.name);
- }
- MF453Quick.account=mf439Account();
- const session=++MF453Quick.serial;
- MF453Quick.current={id,kind,covers:[],coverIndex:-1,metadata:null,
-  coverProviders:allowed.cover,metaProviders:allowed.metadata,
-  coverLoading:kind!=='metadata',metaLoading:kind!=='cover',
-  pending:[...new Set(pending)],errors:[],applying:false,priority,
-  controller:new AbortController()};
- const root=document.createElement('div');root.id='mf453-title-quick';
- root.className='mf424-modal mf425-themed mf453-quick-modal';
- root.innerHTML='<div class="mf424-shade" onclick="App.mf453CloseQuick()"></div>'+
- '<section class="mf424-dialog mf453-quick-dialog" role="dialog" aria-modal="true" aria-label="Quick title recovery">'+
- '<header class="mf453-quick-top"><div><small>QUICK TITLE RECOVERY</small><h2>'+mf425Icon('layers',22)+' '+
- mf453Esc(kind==='both'?'Cover + Metadata':kind==='cover'?'Cover Recovery':'Metadata Recovery')+
- '</h2></div><button type="button" class="btn btn-ghost" onclick="App.mf453CloseQuick()">'+
- mf425Icon('x',16)+' Close</button></header><div data-mf453-quick-content></div></section>';
- document.body.append(root);mf453PaintQuick();
- void mf453ScanQuick(session);
-}
-async function mf453CloseQuick(){
- const q=MF453Quick.current;if(!q)return;
- q.controller.abort();MF453Quick.serial++;MF453Quick.current=null;mf453QuickRoot()?.remove();
- if(q.priority){
-  // Existing background jobs were checkpointed before entering quick mode.
-  for(let i=0;i<90&&MF453Quick.loading;i++)await new Promise(resolve=>setTimeout(resolve,100));
-  try{await mf451Restore({force:true});}
-  catch(e){console.warn('Original recovery checkpoint kept for manual resume',e);}
- }
-}
-async function mf453ApplyQuick(){
- const q=MF453Quick.current;if(!q||(typeof mf458CanConfirmQuick==='function'? !mf458CanConfirmQuick(q): (q.applying||q.coverLoading||q.metaLoading)))return;
- const item=mf439Item(q.id),cover=q.covers[q.coverIndex],preview=q.metadata?.preview;
- if(!item||MF453Quick.account!==mf439Account()){showToast('Title or account changed. Reopen preview.');return;}
- if(!cover&&!preview?.proposals?.some(p=>p.selected)){showToast('Choose a cover or eligible missing metadata first.');return;}
- q.applying=true;
- const selectedMetadata=!!preview?.proposals?.some(p=>p.selected);
- mf456QuickProgress(q,'Waiting for your confirmation…',false,(cover?2:0)+(selectedMetadata?2:0)+1);
- try{
-  if(cover&&item.coverUrl&&String(item.coverUrl)!==String(cover.url)&&
-   !await mf444Confirm('Replace this title’s existing cover?',
-    'Apply the selected verified cover? Your old cover will be kept if you cancel.',
-    'Replace Cover',false,1,'cover')){q.applying=false;mf453PaintQuick();return;}
-  // Stop unnecessary artwork discovery after confirmation: saving a selected
-  // verified cover does not require waiting for slow unrelated providers.
-  if(q.coverLoading&&q.controller&&!q.controller.signal.aborted)q.controller.abort();
-  // Persist the cover independently; a metadata mapping failure must never
-  // roll back an artwork replacement the user explicitly confirmed.
-  let coverCount=0,metadataCount=0,metadataError='';
-  const oldCover={coverUrl:item.coverUrl,coverSource:item.coverSource,modifiedAt:item.modifiedAt,
-   externalIds:structuredClone(item.externalIds||{}),v377ManualExternalIds:structuredClone(item.v377ManualExternalIds||{})};
-  if(cover&&String(item.coverUrl||'')!==String(cover.url)){
-   mf456QuickProgress(q,'Verifying selected artwork and provider record…');
-   if(!/^https:\/\//i.test(String(cover.url||''))||!await mf424Image(cover.url,cover.provider))
-    throw new Error('Selected cover URL failed final image validation');
-   mf456QuickProgress(q,'Artwork validation complete.',true);
-   item.coverUrl=String(cover.url);
-   item.coverSource='manual:quick:'+String(cover.provider||'verified');
-   // Link only the actual provider record ID, and never overwrite an existing
-   // external ID. The chosen card previews this exact key/value first.
-   const link=mf456CandidateLink(item,cover);
-   if(link.canLink){
-    item.externalIds={...(item.externalIds||{}),[link.key]:link.id};
-    item.v377ManualExternalIds={...(item.v377ManualExternalIds||{}),[link.key]:link.id};
-   }
-   item.modifiedAt=Date.now();
-   mf456QuickProgress(q,'Saving selected cover URL and safe provider ID…');
-   try{
-    if(typeof persistLibrary==='function')await Promise.resolve(persistLibrary());
-    await saveState();
-    // Verify the Library’s canonical title (not a detached preview object)
-    // retains the chosen URL before reporting success or dismissing the modal.
-    const canonical=(S.library||[]).find(row=>String(row?.id)===String(q.id));
-    if(!canonical||String(canonical.coverUrl)!==String(cover.url))
-     throw Error('Selected cover did not persist in the Library');
-    coverCount=1;
-    mf456QuickProgress(q,'Selected cover and provider ID saved.',true);
-   }catch(e){
-    item.coverUrl=oldCover.coverUrl;item.coverSource=oldCover.coverSource;
-    item.modifiedAt=oldCover.modifiedAt;
-    item.externalIds=oldCover.externalIds;
-    item.v377ManualExternalIds=oldCover.v377ManualExternalIds;
-    throw e;
-   }
-  }
-  if(preview?.proposals?.some(p=>p.selected)){
-   const beforeMetadata=structuredClone(item);
-   try{
-    mf456QuickProgress(q,'Merging confirmed missing metadata…');
-    MF439.account=mf439Account();
-    const result=mf439Apply(item,preview,'review');
-    metadataCount=result.changed||0;
-    mf456QuickProgress(q,'Metadata field merge completed.',true);
-    if(metadataCount){
-     mf456QuickProgress(q,'Saving confirmed metadata fields to Library and cloud…');
-     if(typeof persistLibrary==='function')await Promise.resolve(persistLibrary());
-     await saveState();
-    }
-    mf456QuickProgress(q,'Verified metadata save complete.',true);
-   }catch(e){
-    // Keep the already committed cover. Only restore metadata fields that
-    // failed their merge/write path.
-    Object.assign(item,beforeMetadata);
-    metadataError=String(e?.message||e);
-    console.warn('Quick metadata merge failed, confirmed cover preserved',e);
-   }
-  }
-  if(!coverCount&&!metadataCount){
-   q.applying=false;mf453PaintQuick();
-   showToast(metadataError?'Metadata recovery failed: '+metadataError.slice(0,110):'Nothing eligible to save.');
-   return;
-  }
-  mf456QuickProgress(q,'Refreshing the active title editor…');
-  mf456NotifyRecoverySaved(q,item,coverCount,metadataCount);
-  try{v53InvalidateLibraryCache();}catch(_){}
-  mf456QuickProgress(q,'Confirmed changes saved.',true);
-  showToast('Saved '+coverCount+' cover and '+metadataCount+' verified metadata values.'+
-   (metadataError?' Metadata warnings: '+metadataError.slice(0,80):''));
-  await mf453CloseQuick();render();
-  // The editor is often a persistent modal outside render()'s main content.
-  mf456RefreshEditor(q.id);
- }catch(e){
-  console.warn('Quick recovery save failed',e);showToast('Could not save quick recovery: '+String(e?.message||e).slice(0,90));
-  if(MF453Quick.current){q.applying=false;mf453PaintQuick();}
- }
-}
-// Title-editor and title-details actions use quick review; bulk and selected
-// multi-title launches retain the original v447/v451 resuming workflow.
-const mf453OldOpen=App.mf447Open;
-App.mf447Open=function(kind='cover',options={}){
- if(options?.id&&!Array.isArray(options.ids))return mf453OpenQuick(kind,options.id);
- return mf453OldOpen.apply(this,arguments);
-};
-Object.assign(App,{mf453PickCover,mf453PickMetadata,mf453MetadataSource,
- mf453OpenQuick,mf453CloseQuick,mf453ApplyQuick});
-window.MediaFlowV453=Object.freeze({version:453,open:mf453OpenQuick,
- quick:()=>MF453Quick.current,presets:mf453ProvidersFor,ready:mf453Ready});
-/* MediaFlow v454 — safe quick recovery lifecycle and compact, scroll-stable presets.
- * All three quick modes share the same scan, confirmation, and cleanup path.
- * Provider access is never fabricated; only registered ready adapters execute.
- */
-const MF454_VERSION=454;
-const MF454={query:'',providerQuery:{cover:'',metadata:''},focus:null,quickOpening:false,restoreTask:null};
-function mf454Icon(cat){
- return '<span class="mf454-category-art" aria-hidden="true">'+mf445CategoryIcon(cat)+'</span>';
-}
-function mf454Arg(x){return mf453Esc(JSON.stringify(String(x)));}
-function mf454PresetCounter(cat,mode){
- const selected=new Set(mf453ProvidersFor(mode,cat));
- const ready=mf445Providers(mode).filter(p=>p.available&&selected.has(p.id)).length;
- return {selected:selected.size,ready};
-}
-function mf454ProviderRows(cat,mode){
- const selected=new Set(mf453ProvidersFor(mode,cat));
- return mf445Providers(mode).map(p=>{
-  const id=mf454Arg(p.id),code=mf454Arg(cat),type=mf454Arg(mode);
-  return '<label class="mf454-provider-row" data-mf454-provider-name="'+mf453Esc(p.name.toLowerCase())+'">'+
-   '<input type="checkbox" '+(selected.has(p.id)?'checked ':'')+
-   'onchange="App.mf453PresetToggle('+code+','+type+','+id+',this.checked)">'+
-   '<span class="mf454-provider-label"><strong>'+mf453Esc(p.name)+'</strong>'+
-   '<small class="'+(p.available?'mf454-ready':'mf454-pending')+'">'+
-   (p.available?'Ready':'Needs setup or a live adapter')+'</small></span></label>';
- }).join('');
-}
-function mf454PresetGroup(cat,mode){
- const count=mf454PresetCounter(cat,mode);
- const own=Array.isArray(mf453Presets()[cat]?.[mode]);
- const catArg=mf454Arg(cat),modeArg=mf454Arg(mode);
- const kind=mode==='cover'?'Cover':'Metadata';
- const controls=[['available','Select available','selectAll'],['none','Deselect all','deselectAll'],
-  ['global','Use global','stopPart']].map(([value,label,icon])=>
-  '<button type="button" data-v225-iconified="1" onclick="App.mf453PresetBulk('+catArg+','+modeArg+','+
-  mf454Arg(value)+')">'+mf452Icon(icon,15)+' '+label+'</button>').join('');
- return '<section class="mf454-provider-group" data-mf454-group="'+mode+'">'+
-  '<div class="mf454-group-top"><span>'+mf425Icon(mode==='cover'?'images':'database',18)+
-  '<strong>'+kind+' providers</strong></span><small data-mf454-count>'+
-  count.selected+' selected · '+count.ready+' ready</small></div>'+
-  '<div class="mf454-provider-tools">'+controls+'</div>'+
-  '<label class="mf454-provider-search">'+mf425Icon('search',14)+
-  '<input type="search" placeholder="Find '+kind.toLowerCase()+' provider..." aria-label="Filter '+kind+
-  ' providers" value="'+mf453Esc(MF454.providerQuery[mode]||'')+'" oninput="App.mf454FindProviders(this,'+
-   modeArg+')"></label>'+
-  '<div class="mf454-provider-list" data-mf454-list>'+mf454ProviderRows(cat,mode)+'</div>'+
-  '<small data-mf454-inherit>'+(own?'Custom category preset':'Inherits global settings')+'</small></section>';
-}
-function mf454CategoryList(){
- const categories=(S.categories||[]).filter(c=>c?.id!=null);
- const needle=MF454.query.trim().toLowerCase();
- return categories.filter(c=>String(c.name||c.title||c.id).toLowerCase().includes(needle)).map(cat=>
-  '<button type="button" class="mf454-category-button '+(String(cat.id)===MF453.category?'active':'')+
-  '" data-mf454-category="'+mf453Esc(cat.id)+'" data-v225-iconified="1" aria-pressed="'+
-  (String(cat.id)===MF453.category)+'" onclick="App.mf453ChooseCategory('+mf454Arg(cat.id)+')">'+
-  mf454Icon(cat)+'<span>'+mf453Esc(cat.name||cat.title||cat.id)+'</span></button>').join('')||
-  '<small class="mf454-no-matches">No categories match this search.</small>';
-}
-function mf454CategoryPanel(){
- const cat=mf453Category(MF453.category);
- if(!cat)return '<p>Add Library categories to configure presets.</p>';
- const options=(S.categories||[]).filter(c=>c?.id!=null&&String(c.id)!==String(cat.id));
- return '<div class="mf454-category-head">'+mf454Icon(cat)+'<span><strong>'+mf453Esc(cat.name||cat.title||cat.id)+
-  '</strong><small>Independently assign Cover and Metadata providers</small></span></div>'+
-  '<div class="mf454-provider-columns">'+mf454PresetGroup(String(cat.id),'cover')+
-  mf454PresetGroup(String(cat.id),'metadata')+'</div>'+
-  '<div class="mf454-copy-preset"><label>Copy these presets to another category<select id="mf454-copy-target" aria-label="Category to copy preset to">'+
-  '<option value="">Choose destination…</option>'+options.map(c=>'<option value="'+mf453Esc(c.id)+'">'+
-  mf453Esc(c.name||c.title||c.id)+'</option>').join('')+'</select></label>'+
-  '<button type="button" data-v225-iconified="1" onclick="App.mf454CopyPreset()">'+mf425Icon('check',15)+
-  ' Copy cover + metadata selections</button></div>';
-}
-function mf454PresetsHtml(){
- const list=(S.categories||[]).filter(c=>c?.id!=null);
- if(!list.some(c=>String(c.id)===String(MF453.category)))MF453.category=String(list[0]?.id||'');
- return '<section class="mf453-presets mf454-presets" data-mf-setting-id="recovery-presets">'+
-  '<header class="mf454-presets-head"><span>'+mf425Icon('settings',19)+'</span><div>'+
-  '<h3>Recovery Presets</h3><p>Set up Cover and Metadata provider groups once per category. Selections are saved immediately and reused during quick title recovery.</p></div></header>'+
-  '<div class="mf454-presets-layout">'+
-  '<aside class="mf454-category-rail"><label>'+mf425Icon('search',14)+
-   '<input type="search" value="'+mf453Esc(MF454.query)+'" placeholder="Search categories" aria-label="Search recovery categories" '+
-   'oninput="App.mf454FindCategories(this)"></label>'+
-  '<div class="mf454-category-list" data-mf454-category-list>'+mf454CategoryList()+'</div></aside>'+
-  '<div class="mf454-presets-main" data-mf454-current-panel>'+mf454CategoryPanel()+'</div></div>'+
-  '<p class="mf453-note">Pending selections are saved but never run without a real available adapter and valid credentials. Configured providers do not need a separate manual test.</p></section>';
-}
-function mf454FindCategories(input){
- MF454.query=String(input.value||'');
- const rail=input.closest('.mf454-category-rail');
- const list=rail?.querySelector('[data-mf454-category-list]');
- if(list){const scroll=list.scrollTop;list.innerHTML=mf454CategoryList();list.scrollTop=scroll;}
-}
-function mf454FindProviders(input,mode){
- MF454.providerQuery[mode]=String(input.value||'');
- const group=input.closest('[data-mf454-group]');
- const needle=MF454.providerQuery[mode].trim().toLowerCase();
- for(const row of group?.querySelectorAll('[data-mf454-provider-name]')||[]){
-  row.hidden=!String(row.dataset.mf454ProviderName||'').includes(needle);
- }
-}
-function mf454RefreshGroup(mode){
- const group=document.querySelector('[data-mf454-current-panel] [data-mf454-group="'+mode+'"]');
- if(!group)return;
- const cat=MF453.category,selected=new Set(mf453ProvidersFor(mode,cat));
- for(const p of group.querySelectorAll('input[type="checkbox"]')){
-  const source=p.closest('[data-mf454-provider-name]');
-  // Rows are in exactly the registered order; reading the checked state is
-  // cheaper than a full workspace rerender and never changes scroll.
-  if(!source)continue;
- }
- const count=mf454PresetCounter(cat,mode);
- const label=group.querySelector('[data-mf454-count]');
- if(label)label.textContent=count.selected+' selected · '+count.ready+' ready';
- const inherited=group.querySelector('[data-mf454-inherit]');
- if(inherited)inherited.textContent=Array.isArray(mf453Presets()[cat]?.[mode])?
-  'Custom category preset':'Inherits global settings';
-}
-mf453PresetHtml=mf454PresetsHtml;
-mf453PresetToggle=function(cat,mode,id,checked){
- if(!mf453Category(cat)||!mf445Providers(mode).some(p=>p.id===id))return;
- const ids=new Set(mf453ProvidersFor(mode,cat));
- if(checked)ids.add(id);else ids.delete(id);
- mf453SavePreset(cat,mode,[...ids]);mf454RefreshGroup(mode);
-};
-mf453PresetBulk=function(cat,mode,choice){
- if(!mf453Category(cat))return;
- const available=mf445Providers(mode);
- const ids=choice==='available'?available.filter(p=>p.available).map(p=>p.id):
-  choice==='none'?[]:null;
- mf453SavePreset(cat,mode,ids);
- const group=document.querySelector('[data-mf454-group="'+mode+'"]');
- if(group){
-  const selected=new Set(mf453ProvidersFor(mode,cat));
-  [...group.querySelectorAll('[data-mf454-provider-name]')].forEach((row,i)=>{
-   const cb=row.querySelector('input');if(cb)cb.checked=selected.has(available[i]?.id);
-  });
- }
- mf454RefreshGroup(mode);
-};
-mf453ChooseCategory=function(id){
- if(!mf453Category(id))return;
- MF453.category=String(id);
- const pane=document.querySelector('[data-mf454-current-panel]');
- if(pane){pane.innerHTML=mf454CategoryPanel();
-  document.querySelectorAll('[data-mf454-category]').forEach(button=>{
-   const active=String(button.dataset.mf454Category)===MF453.category;
-   button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
-  });
- }else mf453PaintPresets();
-};
-function mf454CopyPreset(){
- const other=document.getElementById('mf454-copy-target')?.value;
- if(!mf453Category(other)||other===String(MF453.category))return;
- for(const mode of ['cover','metadata'])mf453SavePreset(other,mode,mf453ProvidersFor(mode,MF453.category));
- showToast('Copied both provider groups. Existing global provider preferences were not changed.');
-}
-Object.assign(App,{mf453PresetToggle,mf453PresetBulk,mf453ChooseCategory,
- mf454CopyPreset,mf454FindCategories,mf454FindProviders});
-window.MediaFlowV454Presets=Object.freeze({version:454,html:mf454PresetsHtml,copy:mf454CopyPreset});
-/* MediaFlow v454 — Quick Title Recovery lifecycle hardening.
- * One cancellable modal, priority checkpoint handoff, and verified alternatives.
- * All three modes use the same safe preview and apply path. */
-const MF454Quick={closing:null,keydown:null,returnFocus:null,completedAt:0};
-function mf454QuickLive(q){return MF453Quick.current===q&&!q.closed&&q.serial===MF453Quick.serial;}
-function mf454QuickRemoveDom(){
- // An earlier asynchronous open could append an orphaned element with the
- // same ID. Remove EVERY matching node, even if the current state is null.
- document.querySelectorAll('[id="mf453-title-quick"]').forEach(node=>node.remove());
-}
-function mf454QuickBadge(candidate){
- const confidence=Number(candidate.confidence)||0;
- const exact=candidate.idMatch===true&&confidence>=.9;
- return exact?'Verified external-ID match':confidence>=.65?'Title match · review':'Unverified match · review carefully';
-}
-function mf454QuickLoading(q){return q.stage==='pausing'||q.stage==='connecting';}
-function mf454QuickView(example=null){
- const q=example||MF453Quick.current;
- if(!q||q.closed)return '';
- const item=mf439Item(q.id),cover=q.kind!=='metadata',metadata=q.kind!=='cover';
- const panel=q.metadata?.preview;
- const busy=typeof mf458CanConfirmQuick==='function' ? !mf458CanConfirmQuick(q) :
-  (mf454QuickLoading(q)||q.coverLoading||q.metaLoading||q.applying);
- const selected=q.coverIndex>=0||Boolean(panel?.proposals?.some(p=>p.selected&&!p.protected&&!p.hasOriginal&&!p.same));
- const intro='<div class="mf454-intro"><div class="mf454-intro-title"><strong>'+
- mf453Esc(item?.title||'Saved title')+'</strong><span class="mf454-mode-badge">'+
- mf453Esc(q.kind==='both'?'Cover + Metadata':q.kind==='cover'?'Cover':'Metadata')+
- '</span></div><small>Category preset · '+mf453Esc(mf453Category(item?.categoryId)?.name||'Global defaults')+
- ' · No Library changes before confirmation</small></div>';
- const stage=mf454QuickLoading(q)?'<div class="mf454-quick-loading" role="status">'+mf425Icon('shield',20)+
- '<div><strong>'+mf453Esc(q.stage==='pausing'?'Safely pausing background recovery':'Checking provider access')+
- '</strong><p>'+mf453Esc(q.stage==='pausing'?'Finishing the current title checkpoint. Your active queue will resume after this quick recovery closes.':'Validating configured provider adapters while keeping your saved category choices.')+
- '</p></div></div>':'';
- const pending=q.pending?.length?'<details class="mf454-notice"><summary>'+
- mf425Icon('shield',15)+' '+q.pending.length+' selected source(s) need setup</summary>'+
- '<p>'+mf453Esc(q.pending.join(', '))+'. These cannot run without a working adapter and permission.</p></details>':'';
- const coverChoices=cover?'<section class="mf454-results-panel" aria-label="Cover alternatives">'+
- '<div class="mf454-results-head"><span>'+mf425Icon('images',18)+' <strong>Cover choices</strong></span>'+
- '<small>'+q.covers.length+' available'+(q.coverLoading?' · searching':'')+'</small></div>'+
- (q.coverLoading&&q.covers.length===0?'<p class="mf454-wait">Searching actual artwork providers…</p>':'')+
- (q.covers.length?'<div class="mf454-cover-gallery" role="group" aria-label="Choose artwork">'+
-  q.covers.map((c,i)=>'<button type="button" data-v225-iconified="1" class="mf454-cover-option '+(q.coverIndex===i?'selected':'')+
-   '" aria-pressed="'+(q.coverIndex===i)+'" onclick="App.mf453PickCover('+i+')">'+
-   '<span class="mf454-cover-image"><img src="'+mf453Esc(c.url)+'" loading="lazy" decoding="async" alt="'+
-   mf453Esc(c.title||'Cover candidate')+'"></span>'+
-   '<span class="mf454-cover-meta"><strong>'+mf453Esc(c.title||item?.title||'Cover')+'</strong>'+
-   '<small>'+mf453Esc(c.provider||'Source')+'</small>'+
-   '<em class="'+(Number(c.confidence)>=.65?'is-verified':'is-review')+'">'+
-   mf453Esc(mf454QuickBadge(c))+'</em></span></button>').join('')+'</div>':
-  (!q.coverLoading?'<p class="mf454-empty">No loadable artwork was returned by the selected ready providers. You can search additional ready sources without changing your preset.</p>':''))+
- (item?.coverUrl?'<div class="mf454-current-art"><img src="'+mf453Esc(item.coverUrl)+
- '" alt="Current cover" loading="lazy"><span><strong>Existing cover</strong>'+
- '<small>Will be preserved unless you explicitly select a new image and confirm replacement.</small></span></div>':'')+
- '</section>':'';
- const metaChoices=metadata?'<section class="mf454-results-panel" aria-label="Metadata alternatives">'+
- '<div class="mf454-results-head"><span>'+mf425Icon('database',18)+' <strong>Metadata suggestions</strong></span>'+
- '<small>'+Number(panel?.proposals?.length||0)+' fields'+(q.metaLoading?' · searching':'')+'</small></div>'+
- (q.metaLoading&&!panel?'<p class="mf454-wait">Finding and comparing verified metadata records…</p>':'')+
- (panel?'<p class="mf454-result-context">'+Number(panel.results||0)+' matched records · Existing and protected fields are never overwritten.</p>'+
-  '<div class="mf454-metadata-list">'+panel.proposals.map((p,i)=>{
-   const option=p.options?.[p.choice]||p.options?.[0];
-   const locked=p.protected||p.hasOriginal||p.same;
-   const variants=p.options?.length||0;
-   return '<article class="mf454-meta-option" data-mf454-token="'+mf453Esc(p.token||'')+'">'+
-   '<div class="mf454-meta-option-head"><label><input type="checkbox" '+(p.selected?'checked ':'')+
-   (locked?'disabled ':'')+'onchange="App.mf453PickMetadata('+i+',this.checked)">'+
-   '<strong>'+mf453Esc(p.label||p.token||'Field')+'</strong></label>'+
-   '<span>'+mf453Esc(p.status||'review')+'</span></div>'+
-   '<small class="mf454-current-value">Current: '+mf453Esc(mf439DescribeValue(p.token,p.original)).slice(0,240)+'</small>'+
-   '<div class="mf454-proposed-value">'+mf453Esc(mf439DescribeValue(p.token,option?.value)).slice(0,540)+'</div>'+
-   '<small class="mf454-evidence">Source: '+mf453Esc(option?.sources?.map(s=>s.provider+
-   (s.evidence?' · '+s.evidence:'')).join(' / ')||'Unconfirmed')+'</small>'+
-   (variants>1?'<label class="mf454-source-label"><span>'+variants+' source alternatives — choose one</span>'+
-    '<select onchange="App.mf453MetadataSource('+i+',this.value)" aria-label="Choose source for '+
-    mf453Esc(p.label||p.token)+'">'+p.options.map((v,j)=>
-    '<option value="'+j+'" '+(j===p.choice?'selected':'')+'>'+mf453Esc(v.sources?.map(s=>s.provider).join(' + ')||'Provider')+
-    ' · '+mf453Esc(mf439DescribeValue(p.token,v.value)).slice(0,72)+'</option>').join('')+'</select></label>':'')+
-   '</article>';
-  }).join('')+'</div>':
-  (!q.metaLoading?'<p class="mf454-empty">No verified new fields were returned. Check provider access or search other available sources.</p>':''))+
- '</section>':'';
- const full=!mf454QuickLoading(q);
- const again=full?'<button type="button" class="btn btn-ghost mf454-search-more" data-v225-iconified="1"'+
- (busy?' disabled':'')+' onclick="App.mf454SearchAll()">'+mf425Icon('search',16)+
- ' Search all ready providers</button>':'';
- const errors=q.errors?.length?'<details class="mf454-provider-errors"><summary>'+
- q.errors.length+' provider issue(s) — details</summary>'+
- q.errors.map(err=>'<p>'+mf453Esc(err)+'</p>').join('')+'</details>':'';
- const actions='<footer class="mf454-quick-footer">'+again+
- '<div class="mf454-footer-actions"><button type="button" class="btn btn-ghost" data-v225-iconified="1" onclick="App.mf453CloseQuick()">'+
- mf425Icon('x',16)+' Cancel</button>'+
- '<button type="button" class="btn btn-primary" data-v225-iconified="1" onclick="App.mf453ApplyQuick()"'+
- ((!selected||busy)?' disabled':'')+'>'+mf425Icon('check',16)+' Confirm selected changes</button></div></footer>';
- return '<div class="mf454-quick-layout">'+intro+pending+stage+
- (full?'<div class="mf454-quick-results '+(q.kind==='both'?'is-both':'is-single')+'">'+coverChoices+metaChoices+'</div>':'')+
- errors+actions+'</div>';
-}
-mf453QuickHtml=mf454QuickView;
-const mf454PaintBase=mf453PaintQuick;
-mf453PaintQuick=function(){
- const root=mf453QuickRoot(),container=root?.querySelector('[data-mf453-quick-content]');
- if(!container)return;
- const dialog=root.querySelector('.mf453-quick-dialog'),gallery=container.querySelector('.mf454-cover-gallery'),
- list=container.querySelector('.mf454-metadata-list');
- const top=dialog?.scrollTop||0,coverY=gallery?.scrollTop||0,metaY=list?.scrollTop||0;
- try{container.innerHTML=mf454QuickView();}
- catch(err){console.warn('v454 quick view render failed',err);container.innerHTML=
- '<div class="mf454-error"><p>Recovery preview could not render. You can always close this dialog safely.</p>'+
- '<button type="button" onclick="App.mf453CloseQuick()">Close recovery</button></div>';}
- if(dialog)dialog.scrollTop=top;
- const nextGallery=container.querySelector('.mf454-cover-gallery');
- if(nextGallery)nextGallery.scrollTop=coverY;
- const nextList=container.querySelector('.mf454-metadata-list');
- if(nextList)nextList.scrollTop=metaY;
-};
-function mf454QuickValidateCover(item,source){
- // Already validated by mf424Image() in scan; at Apply time the existing
- // mf444Confirm step still handles replacement. Less-certain title matches
- // receive a separate review warning first.
- return !!source&&/^https:\/\//i.test(String(source.url||''))&&
- Number(source.confidence)>=0;
-}
-const mf454OriginalApply=mf453ApplyQuick;
-mf453ApplyQuick=async function(){
- const q=MF453Quick.current;
- if(!q||(typeof mf458CanConfirmQuick==='function'? !mf458CanConfirmQuick(q) : (q.closed||q.applying||q.coverLoading||q.metaLoading)))return;
- const chosen=q.covers?.[q.coverIndex],item=mf439Item(q.id);
- if(chosen&&!mf454QuickValidateCover(item,chosen)){
-  showToast('The selected artwork did not meet minimum validation. Choose another verified-loading image.');return;
- }
- if(chosen&&(Number(chosen.confidence)<.65||chosen.idMatch!==true)){
-  if(!await mf444Confirm('Review lower-confidence cover match?',
-   'This artwork loaded successfully, but the provider title match is uncertain. Make sure it belongs to the correct title and edition before applying.',
-   'Use Reviewed Cover',false,1,'cover'))return;
- }
- return mf454OriginalApply.apply(this,arguments);
-};
-App.mf453ApplyQuick=mf453ApplyQuick;
-function mf454QuickKeyboard(event){
- if(event.key!=='Escape'||!mf453QuickRoot()||document.getElementById('mf444-confirm'))return;
- event.preventDefault();event.stopImmediatePropagation();
- void mf453CloseQuick();
-}
-async function mf454QuickFinish(q){
- if(q.finishPromise)return q.finishPromise;
- q.finishPromise=(async()=>{
-  try{
-   if(q.preparePromise)await q.preparePromise.catch(()=>{});
-   if(q.scanPromise)await q.scanPromise.catch(()=>{});
-   if(q.priority&&MF451.journal){
-    const restored=await mf451Restore({force:true});
-    if(!restored)showToast('Original recovery checkpoint is safe; use Resume Interrupted in Background Processes.');
-   }
-  }catch(e){console.warn('v454 restoring background recovery',e);
-   showToast('Background checkpoint is preserved. Resume it from Background Processes when ready.');
-  }
- })();
- return q.finishPromise;
-}
-mf453CloseQuick=async function(){
- const q=MF453Quick.current;
- if(q){q.closed=true;q.controller?.abort();MF453Quick.serial++;MF453Quick.current=null;}
- // Never depend on q being initialized to dismiss a modal. This fixes
- // orphan headers and double-open overlays from earlier async attempts.
- mf454QuickRemoveDom();
- if(MF454Quick.keydown){document.removeEventListener('keydown',MF454Quick.keydown,true);MF454Quick.keydown=null;}
- const previous=MF454Quick.returnFocus;MF454Quick.returnFocus=null;
- if(previous?.isConnected)try{previous.focus({preventScroll:true});}catch(_){}
- if(q)void mf454QuickFinish(q);
-};
-App.mf453CloseQuick=mf453CloseQuick;
-async function mf454FetchQuick(session){
- const q=MF453Quick.current;
- if(!q||!mf454QuickLive(q))return;
- const item=mf439Item(q.id),cover=q.kind!=='metadata',meta=q.kind!=='cover';
- const tasks=[];
- if(cover)tasks.push((async()=>{
-  const found=new Set();
-  try{
-   for(const provider of q.coverProviders){
-    if(!mf454QuickLive(q)||q.controller.signal.aborted)break;
-    try{
-     const rows=await mf424Discover(item,provider);
-     for(const candidate of rows||[]){
-      if(!mf454QuickLive(q)||q.controller.signal.aborted)break;
-      const url=String(candidate?.url||'');
-      if(!url.startsWith('https://')||found.has(url))continue;
-      found.add(url);
-      if(await mf424Image(url,candidate.provider)){
-       if(!mf454QuickLive(q))break;
-       q.covers.push(candidate);mf453PaintQuick();
-      }
-      if(q.covers.length>=24)break;
-     }
-    }catch(err){if(mf454QuickLive(q))q.errors.push(provider+': '+String(err?.message||err).slice(0,160));}
-    if(q.covers.length>=24)break;
-   }
-  }finally{q.coverLoading=false;if(mf454QuickLive(q))mf453PaintQuick();}
- })());
- if(meta)tasks.push((async()=>{
-  try{
-   if(!q.controller.signal.aborted){
-    const result=await mf439Discover(item,q.metaProviders,()=>{},q.controller.signal);
-    if(mf454QuickLive(q))q.metadata=result;
-   }
-  }catch(err){if(mf454QuickLive(q))q.errors.push('Metadata: '+String(err?.message||err).slice(0,160));}
-  finally{q.metaLoading=false;if(mf454QuickLive(q))mf453PaintQuick();}
- })());
- await Promise.allSettled(tasks);
- if(mf454QuickLive(q)){q.stage='ready';mf453PaintQuick();}
-}
-async function mf454SearchAll(){
- const q=MF453Quick.current;
- if(!q||q.closed||q.coverLoading||q.metaLoading||q.stage!=='ready'||q.applying)return;
- q.coverProviders=q.kind==='metadata'?[]:mf445Providers('cover').filter(p=>p.available).map(p=>p.id);
- q.metaProviders=q.kind==='cover'?[]:mf445Providers('metadata').filter(p=>p.available).map(p=>p.id);
- q.covers=[];q.coverIndex=-1;q.metadata=null;q.errors=[];
- q.coverLoading=q.kind!=='metadata';q.metaLoading=q.kind!=='cover';q.stage='scanning';
- mf453PaintQuick();
- q.scanPromise=mf454FetchQuick(q.serial);
-}
-App.mf454SearchAll=mf454SearchAll;
-mf453OpenQuick=async function(kind,id){
- kind=['cover','metadata','both'].includes(kind)?kind:'cover';
- id=String(id||'');
- const item=mf439Item(id);
- if(!item){showToast('Save the title before using quick recovery.');return;}
- if(MF453Quick.current||MF454Quick.quickOpening){
-  // Bring the existing dialog to the foreground, never create a duplicate.
-  mf453QuickRoot()?.querySelector('.mf453-quick-dialog')?.focus({preventScroll:true});
-  return;
- }
- MF454Quick.quickOpening=true;
- MF454Quick.returnFocus=document.activeElement;
- const serial=++MF453Quick.serial;
- const q={id,kind,serial,stage:'pausing',closed:false,priority:false,
-  coverProviders:[],metaProviders:[],covers:[],coverIndex:-1,metadata:null,
-  coverLoading:kind!=='metadata',metaLoading:kind!=='cover',
-  pending:[],errors:[],applying:false,controller:new AbortController(),scanPromise:null};
- MF453Quick.current=q;
- MF453Quick.account=mf439Account();
- mf454QuickRemoveDom();
- const root=document.createElement('div');root.id='mf453-title-quick';
- root.className='mf424-modal mf425-themed mf453-quick-modal mf454-quick-modal';
- root.innerHTML='<div class="mf424-shade" onclick="App.mf453CloseQuick()" aria-hidden="true"></div>'+
- '<section class="mf424-dialog mf453-quick-dialog mf454-quick-dialog" role="dialog" aria-modal="true" aria-label="Quick title recovery" tabindex="-1">'+
- '<header class="mf453-quick-top"><div><small>QUICK TITLE RECOVERY</small><h2>'+mf425Icon('layers',22)+' '+
- mf453Esc(kind==='both'?'Cover + Metadata':kind==='cover'?'Cover Recovery':'Metadata Recovery')+
- '</h2></div><button type="button" class="btn btn-ghost" data-v225-iconified="1" onclick="App.mf453CloseQuick()">'+
- mf425Icon('x',16)+' Close</button></header><div data-mf453-quick-content></div></section>';
- document.body.append(root);
- MF454Quick.keydown=mf454QuickKeyboard;
- document.addEventListener('keydown',MF454Quick.keydown,true);
- mf453PaintQuick();
- root.querySelector('.mf453-quick-dialog')?.focus({preventScroll:true});
- try{
-  const owner=typeof mf442ProcessLease==='function'?mf442ProcessLease():null;
-  if(owner&&owner.token!==MF442.owner)
-   throw Error('Another browser tab owns recovery. Pause that tab before quick recovery.');
-  if(MF424.running||MF439.working||MF442.process){
-   // Both is intentional even for cover-only or metadata-only quick views:
-   // the v451 journal must checkpoint BOTH preexisting processes before any
-   // provider call. Otherwise old processes can race with our quick scan.
-   q.preparePromise=mf451Prepare('both',id);
-   if(!await q.preparePromise)
-    throw Error('Could not safely pause existing recovery. Check Background Processes.');
-   q.priority=true;
-   // The old combined engine may already report completed. Do not let its
-   // regular scheduler restart older jobs while this quick preview is open.
-   const checkpoint=MF451.journal||mf451Read();
-   if(checkpoint){checkpoint.autoResume=false;checkpoint.state='quick-preview';mf451Store(checkpoint);}
-  }
-  if(!mf454QuickLive(q))return;
-  q.stage='connecting';mf453PaintQuick();
-  if(typeof mf443EnsureGateway==='function')await mf443EnsureGateway();
-  if(!mf454QuickLive(q))return;
-  const fresh=mf439Item(id);
-  if(!fresh||MF453Quick.account!==mf439Account())throw Error('Title or account changed while preparing recovery.');
-  q.coverProviders=kind==='metadata'?[]:mf453Ready('cover',fresh);
-  q.metaProviders=kind==='cover'?[]:mf453Ready('metadata',fresh);
-  for(const mode of ['cover','metadata']){
-   if(kind==='cover'&&mode==='metadata'||kind==='metadata'&&mode==='cover')continue;
-   const chosen=new Set(mf453ProvidersFor(mode,fresh.categoryId||''));
-   for(const provider of mf445Providers(mode))
-    if(chosen.has(provider.id)&&!provider.available)q.pending.push(provider.name);
-  }
-  q.pending=[...new Set(q.pending)];
-  q.stage='scanning';mf453PaintQuick();
-  q.scanPromise=mf454FetchQuick(serial);
-  await q.scanPromise;
- }catch(err){
-  console.warn('v454 quick recovery startup',err);
-  if(mf454QuickLive(q)){
-   q.errors.push(String(err?.message||err));
-   q.stage='error';q.coverLoading=false;q.metaLoading=false;
-   mf453PaintQuick();
-  }
- }finally{
-  MF454Quick.quickOpening=false;
-  if(q.closed)void mf454QuickFinish(q);
- }
-};
-App.mf453OpenQuick=mf453OpenQuick;
-window.MediaFlowV454=Object.freeze({version:454,open:mf453OpenQuick,close:mf453CloseQuick,
- html:mf454QuickView,searchAll:mf454SearchAll,active:()=>MF453Quick.current,
- clearOrphans:mf454QuickRemoveDom,coverStatus:mf454QuickBadge});
-/* MediaFlow v455 — one-click, settings-backed Unified Recovery execution.
- * Stays on original v424/v442 engines: verified requests, durable checkpoints,
- * leases, safety merges, cooldowns, and provider maximums are enforced there.
- */
-const MF455_VERSION=455;
-const MF455={search:{cover:'',metadata:'',both:'',categories:''},selected:{cover:null,metadata:null},
- scopeSignature:'',launching:false,afterStart:0};
-function mf455Settings(kind){
- const raw=S.settings?.v455RecoveryProcessing?.[kind]||{};
- const mode=raw.mode==='one'?'one':'parts';
- const continuation=['automatic','manual'].includes(raw.continuation)?raw.continuation:'automatic';
- const partMode=['continuation','automatic','manual'].includes(raw.partMode)?raw.partMode:'automatic';
- const size=Math.max(1,Math.min(10000,Number(raw.partSize)||100));
- const selection=['hybrid','smart','priority','manual'].includes(raw.selection)?raw.selection:'hybrid';
- const protection=['safe','balanced','custom'].includes(raw.protection)?raw.protection:'safe';
- return {mode,partMode,partSize:size,continuation,selection,protection,
-  autoResume:raw.autoResume!==false};
-}
-function mf455SaveSettings(kind,key,value){
- if(!['cover','metadata','both'].includes(kind)||!['mode','partMode','partSize','continuation','selection','protection','autoResume'].includes(key))return;
- S.settings=S.settings||{};
- const all={...(S.settings.v455RecoveryProcessing||{})};
- const current=mf455Settings(kind);
- let clean=value;
- if(key==='autoResume')clean=Boolean(value);
- else if(key==='partSize')clean=Math.max(1,Math.min(10000,Number(value)||100));
- else if(key==='mode')clean=value==='one'?'one':'parts';
- else if(key==='partMode')clean=['automatic','manual','continuation'].includes(value)?value:'automatic';
- else if(key==='continuation')clean=value==='manual'?'manual':'automatic';
- else if(key==='selection')clean=['hybrid','smart','priority','manual'].includes(value)?value:'hybrid';
- else if(key==='protection')clean=['safe','balanced','custom'].includes(value)?value:'safe';
- all[kind]={...current,[key]:clean};
- S.settings.v455RecoveryProcessing=all;
- Promise.resolve(saveState()).catch(err=>console.warn('Recovery processing settings not saved',err));
- const root=document.getElementById('mf445-workspace');
- if(root){
-  const part=root.querySelector('[data-mf455-part]');
-  if(part)part.hidden=mf455Settings(MF447.active==='both'?'both':MF445.mode).mode==='one';
- }
-}
-function mf455SelectHtml(kind,name,value,options){
- return '<label class="mf455-setting"><span>'+mf424Escape(name)+'</span><select onchange="App.mf455SaveSettings('+
- mf424Escape(JSON.stringify(kind))+','+mf424Escape(JSON.stringify(value))+',this.value)">'+
- options.map(([key,label])=>'<option value="'+key+'" '+(mf455Settings(kind)[value]===key?'selected':'')+'>'+
- mf424Escape(label)+'</option>').join('')+'</select></label>';
-}
-function mf455ProcessingHtml(kind){
- const s=mf455Settings(kind);
- return '<section class="mf455-processing" data-mf455-processing="'+kind+'">'+
- '<header><strong>'+mf425Icon('sliders',17)+' Processing & matching</strong><small>Saved per recovery mode</small></header>'+
- '<div class="mf455-settings-grid">'+
- mf455SelectHtml(kind,'Recovery mode','mode',[['parts','Part-by-Part'],['one','One-Go']])+
- mf455SelectHtml(kind,'Titles per part','partMode',[['continuation','Continuation'],['automatic','Automatic'],['manual','Manual']])+
- '<label class="mf455-setting" data-mf455-part '+(s.mode==='one'?'hidden':'')+'><span>Titles in each part</span><input type="number" min="1" max="10000" step="1" value="'+s.partSize+
- '" onchange="App.mf455SaveSettings('+mf424Escape(JSON.stringify(kind))+',&#39;partSize&#39;,this.value)"></label>'+
- mf455SelectHtml(kind,'Continue between parts','continuation',[['automatic','Automatic'],['manual','Manual confirmation']])+
- mf455SelectHtml(kind,kind==='cover'?'Cover selection':kind==='metadata'?'Metadata selection':'Selection policy','selection',
- [['hybrid','Hybrid'],['smart','Smart Automatic'],['priority','Provider Priority'],['manual','Manual Selection']])+
- mf455SelectHtml(kind,'Rate-limit protection','protection',[['safe','Safe'],['balanced','Balanced'],['custom','Custom (provider maximums enforced)']])+
- '<label class="mf455-setting mf455-resume"><input type="checkbox" '+(s.autoResume?'checked ':'')+
- 'onchange="App.mf455SaveSettings('+mf424Escape(JSON.stringify(kind))+',&#39;autoResume&#39;,this.checked)">'+
- '<span>Resume when app reopens</span></label></div>'+
- '<p class="mf455-safe-note">Provider quotas and manual safety confirmations always override processing speed. Existing Library fields remain protected.</p></section>';
-}
-function mf455ScopeCategories(mode){
- if(MF445.oneId||MF445.metadataId){
-  const one=mf439Item(MF445.oneId||MF445.metadataId);
-  return one?.categoryId==null?[]:[String(one.categoryId)];
- }
- const scope=mf446State(mode==='both'?'cover':mode);
- if(['category','categoryStatus'].includes(scope.mode))return scope.categories.slice();
- const ids=mode==='both'?mf447ScopeSnapshot():mf446ScopeIds(mode);
- if(!ids.length)return [];
- const seen=new Set(),wanted=new Set(ids);
- for(const item of S.library||[])if(wanted.has(String(item.id)))seen.add(String(item.categoryId||''));
- return [...seen].filter(Boolean);
-}
-function mf455ApplyCategoryPreset(mode){
- const categories=mf455ScopeCategories(mode);
- const sig=mode+'|'+(mf446State(mode==='both'?'cover':mode)?.mode||'')+'|'+categories.join('|');
- if(MF455.scopeSignature===sig)return;
- MF455.scopeSignature=sig;
- for(const kind of mode==='both'?['cover','metadata']:[mode]){
-  const cat=categories.length===1?categories[0]:null;
-  MF455.selected[kind]=cat&&Array.isArray(mf453Presets()[cat]?.[kind])?
-   mf453ProvidersFor(kind,cat).slice():null;
- }
-}
-const mf455BaseProviders=mf445Providers;
-mf445Providers=function(mode){
- const items=mf455BaseProviders.apply(this,arguments);
- const root=document.getElementById('mf445-workspace');
- if(!root||!Array.isArray(MF455.selected[mode]))return items;
- const enabled=new Set(MF455.selected[mode]);
- return items.map(p=>({...p,enabled:enabled.has(p.id)}));
-};
-function mf455Enabled(mode){
- const configured=MF455.selected[mode];
- const rows=mf455BaseProviders(mode);
- return Array.isArray(configured)?configured.filter(id=>rows.some(p=>p.id===id&&p.available)):
-  rows.filter(p=>p.enabled&&p.available).map(p=>p.id);
-}
-function mf455StoreSelection(kind,onOrId,enabled){
- const all=mf455BaseProviders(kind);
- const current=new Set(Array.isArray(MF455.selected[kind])?MF455.selected[kind]:
-  all.filter(p=>p.enabled).map(p=>p.id));
- if(onOrId==='__all__'){if(enabled)all.filter(p=>p.available).forEach(p=>current.add(p.id));
-  else current.clear();}
- else if(all.some(p=>p.id===onOrId)){if(enabled)current.add(onOrId);else current.delete(onOrId);}
- MF455.selected[kind]=[...current];
- mf455UpdateProviderUI(kind);
-}
-function mf455UpdateProviderUI(kind){
- const root=document.getElementById('mf445-workspace');if(!root)return;
- const area=[...root.querySelectorAll('.mf446-providers')].find(x=>
-  x.querySelector('[data-mf455-kind="'+kind+'"]')||x.getAttribute('data-mf455-kind')===kind);
- if(!area)return;
- const set=new Set(MF455.selected[kind]||[]);
- for(const row of area.querySelectorAll('[data-mf446-provider]')){
-  const id=row.dataset.mf446Provider,checkbox=row.querySelector('input[type="checkbox"]');
-  if(checkbox)checkbox.checked=set.has(id);
-  row.dataset.status=set.has(id)?'enabled':'disabled';
-  const label=row.querySelector('.mf445-provider-status');
-  if(label)label.textContent=set.has(id)?'Selected':'Disabled';
- }
- const count=area.querySelector('[data-mf446-provider-count]');
- if(count)count.textContent=mf455Enabled(kind).length+' ready selected · '+mf455BaseProviders(kind).length+' registered';
- const start=root.querySelectorAll('.mf445-actions button.btn-primary');
- const cover=mf455Enabled('cover').length,metadata=mf455Enabled('metadata').length;
- for(const button of start){
-  const mode=MF447.active==='both'?'both':MF445.mode;
-  const ids=mode==='both'?mf447ScopeSnapshot():mf446ScopeIds(mode);
-  button.disabled=!ids.length||(mode==='both'?!(cover&&metadata):mode==='cover'?!cover:!metadata);
- }
-}
-const mf455OldToggle=App.mf446ToggleProvider,mf455OldAll=App.mf446ProviderAll;
-App.mf446ToggleProvider=function(kind,id,on){
- if(document.getElementById('mf445-workspace'))return mf455StoreSelection(kind,id,on);
- return mf455OldToggle.apply(this,arguments);
-};
-App.mf446ProviderAll=function(kind,on){
- if(document.getElementById('mf445-workspace'))return mf455StoreSelection(kind,'__all__',on);
- return mf455OldAll.apply(this,arguments);
-};
-function mf455SearchWorkspace(el,kind){
- const needle=String(el.value||'').trim().toLowerCase();
- MF455.search[kind]=needle;
- const root=el.closest('.mf446-providers')||el.closest('.mf446-categories');
- for(const row of root?.querySelectorAll('[data-mf446-provider],.mf446-category')||[]){
-  row.hidden=!String(row.textContent||'').toLowerCase().includes(needle);
- }
-}
-function mf455SearchFields(){
- return '<label class="mf455-search">'+mf425Icon('search',16)+
- '<input type="search" placeholder="Search categories..." aria-label="Search recovery categories" oninput="App.mf455SearchWorkspace(this,&#39;categories&#39;)"></label>';
-}
-function mf455EnhanceWorkspace(){
- const root=document.getElementById('mf445-workspace');if(!root)return;
- const mode=MF447.active==='both'?'both':MF445.mode;
- const pane=root.querySelector('[data-mf445-panel]');if(!pane)return;
- for(const kind of mode==='both'?['cover','metadata']:[mode]){
-  const section=[...pane.querySelectorAll('.mf446-providers')].find(x=>
-   !x.dataset.mf455Kind||x.dataset.mf455Kind===kind);
-  if(!section||section.dataset.mf455Kind&&section.dataset.mf455Kind!==kind)continue;
-  section.dataset.mf455Kind=kind;
-  const heading=section.querySelector('header');
-  if(heading&&!section.querySelector('.mf455-search'))heading.insertAdjacentHTML('afterend',
-   '<label class="mf455-search">'+mf425Icon('search',15)+
-   '<input type="search" placeholder="Search '+kind+' providers..." aria-label="Search '+kind+' providers" oninput="App.mf455SearchWorkspace(this,'+mf424Escape(JSON.stringify(kind))+')"></label>');
-  mf455UpdateProviderUI(kind);
- }
- const cat=pane.querySelector('.mf446-categories');
- if(cat&&!cat.querySelector('.mf455-search'))cat.querySelector('summary')?.insertAdjacentHTML('afterend',mf455SearchFields());
- const scope=pane.querySelector('.mf446-scope');
- if(scope&&!pane.querySelector('[data-mf455-processing]'))scope.insertAdjacentHTML('afterend',mf455ProcessingHtml(mode));
- // Consistent launch entry; the old cover setup is never opened from here.
- const actions=pane.querySelector('.mf445-actions');
- if(actions){
-  for(const button of actions.querySelectorAll('button.btn-primary')){
-   const handler=button.getAttribute('onclick')||'';
-   if(handler.includes('mf445Start')||handler.includes('mf447StartCombined')){
-    button.textContent='Recover selected titles';
-    button.dataset.v225Iconified='1';
-    button.insertAdjacentHTML('afterbegin',mf425Icon('play',16)+' ');
-    button.setAttribute('onclick','App.mf455Launch('+mf424Escape(JSON.stringify(mode))+')');
-   }
-  }
- }
-}
-const mf455OldPanel=mf445Panel;
-mf445Panel=function(mode){
- // v447 redraws everything; derive provider preset BEFORE opening the pane.
- mf455ApplyCategoryPreset(mode);
- const result=mf455OldPanel.apply(this,arguments);
- mf455EnhanceWorkspace();return result;
-};
-App.mf445Panel=mf445Panel;
-function mf455ReadyForNewJob(){
- const owner=typeof mf442ProcessLease==='function'?mf442ProcessLease():null;
- return !owner||owner.token===MF442.owner;
-}
-async function mf455ReplaceQueuedJobs(){
- if(typeof MF451!=='undefined'&&(MF451.journal||mf451Read()))
-  throw Error('Finish the priority title before replacing its suspended queue.');
- if(!mf455ReadyForNewJob())throw Error('Another tab owns a recovery process.');
- if(MF424.running||MF439.working||MF442.process){
-  if(!await mf451PauseActive())throw Error('The old process could not safely stop.');
- }
- if(MF424.running||MF439.working||MF442.process)throw Error('Wait for the current title checkpoint.');
- if(MF424.job){MF424.job.stopRequested=true;MF424.job.pauseRequested=true;await mf424SaveJob();}
- if(MF439.job){MF439.job.stopRequested=true;MF439.cancel=true;mf439SaveJob();}
- if(typeof mf447WriteCombo==='function')mf447WriteCombo(null);
-
-}
-function mf455JobProviders(kind){
- const selected=mf455Enabled(kind);
- if(!selected.length)throw Error('Select at least one available '+kind+' provider.');
- return selected;
-}
-const mf455BaseCoverDefaults=mf424Defaults,mf455BaseMetaDefaults=mf439Preferences;
-mf424Defaults=function(){
- const prefs=mf455BaseCoverDefaults.apply(this,arguments);
- const job=MF424.job;
- if(job?.v455Providers&&job.account===mf424Account())
-  return {...prefs,enabled:job.v455Providers,
-   selection:job.v455Selection||prefs.selection,protection:job.v455Protection||prefs.protection};
- return prefs;
-};
-mf439Preferences=function(){
- const prefs=mf455BaseMetaDefaults.apply(this,arguments);
- const job=MF439.job;
- if(job?.v455Providers&&job.account===mf439Account())
-  return {...prefs,enabled:job.v455Providers};
- return prefs;
-};
-function mf455CoverJob(ids,providers,mode,options){
- const found=new Set((S.library||[]).filter(item=>item?.id!=null&&mf424Missing(item)).map(t=>String(t.id)));
- const targets=ids.filter(id=>found.has(id));
- if(!targets.length)return null;
- const partSize=options.partMode==='automatic'?Math.max(1,Math.min(1000,Math.ceil(targets.length/10))):
-  Math.max(1,options.partSize);
- return {id:'mf455-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),account:mf424Account(),created:Date.now(),updated:Date.now(),ended:0,
-  ids:targets,cursor:0,scope:{mode:'selected',ids:targets},mode:options.mode==='one'?'one':'parts',
-  partSize,continuation:options.continuation,status:'ready',fixed:0,unresolved:0,skipped:0,
-  failed:0,pending:0,processed:0,dirty:0,requestCount:0,cooldownEvents:0,rate:{},
-  unresolvedIds:[],results:[],reviews:[],stopRequested:false,pauseRequested:false,
-  stopAfterPart:false,v455Providers:providers,v455Selection:options.selection==='manual'?'manual':
-   options.selection==='priority'?'hybrid':options.selection==='smart'?'smart': 'hybrid',
-  v455Protection:options.protection,autoResume:options.autoResume};
-}
-async function mf455Launch(kind){
- if(MF455.launching)return;
- kind=['cover','metadata','both'].includes(kind)?kind:'cover';
- mf456LaunchStage('validating','Checking selected titles and available providers…',kind);
- const ids=(kind==='both'?mf447ScopeSnapshot():mf446ScopeIds(kind)).map(String);
- const valid=new Set((S.library||[]).map(item=>String(item?.id||'')));
- const chosen=[...new Set(ids.filter(id=>valid.has(id)))];
- if(!chosen.length){mf456LaunchStage('error','No titles in scope. Choose All, Library, a category, or check Library titles.',kind);showToast('Choose saved Library titles before starting recovery.');return;}
- if(!AUTH_USER){mf456LaunchStage('error','Sign in to start recovery.',kind);showToast('Sign in before recovering.');return;}
- if((kind==='cover'||kind==='both')&&!MF424.ready){mf456LaunchStage('error','Cover storage is still initializing; retry after readiness.',kind);showToast('Cover Recovery is initializing.');return;}
- MF455.launching=true;
- try{
-  const coverIds=kind==='metadata'?[]:mf455JobProviders('cover');
-  const metaIds=kind==='cover'?[]:mf455JobProviders('metadata');
-  const allowed=Math.max(1,Math.min(250,Number(mf439Preferences().maxBatch)||250));
-  const bounded=kind==='cover'?chosen:chosen.slice(0,allowed);
-  const prefs=mf455Settings(kind);
-  const cover=kind==='metadata'?null:mf455CoverJob(bounded,coverIds,kind,prefs);
-  if(kind==='cover'&&!cover){mf456LaunchStage('error','No missing covers in scope. To replace existing artwork, open Quick Cover Recovery for the title.',kind);showToast('Selected titles already have covers. Use a title’s Quick Cover Recovery to replace existing artwork.');return;}
-  mf456LaunchStage('confirming','Review the new recovery queue and confirm to start.',kind);
-  if(!await mf444Confirm('Start '+(kind==='both'?'Cover + Metadata':kind==='cover'?'Cover':'Metadata')+' Recovery?',
-    bounded.length+' titles in scope. This replaces any previous unfinished queue after its current title is safely checkpointed. Completed Library changes remain saved.',
-    'Replace Queue & Start',false,bounded.length,kind==='cover'?'cover':'metadata')){
-   mf456LaunchStage('cancelled','Recovery launch cancelled; existing queues unchanged.',kind);return;
-  }
-  mf456LaunchStage('stopping','Stopping previous jobs at safe checkpoints before replacement…',kind);
-  await mf455ReplaceQueuedJobs();
-  mf456LaunchStage('queue','Creating a durable new job and provider snapshot…',kind);
-  // Jobs own immutable source selection and settings snapshots, so later
-  // changes in Settings never mutate a running job’s API list.
-  if(cover){
-   MF424.job=cover;MF424.account=mf424Account();
-   await mf424SaveJob();
-  }else if(kind!=='metadata')MF424.job=null;
-  if(kind==='both'){
-   mf447WriteCombo({schema:1,account:mf439Account(),ids:bounded,
-    created:Date.now(),stage:cover?'cover':'ready-metadata',coverId:cover?.id||null,
-    v455Direct:true,v455MetaProviders:metaIds});
-  }
-  if(kind==='metadata'){
-   MF439.job=mf455MetadataOptions('metadata',bounded,metaIds);
-   mf439SaveJob();
-  }
-  mf445Close();
-  mf456LaunchStage('starting','Queue saved. Waiting for provider lease and first title…',kind);
-  MF455.afterStart=Date.now();mf441Paint();
-  if(cover)void mf424Run(); // Existing lease safety, cooldown and progress.
-  else if(kind==='metadata')void mf439RunBatch();
-  else if(kind==='both')void mf447ContinueCombined();
-  mf456LaunchStage('queued','New queue saved for '+bounded.length+' title(s). Waiting for first engine checkpoint.',kind);
-  mf456WatchRecovery(kind);
-  showToast('New '+kind+' recovery queue created: '+bounded.length+' title(s). Check Background Processes.');
- }catch(err){console.warn('v455 unified recovery start failed',err);
-  mf456LaunchStage('error','Recovery not started: '+String(err?.message||err).slice(0,170),kind);
-  showToast('Recovery not started: '+String(err?.message||err).slice(0,170));}
- finally{MF455.launching=false;}
-}
-App.mf455Launch=mf455Launch;
-App.mf455SaveSettings=mf455SaveSettings;
-App.mf455SearchWorkspace=mf455SearchWorkspace;
-window.MediaFlowV455=Object.freeze({version:455,settings:mf455Settings,processing:mf455ProcessingHtml,
- search:mf455SearchWorkspace,scope:mf455ScopeCategories,launch:mf455Launch,
- selected:()=>MF455.selected,ready:mf455Enabled});
-/* MediaFlow v455 — completion handoff, settings and visible job progress. */
-const MF455_STAGE={lastKind:'',metadataIds:[]};
-const mf455OldWorkspaceSettings=mf441WorkspaceHtml;
-mf441WorkspaceHtml=function(){
- const html=String(mf455OldWorkspaceSettings.apply(this,arguments)||'');
- if(html.includes('data-mf455-settings'))return html;
- const settings='<section class="mf455-recovery-settings" data-mf455-settings>'+
- '<header><strong>'+mf425Icon('sliders',19)+' Universal Recovery Processing</strong>'+
- '<p>Independent processing and provider configurations for Cover, Metadata and Recover Both. All engine limits remain enforced.</p></header>'+
- ['cover','metadata','both'].map(mode=>'<details class="mf455-settings-mode"><summary>'+
- mf425Icon(mode==='cover'?'images':mode==='metadata'?'database':'layers',17)+
- ' '+(mode==='cover'?'Cover Recovery':mode==='metadata'?'Metadata Recovery':'Recover Both')+
- ' processing options</summary>'+mf455ProcessingHtml(mode)+
- '<div class="mf455-settings-providers"><strong>Enabled '+(mode==='metadata'?'metadata':mode==='both'?'cover & metadata':'cover')+' providers</strong>'+
- (mode==='both'?'<p>Cover and Metadata providers can be enabled independently through the unified workspace.</p>':'')+
- '<button type="button" class="btn btn-ghost" onclick="App.mf447Open('+mf424Escape(JSON.stringify(mode))+',{entry:&#39;settings&#39;})">'+
- mf425Icon('sliders',15)+' Open provider selection</button></div></details>').join('')+'</section>';
- return html+settings;
-};
-
-const mf455OriginalCoverSettings=mf425SettingsMarkup;
-mf425SettingsMarkup=function(){
- const html=String(mf455OriginalCoverSettings.apply(this,arguments)||'');
- return html.replace('<div class="mf425-settings-actions">',
-  '<details class="mf455-native-processing"><summary>Advanced Cover Processing & Matching</summary>'+
-  mf455ProcessingHtml('cover')+'</details><div class="mf425-settings-actions">');
-};
-const mf455OriginalMetaSettings=mf439SettingsHtml;
-mf439SettingsHtml=function(){
- const html=String(mf455OriginalMetaSettings.apply(this,arguments)||'');
- return html.replace('<div class="mf439-settings-actions">',
-  '<details class="mf455-native-processing"><summary>Advanced Metadata Processing & Matching</summary>'+
-  mf455ProcessingHtml('metadata')+'</details><div class="mf439-settings-actions">');
-};
-const mf455OrigCoverPrefs=mf424Defaults;
-mf424Defaults=function(){
- const x=mf455OrigCoverPrefs.apply(this,arguments),j=MF424.job;
- if(!j?.v455Providers)return x;
- return {...x,autoResume:j.autoResume,protection:j.v455Protection||x.protection};
-};
-const mf455OldRunMetadata=mf439RunBatch;
-mf439RunBatch=async function(){
- const job=MF439.job;
- if(job?.v455Providers&&job.v455Selection==='manual'&&job.manualReviewId){
-  showToast('Review or skip the pending metadata title before resuming this job.');return;
- }
- return mf455OldRunMetadata.apply(this,arguments);
-};
-function mf455MetadataOptions(kind,ids,providers,source='direct'){
- const p=mf455Settings(kind);
- const partSize=p.partMode==='automatic'?Math.max(1,Math.min(250,Math.ceil(ids.length/10))):Math.max(1,Math.min(250,p.partSize));
- return {schema:1,account:mf439Account(),ids,cursor:0,changed:0,completed:0,
-  errors:[],startedAt:Date.now(),status:'running',mode:p.mode,partSize,
-  continuation:p.continuation,stopRequested:false,autoResume:p.autoResume,
-  v455Providers:providers,v455Selection:p.selection,
-  v455Protection:p.protection,v455Source:source};
-}
-const mf455OriginalContinue=mf447ContinueCombined;
-mf447ContinueCombined=async function(){
- const combo=mf447Combo();
- if(!combo?.v455Direct)return mf455OriginalContinue.apply(this,arguments);
- if(combo.stage!=='ready-metadata')return;
- if(MF439.working||MF424.running)return;
- if(combo.coverId&&(MF424.job?.id!==combo.coverId||MF424.job.status!=='complete'))return;
- const ids=mf447AllowedIds(combo.ids).slice(0,mf439Preferences().maxBatch);
- if(!ids.length){showToast('Combined recovery has no eligible titles for metadata.');return;}
- const available=mf455BaseProviders('metadata').filter(p=>p.available).map(p=>p.id);
- const providers=(combo.v455MetaProviders||[]).filter(id=>available.includes(id));
- if(!providers.length){showToast('Metadata stage needs a working provider; configure access before continuing.');return;}
- try{
-  MF439.job=mf455MetadataOptions('both',ids,providers,'combined');
-  mf439SaveJob();
-  mf447WriteCombo({...combo,stage:'metadata',metadataAt:MF439.job.startedAt});
-  mf441Paint();
-  await mf439RunBatch();
- }catch(e){
-  showToast('Metadata continuation failed; cover checkpoint is safe: '+String(e?.message||e).slice(0,110));
- }
-};
-App.mf447ContinueCombined=mf447ContinueCombined;
-// Progress labels report actual cursor and active process stage. Never show a
-// fictitious percentage just to make a stalled API call look successful.
-function mf455ProcessStatus(kind,state){
- const j=kind==='cover'?state.cover:state.metadata;
- if(!j||!j.ids?.length)return '';
- const running=kind==='cover'?MF424.running:MF439.working;
- const finished=Math.max(0,Math.min(j.ids.length,Number(j.cursor)||0));
- const step=running?Math.min(j.ids.length,finished+1):finished;
- const msg=running?'Processing title '+step.toLocaleString()+' of '+j.ids.length.toLocaleString():
-  j.status==='waiting-part'?'Waiting for next part':j.status==='paused'?'Paused with saved checkpoint':
-  j.status==='complete'||j.status==='completed'?'All titles processed':'Ready';
- return '<p class="mf455-live-progress" role="status" aria-live="polite">'+
- (running?mf425Icon('activity',15):mf425Icon('layers',15))+' '+mf424Escape(msg)+
- ' · '+finished.toLocaleString()+' completed</p>';
-}
-const mf455OldCoverRow=mf441CoverRow;
-mf441CoverRow=function(s){
- let html=String(mf455OldCoverRow.apply(this,arguments)||'');
- return html.replace('</article>',mf455ProcessStatus('cover',s)+'</article>');
-};
-const mf455OldMetadataRow=mf441MetadataRow;
-mf441MetadataRow=function(s){
- let html=String(mf455OldMetadataRow.apply(this,arguments)||'');
- return html.replace('</article>',mf455ProcessStatus('metadata',s)+'</article>');
-};
-const mf455OldWidget=mf441WidgetHtml;
-mf441WidgetHtml=function(){
- const html=String(mf455OldWidget.apply(this,arguments)||'');
- return html.replace('class="mf441-widget ', 'class="mf441-widget mf455-readable-widget ');
-};
-
-function mf455ReviewPendingMetadata(){
- const job=MF439.job||mf439ReadJob();
- if(!job?.manualReviewId||MF439.working)return;
- return App.mf453OpenQuick('metadata',String(job.manualReviewId));
-}
-async function mf455FinishManualTitle(action='skip',id=''){
- const job=MF439.job;
- if(!job?.manualReviewId||MF439.working)return false;
- if(id&&String(job.manualReviewId)!==String(id))return false;
- if(action==='skip'&&!await mf444Confirm('Skip this metadata title?',
-  'Skip the pending manual review and continue from the next saved title. Already saved metadata will not change.',
-  'Skip Title',false,1,'metadata'))return false;
- const current=String(job.ids[job.cursor]||'');
- if(current!==String(job.manualReviewId))return false;
- job.manualReviewId='';
- job.cursor++;job.completed=job.cursor;job.status=job.cursor>=job.ids.length?'completed':'paused';
- mf439SaveJob();mf439PaintJob();mf441Paint();
- showToast(job.status==='completed'?'Metadata manual recovery complete.':'Manual review checkpoint saved. Resume for the next title.');
- return true;
-}
-const mf455OldQuickApply=App.mf453ApplyQuick;
-App.mf453ApplyQuick=async function(){
- const quick=window.MediaFlowV454?.active?.(),id=quick?.id;
- const title=quick&&mf439Item(id);
- const before=title&&JSON.stringify(title);
- const result=await mf455OldQuickApply.apply(this,arguments);
- if(id&&MF439.job?.manualReviewId===String(id)&&!window.MediaFlowV454?.active?.()&&
-  title&&JSON.stringify(title)!==before)await mf455FinishManualTitle('saved',id);
- return result;
-};
-const mf455OldMetadataRowReview=mf441MetadataRow;
-mf441MetadataRow=function(state){
- let html=String(mf455OldMetadataRowReview.apply(this,arguments)||'');
- const job=state.metadata;
- if(job?.manualReviewId){
-  const controls='<div class="mf455-manual-review"><strong>'+
-   mf425Icon('search',15)+' Manual metadata selection</strong>'+
-   '<small>Title '+(Number(job.cursor)+1)+' / '+job.ids.length+
-   ' needs confirmation before progressing.</small>'+
-   '<button type="button" data-v225-iconified="1" onclick="App.mf455ReviewPendingMetadata()">'+
-   mf425Icon('database',15)+' Review title</button>'+
-   '<button type="button" data-v225-iconified="1" onclick="App.mf455FinishManualTitle(&#39;skip&#39;)">'+
-   mf425Icon('x',15)+' Skip title</button></div>';
-  return html.replace('</article>',controls+'</article>');
- }
- return html;
-};
-App.mf455ReviewPendingMetadata=mf455ReviewPendingMetadata;
-App.mf455FinishManualTitle=mf455FinishManualTitle;
-window.MediaFlowV455Stages=Object.freeze({version:455,metadata:mf455MetadataOptions,
- progress:mf455ProcessStatus,continue:mf447ContinueCombined,settings:()=>mf441WorkspaceHtml()});
-/* MediaFlow v456 — detailed, reliable quick-cover selection + live editor.
- * Candidate IDs are always shown before selection. Only conflict-free actual
- * provider record IDs can be linked on confirmation; never synthesize an ID.
- */
-const MF456_VERSION=456;
-const MF456={save:null,launch:null,lastSaved:null};
-const mf456Escape=x=>mf424Escape(String(x??''));
-function mf456CandidateLink(item,candidate){
- const link=typeof mf424LinkableCoverId==='function'?
-  mf424LinkableCoverId(item||{},candidate):null;
- const key=String(link?.key||candidate?.externalIdKey||'').trim();
- const id=String(link?.value||candidate?.externalIdValue||candidate?.recordId||'').trim();
- const conflict=Boolean(link?.conflict);
- return {key,id,conflict,canLink:Boolean(link&&!conflict&&!link.existing&&id)};
-}
-function mf456CoverGallery(q,item){
- return '<div class="mf454-cover-gallery mf456-cover-gallery" role="list" aria-label="Cover choices — choose exactly one">'+
- q.covers.map((c,i)=>{
-  const id=mf456CandidateLink(item,c);
-  const match=Number.isFinite(Number(c?.confidence))?
-   Math.round(Math.max(0,Math.min(1,Number(c.confidence)))*100)+'%':'Unknown';
-  const selected=q.coverIndex===i;
-  const safeUrl=/^https:\/\//i.test(String(c?.url||''));
-  return '<article role="listitem" class="mf456-cover-card '+(selected?'is-selected':'')+'" data-mf456-cover-index="'+i+'">'+
-   '<div class="mf456-cover-art"><img src="'+mf456Escape(c.url)+'" alt="'+mf456Escape(c.title||'Cover candidate')+'" loading="lazy" decoding="async"></div>'+
-   '<div class="mf456-cover-content">'+
-   '<strong class="mf456-cover-title">'+mf456Escape(c.title||item?.title||'Untitled match')+'</strong>'+
-   '<div class="mf456-cover-facts"><span>'+mf425Icon('database',13)+' '+mf456Escape(c.provider||'Unknown provider')+'</span>'+
-   '<span>'+mf425Icon('check',13)+' '+mf456Escape(match)+' match</span></div>'+
-   '<small class="mf456-cover-trust">'+mf425Icon('shield',14)+
-   ' '+mf456Escape(c.idMatch?'Provider external-ID match':'Title candidate — verify edition')+'</small>'+
-   '<div class="mf456-cover-record"><span>Provider record ID</span><code>'+mf456Escape(id.id||'Not supplied')+'</code>'+
-   '<span>ID saved as</span><code>'+mf456Escape(id.key||'Cover URL only')+'</code></div>'+
-   (id.conflict?'<small class="mf456-cover-conflict">Existing external ID differs — it will not be overwritten.</small>':
-    id.canLink?'<small class="mf456-cover-link">Valid provider ID will be linked on confirmation.</small>':
-    '<small class="mf456-cover-note">Existing IDs are protected; cover URL can still be selected.</small>')+
-   '<button type="button" class="btn '+(selected?'btn-primary':'btn-ghost')+' mf456-cover-select" data-v225-iconified="1" '+
-   (safeUrl?'':'disabled ')+'onclick="App.mf456SelectCover('+i+')" aria-pressed="'+selected+'">'+
-   mf425Icon(selected?'check':'images',15)+' '+(selected?'Selected cover':'Select this cover')+'</button></div></article>';
- }).join('')+'</div>';
-}
-const mf456PreviousView=mf454QuickView;
-mf454QuickView=function(example=null){
- const q=example||MF453Quick.current;
- const original=mf456PreviousView.apply(this,arguments);
- if(!q||!q.covers?.length||q.kind==='metadata'||!original)return mf456WithSaveProgress(original,q);
- // Use the browser's HTML parser rather than error-prone string truncation.
- const host=document.createElement('div');host.innerHTML=original;
- const gallery=host.querySelector('.mf454-cover-gallery');
- if(gallery)gallery.outerHTML=mf456CoverGallery(q,mf439Item(q.id));
- return mf456WithSaveProgress(host.innerHTML,q);
-};
-function mf456WithSaveProgress(html,q){
- if(!html||!q?.applying)return html;
- const complete=Math.max(0,Number(q.saveCompleted)||0),total=Math.max(1,Number(q.saveTotal)||1);
- const done=Math.min(complete,total);
- const progress='<section class="mf456-saving" role="status" aria-live="polite">'+
-  '<header><strong>'+mf425Icon('save',16)+' Saving recovery changes</strong>'+
-  '<small>Step '+done+' / '+total+'</small></header>'+
-  '<progress max="'+total+'" value="'+done+'" aria-label="Recovery save stages complete"></progress>'+
-  '<p>'+mf456Escape(q.savePhase||'Preparing confirmed changes…')+'</p>'+
-  '<small>Progress shows completed save operations, not estimated network time. Do not refresh until it completes.</small></section>';
- return html.replace('<footer class="mf454-quick-footer">',progress+'<footer class="mf454-quick-footer">');
-}
-function mf456SelectCover(i){
- const q=MF453Quick.current,index=Number(i);
- if(!q||q.applying||!Number.isInteger(index)||index<0||index>=q.covers.length)return;
- q.coverIndex=index;
- mf453PaintQuick();
- const chosen=mf453QuickRoot()?.querySelector('[data-mf456-cover-index="'+index+'"]');
- chosen?.scrollIntoView?.({block:'nearest',inline:'nearest',behavior:'instant'});
-}
-App.mf456SelectCover=mf456SelectCover;
-function mf456QuickProgress(q,phase,advance=false,total=null){
- if(!q)return;
- if(Number.isFinite(total)&&total>0){q.saveTotal=total;q.saveCompleted=0;}
- if(advance)q.saveCompleted=Math.min(q.saveTotal||1,(q.saveCompleted||0)+1);
- q.savePhase=String(phase||'Saving confirmed fields…');
- if(MF453Quick.current===q)mf453PaintQuick();
-}
-function mf456EditorMatches(item){
- const editor=document.querySelector('.v240-library-editor,.v238-library-editor');
- if(!editor||!item?.id)return null;
- const title=editor.querySelector('#l-title');
- const name=String(title?.value||'').trim();
- // Never update another title or stomp an editor with an unsaved new title.
- if(!name||name!==String(item.title||'').trim())return null;
- return editor;
-}
-function mf456SyncEditorField(editor,ids,value,overwrite=false){
- if(value==null)return false;
- for(const id of ids){
-  const input=editor.querySelector('#'+id);
-  if(!input||!('value' in input))continue;
-  if(!overwrite&&String(input.value||'').trim())continue;
-  const next=Array.isArray(value)?value.join(', '):typeof value==='object'?JSON.stringify(value):String(value);
-  if(input.value===next)return true;
-  input.value=next;
-  input.setAttribute('value',next);
-  input.dispatchEvent(new Event('input',{bubbles:true}));
-  return true;
- }
- return false;
-}
-function mf456RefreshEditor(id){
- const item=mf439Item(id),editor=mf456EditorMatches(item);
- if(!editor)return false;
- const cover=String(item.coverUrl||'');
- if(cover)mf456SyncEditorField(editor,['l-cover'],cover,true);
- // Only fill empty optional fields: do not erase unsaved edits in the form.
- mf456SyncEditorField(editor,['l-desc','l-description','l-synopsis'],item.synopsis||item.description);
- mf456SyncEditorField(editor,['l-genres','l-genre'],item.genres);
- mf456SyncEditorField(editor,['l-tags'],item.tags);
- let note=editor.querySelector('.mf456-editor-synced');
- if(!note){note=document.createElement('p');note.className='mf456-editor-synced';
-  note.setAttribute('role','status');
-  const input=editor.querySelector('#l-cover');
-  (input?.closest('.field')||editor).append(note);}
- note.textContent='Recovered cover and metadata updated in this open editor.';
- const preview=editor.querySelector('.mf456-editor-cover-preview');
- if(preview){preview.src=cover;preview.hidden=!cover;}
- else if(cover&&/^https:\/\//.test(cover)){
-  const img=document.createElement('img');img.className='mf456-editor-cover-preview';
-  img.alt='Confirmed title cover';img.src=cover;img.loading='lazy';
-  (editor.querySelector('#l-cover')?.closest('.field')||editor).append(img);
- }
- return true;
-}
-function mf456NotifyRecoverySaved(q,item,coverCount,metadataCount){
- if(!item)return;
- MF456.lastSaved={id:String(item.id),at:Date.now(),coverCount,metadataCount,
-  coverUrl:String(item.coverUrl||'')};
- mf456RefreshEditor(item.id);
- try{document.dispatchEvent(new CustomEvent('mediaflow:title-recovered',
-  {detail:{id:String(item.id),coverUrl:String(item.coverUrl||''),coverCount,metadataCount}}));}catch(_){}
-}
-window.MediaFlowV456Quick=Object.freeze({version:456,candidateLink:mf456CandidateLink,
- view:mf454QuickView,select:mf456SelectCover,progress:mf456QuickProgress,
- editor:mf456RefreshEditor,lastSaved:()=>MF456.lastSaved});
-/* MediaFlow v456 — honest recovery startup and checkpoint feedback.
- * A visible stage bar is not an invented provider ETA: it reflects completed
- * validation/confirmation/checkpoint steps. Actual title progress belongs to
- * the saved v424/v442 jobs and Background Processes.
- */
-const MF456Launch={stage:'idle',kind:'cover',detail:'',checkedAt:0,startedAt:0,watch:null};
-const MF456_LAUNCH_STAGES={idle:0,validating:1,confirming:2,stopping:3,queue:4,
- starting:5,queued:5,running:5,paused:5,error:0,cancelled:0};
-function mf456LaunchMarkup(){
- const x=MF456Launch;
- const total=5,done=MF456_LAUNCH_STAGES[x.stage]||0;
- const busy=['validating','confirming','stopping','queue','starting','queued'].includes(x.stage);
- return '<aside class="mf456-launch-status '+(x.stage==='error'?'has-error':'')+
- '" id="mf456-launch-status" role="status" aria-live="polite" aria-label="Recovery launch status">'+
- '<div class="mf456-launch-heading"><strong>'+mf425Icon(x.stage==='error'?'shield':busy?'layers':'check',16)+
- ' '+(x.stage==='error'?'Could not start recovery':x.stage==='cancelled'?'Recovery cancelled':
-  x.stage==='running'?'Recovery running':x.stage==='paused'?'Recovery paused':'Starting '+(x.kind==='both'?'Cover + Metadata':x.kind==='cover'?'Cover':'Metadata')+' Recovery')+
- '</strong><button type="button" data-v225-iconified="1" onclick="App.mf456DismissLaunch()" aria-label="Dismiss recovery status">'+
- mf425Icon('x',15)+'</button></div>'+
- '<progress value="'+done+'" max="'+total+'" aria-label="Recovery launch steps complete"></progress>'+
- '<div class="mf456-launch-info"><span>'+mf456Escape(x.detail)+'</span><small>'+
- (x.stage==='running'?'Title progress is shown in Background Processes.':busy?'Startup step '+done+' / '+total:
- x.stage==='error'?'Check scope, provider access and the current job lease.':'')+'</small></div></aside>';
-}
-function mf456LaunchStage(stage,detail,kind='cover'){
- MF456Launch.stage=stage;
- MF456Launch.kind=kind;
- MF456Launch.detail=String(detail||'');
- MF456Launch.checkedAt=Date.now();
- if(stage==='validating'){MF456Launch.startedAt=Date.now();if(MF456Launch.watch)clearInterval(MF456Launch.watch);MF456Launch.watch=null;}
- let node=document.getElementById('mf456-launch-status');
- if(!node){
-  node=document.createElement('div');
-  node.id='mf456-launch-status-host';
-  node.className='mf456-launch-status-host';
-  document.body?.append(node);
- }
- const host=document.getElementById('mf456-launch-status-host')||node;
- host.innerHTML=mf456LaunchMarkup();
- // Keep the progress visible in the workspace itself while the dialog is
- // still open, but use the floating status once launching closes it.
- const pane=document.querySelector('#mf445-workspace [data-mf456-launch-hint]');
- if(pane)pane.textContent=MF456Launch.detail;
-}
-function mf456DismissLaunch(){
- if(MF456Launch.watch){clearInterval(MF456Launch.watch);MF456Launch.watch=null;}
- document.getElementById('mf456-launch-status-host')?.remove();
- MF456Launch.stage='idle';
-}
-function mf456WatchRecovery(kind){
- if(MF456Launch.watch)clearInterval(MF456Launch.watch);
- let ticks=0;
- MF456Launch.watch=setInterval(()=>{
-  ticks++;
-  const cover=MF424.job,metadata=MF439.job;
-  const job=kind==='metadata'?metadata:cover;
-  const working=kind==='metadata'?MF439.working:MF424.running;
-  const state=String(job?.status||'');
-  const count=Number(job?.cursor)||0,total=Number(job?.ids?.length)||0;
-  if(working&&state==='running'||kind==='both'&&!cover&&MF439.working){
-   const active=kind==='both'&&!cover?metadata:job;
-   mf456LaunchStage('running','Provider processing started. '+Number(active?.cursor||0)+
-    ' / '+Number(active?.ids?.length||0)+' titles committed.',kind);
-   clearInterval(MF456Launch.watch);MF456Launch.watch=null;
-  }else if(['paused','stopped','other-tab','waiting-part'].includes(state)){
-   mf456LaunchStage('paused','New queue is '+state+' at '+count+' / '+total+
-    ' titles. Review Background Processes for recovery/resume.',kind);
-   clearInterval(MF456Launch.watch);MF456Launch.watch=null;
-  }else if(ticks>=36){
-   mf456LaunchStage('paused','Queue is saved, but no active processing was confirmed after startup. Status: '+
-    (state||'waiting')+'. Open Background Processes to resume or inspect locks.',kind);
-   clearInterval(MF456Launch.watch);MF456Launch.watch=null;
-  }else if(ticks%3===0){
-   mf456LaunchStage('queued','Saved checkpoint. Current state: '+(state||'initializing')+
-    '; '+count+' / '+total+' titles. Waiting for actual provider execution.',kind);
-  }
- },500);
-}
-function mf456ExplainScope(kind){
- const root=document.getElementById('mf445-workspace');
- if(!root)return;
- const pane=root.querySelector('[data-mf445-panel]'),mode=kind==='both'?'both':kind;
- const ids=mode==='both'?mf447ScopeSnapshot():mf446ScopeIds(mode);
- const cover=mf455Enabled('cover').length,metadata=mf455Enabled('metadata').length;
- const ready=mode==='both'?cover>0&&metadata>0:mode==='metadata'?metadata>0:cover>0;
- const msg=!ids.length?'No titles in scope — choose a scope or check titles in Library.':
- !ready?'No usable providers selected — enable at least one configured '+(mode==='both'?'provider for each stage':'provider')+'.':
- ids.length+' title(s) in scope · '+(mode==='both'?cover+' cover + '+metadata+' metadata':(mode==='cover'?cover:metadata)+' ready provider(s)')+
- ' · Ready to request confirmation.';
- let line=pane?.querySelector('[data-mf456-launch-hint]');
- if(!line){line=document.createElement('p');line.className='mf456-launch-hint';
-  line.setAttribute('data-mf456-launch-hint','');
-  pane?.querySelector('.mf445-actions')?.before(line);}
- if(line)line.textContent=msg;
- const actions=pane?.querySelectorAll('.mf445-actions button.btn-primary')||[];
- // The engine will perform validation on click. Never leave an inert
- // disabled button that fails silently with no reason or progress.
- actions.forEach((button,i)=>{
-  if(i)button.hidden=true;
-  else{button.disabled=false;button.title=msg;button.textContent='';button.insertAdjacentHTML('afterbegin',
-    mf425Icon('play',17)+' Recover selected titles');
-   button.setAttribute('onclick','App.mf455Launch('+mf456Escape(JSON.stringify(mode))+')');
-   button.setAttribute('data-v225-iconified','1');}
- });
-}
-const mf456OldPanel=mf445Panel;
-mf445Panel=function(kind){
- const result=mf456OldPanel.apply(this,arguments);
- mf456ExplainScope(MF447.active==='both'?'both':MF445.mode);
- return result;
-};
-App.mf445Panel=mf445Panel;
-App.mf456DismissLaunch=mf456DismissLaunch;
-window.MediaFlowV456Launch=Object.freeze({version:456,stage:mf456LaunchStage,
- watch:mf456WatchRecovery,state:()=>({...MF456Launch}),explain:mf456ExplainScope});
-/* MediaFlow v457 — recovery controls, scroll continuity, and editor dismissal.
- * Does not alter provider adapters, recovery checkpoints, or cloud writes.
- */
-const MF457_VERSION=457;
-const MF457={lastError:'',calls:0};
-
-/* Confirmed Quick Recovery is the only action allowed to dismiss Edit Title.
- * A manual Close/Cancel does not emit title-recovered and keeps the editor open.
- */
-document.addEventListener('mediaflow:title-recovered',event=>{
-  const q=MF453Quick.current,detail=event?.detail;
-  if(q&&!q.closed&&detail&&String(detail.id)===String(q.id)&&
-    (Number(detail.coverCount||0)>0||Number(detail.metadataCount||0)>0)){
-    q.v457ConfirmedSaved=true;
-  }
-});
-const mf457CloseQuickBase=mf453CloseQuick;
-mf453CloseQuick=async function(){
-  const q=MF453Quick.current;
-  const id=q?.id==null?'':String(q.id);
-  const shouldDismiss=!!(q?.v457ConfirmedSaved&&S.modal?.type==='library'&&
-    String(S.modal.data?.id??'')===id);
-  const result=await mf457CloseQuickBase.apply(this,arguments);
-  // Only after the Quick Recovery modal finishes closing. Never close Add Title
-  // or a different saved title's edit dialog.
-  if(shouldDismiss&&S.modal?.type==='library'&&String(S.modal.data?.id??'')===id)
-    App.closeModal();
-  return result;
-};
-App.mf453CloseQuick=mf453CloseQuick;
-
-/* Rebuilds caused by category/scope/status changes used to reset the scrollable
- * dialog to its start and destroy the selected checkbox's focus. Reuse the
- * existing scroll container's position without scrolling the background page.
- */
-const mf457PanelBase=mf445Panel;
-function mf457ScrollSnapshot(){
-  const root=document.getElementById('mf445-workspace');
-  if(!root)return null;
-  const pane=root.querySelector('[data-mf445-panel]'),dialog=root.querySelector('.mf445-dialog');
-  const active=document.activeElement;
-  return {root,pane,dialog,mode:MF447.active==='both'?'both':MF445.mode,
-    paneY:pane?.scrollTop||0,dialogY:dialog?.scrollTop||0,
-    winX:window.scrollX||0,winY:window.scrollY||0,
-    category:active?.getAttribute?.('data-mf446-category')||null,
-    scope:active?.matches?.('[data-mf446-scope]')||false,
-    statusCategory:active?.closest?.('.mf446-category')?.querySelector?.('[data-mf446-category]')?.getAttribute('data-mf446-category')||null};
-}
-function mf457RestoreScroll(s){
-  if(!s||!s.root.isConnected)return;
-  const pane=s.root.querySelector('[data-mf445-panel]'),dialog=s.root.querySelector('.mf445-dialog');
-  if(pane)pane.scrollTop=s.paneY;
-  if(dialog)dialog.scrollTop=s.dialogY;
-  let field=null;
-  if(s.category)field=[...s.root.querySelectorAll('[data-mf446-category]')].find(el=>el.getAttribute('data-mf446-category')===s.category);
-  else if(s.scope)field=s.root.querySelector('[data-mf446-scope]');
-  else if(s.statusCategory)field=[...s.root.querySelectorAll('[data-mf446-category]')].find(el=>el.getAttribute('data-mf446-category')===s.statusCategory);
-  if(field?.isConnected)try{field.focus({preventScroll:true});}catch(_){}
-  if((window.scrollY||0)!==s.winY&&typeof window.scrollTo==='function')
-    window.scrollTo(s.winX,s.winY);
-}
-mf445Panel=function(kind){
-  const s=mf457ScrollSnapshot();
-  const result=mf457PanelBase.apply(this,arguments);
-  // A deliberate tab switch may reset scroll; category and filter changes may not.
-  if(s&&(MF447.active==='both'?'both':MF445.mode)===s.mode){
-    mf457RestoreScroll(s);
-    if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>{
-      if(document.getElementById('mf445-workspace')===s.root&&
-         (MF447.active==='both'?'both':MF445.mode)===s.mode)mf457RestoreScroll(s);
-    });
-  }
-  mf457WireLaunch();
-  return result;
-};
-App.mf445Panel=mf445Panel;
-
-/* A single, real button for all modes. The old metadata "Preview one title"
- * primary action is removed, not just hidden with a CSS-overridable attribute.
- * Use an actual click listener instead of dynamically concatenated inline JS.
- */
-function mf457WireLaunch(){
-  const root=document.getElementById('mf445-workspace'),actions=root?.querySelector('[data-mf445-panel] .mf445-actions');
-  if(!actions)return;
-  const kind=MF447.active==='both'?'both':MF445.mode;
-  const candidates=[...actions.querySelectorAll('button.btn-primary')];
-  let button=candidates[0];
-  if(!button){
-    button=document.createElement('button');button.type='button';button.className='btn btn-primary';
-    actions.prepend(button);
-  }
-  for(const extra of candidates.slice(1))extra.remove();
-  // Remove any old inline handler (including preview), and use the real v455
-  // safe queue launch, which owns confirmation, checkpoints, and provider calls.
-  button.removeAttribute('onclick');
-  button.disabled=false;
-  button.dataset.mf457LaunchKind=kind;
-  button.dataset.v225Iconified='1';
-  button.setAttribute('aria-label','Recover selected titles — '+kind);
-  button.innerHTML=mf425Icon('play',17)+' Recover selected titles';
-  if(button.dataset.mf457ClickBound==='1')return;
-  button.dataset.mf457ClickBound='1';
-  button.addEventListener('click',()=>{
-    MF457.calls++;
-    if(MF455.launching){
-      mf456LaunchStage('queued','Recovery startup is already in progress. Check the confirmation dialog or Background Processes.',kind);
-      return;
-    }
-    try{
-      mf456LaunchStage('validating','Launch requested. Checking scope and provider readiness…',kind);
-      Promise.resolve(App.mf455Launch(kind)).catch(err=>mf457LaunchError(err,kind));
-    }catch(err){mf457LaunchError(err,kind);}
-  });
-}
-function mf457LaunchError(err,kind){
-  const detail=String(err?.message||err||'Unknown recovery startup failure').slice(0,200);
-  MF457.lastError=detail;
-  console.error('v457 recovery launch failure',err);
-  try{mf456LaunchStage('error','Recovery could not start: '+detail,kind);}catch(e){console.error(e);}
-  showToast('Recovery could not start: '+detail.slice(0,125));
-}
-/* Source toggle handlers can re-disable the single action after a provider
- * selection. Leave it actionable so it can explain the exact validation error.
- */
-const mf457ProviderUiBase=mf455UpdateProviderUI;
-mf455UpdateProviderUI=function(kind){
-  const result=mf457ProviderUiBase.apply(this,arguments);
-  mf457WireLaunch();
-  return result;
-};
-function mf457OpenWorkspace(kind='cover',options={}){
-  const result=App.mf447Open(kind,options);
-  mf457WireLaunch();
-  return result;
-}
-window.MediaFlowV457=Object.freeze({
-  version:457,wire:mf457WireLaunch,open:mf457OpenWorkspace,
-  launch:kind=>App.mf455Launch(kind),calls:()=>MF457.calls,
-  lastError:()=>MF457.lastError
-});
-/* MediaFlow v458 — confirmation layering, metadata bulk selection, early cover commits.
- * Existing safe writers, queued jobs, metadata verification and provider locks
- * remain authoritative. Only UX/readiness and selection state change here.
- */
-const MF458_VERSION=458;
-function mf458SelectableMetadata(q){
- const proposals=q?.metadata?.preview?.proposals;
- return Array.isArray(proposals)?proposals.filter(p=>
-  p&&!p.protected&&!p.hasOriginal&&!p.same&&Array.isArray(p.options)&&p.options.length>0):[];
-}
-function mf458CanConfirmQuick(q){
- if(!q||q.closed||q.applying||['pausing','connecting','error'].includes(q.stage)||q.metaLoading)return false;
- // Cover discovery is asynchronous and must NOT block committing an already
- // validated/selected cover. Combined mode still waits for ALL metadata sources.
- const cover=q.kind!=='metadata'&&Number.isInteger(q.coverIndex)&&q.coverIndex>=0&&
-  !!q.covers?.[q.coverIndex]&&/^https:\/\//i.test(String(q.covers[q.coverIndex].url||''));
- const metadata=q.kind!=='cover'&&mf458SelectableMetadata(q).some(p=>p.selected===true);
- return Boolean(cover||metadata);
-}
-function mf458SelectMetadataAll(on){
- const q=MF453Quick.current;
- if(!q||q.closed||q.applying||q.metaLoading||q.kind==='cover')return;
- const eligible=mf458SelectableMetadata(q);
- for(const p of eligible)p.selected=Boolean(on);
- mf453PaintQuick();
-}
-App.mf458SelectMetadataAll=mf458SelectMetadataAll;
-
-const mf458OriginalQuickView=mf454QuickView;
-mf454QuickView=function(example=null){
- const q=example||MF453Quick.current;
- const html=mf458OriginalQuickView.apply(this,arguments);
- if(!html||!q||q.kind==='cover'||q.metaLoading||!q.metadata?.preview)return html;
- const eligible=mf458SelectableMetadata(q),selected=eligible.filter(p=>p.selected).length;
- const wrapper=document.createElement('div');
- wrapper.innerHTML=html;
- const section=wrapper.querySelector('.mf454-results-panel[aria-label="Metadata alternatives"]');
- const head=section?.querySelector('.mf454-results-head');
- if(!head)return html;
- const controls='<div class="mf458-metadata-tools" role="group" aria-label="Select eligible metadata suggestions">'+
-  '<div class="mf458-metadata-count" role="status">'+selected+' / '+eligible.length+' eligible suggestions selected</div>'+
-  '<div class="mf458-metadata-buttons">'+
-  '<button type="button" class="btn btn-ghost" data-v225-iconified="1" onclick="App.mf458SelectMetadataAll(true)"'+
-   ((!eligible.length||q.applying||selected===eligible.length)?' disabled':'')+'>'+
-   mf425Icon('check',15)+' Select All</button>'+
-  '<button type="button" class="btn btn-ghost" data-v225-iconified="1" onclick="App.mf458SelectMetadataAll(false)"'+
-   ((!eligible.length||q.applying||!selected)?' disabled':'')+'>'+
-   mf425Icon('x',15)+' Deselect All</button></div></div>';
- head.insertAdjacentHTML('afterend',controls);
- return wrapper.innerHTML;
-};
-
-/* Every streamed cover candidate currently redraws the entire inner dialog.
- * Keep the user's position while metadata suggestions and covers are updated.
- */
-const mf458OriginalQuickPaint=mf453PaintQuick;
-mf453PaintQuick=function(){
- const root=mf453QuickRoot(),content=root?.querySelector('[data-mf453-quick-content]');
- const currentScroll=content?.scrollTop||0;
- const meta=content?.querySelector('.mf454-metadata-list'),covers=content?.querySelector('.mf456-cover-gallery,.mf454-cover-gallery');
- const metadataScroll=meta?.scrollTop||0,coverScroll=covers?.scrollTop||0;
- const result=mf458OriginalQuickPaint.apply(this,arguments);
- const next=root?.querySelector('[data-mf453-quick-content]');
- if(next){next.scrollTop=currentScroll;
-  const list=next.querySelector('.mf454-metadata-list'),gallery=next.querySelector('.mf456-cover-gallery,.mf454-cover-gallery');
-  if(list)list.scrollTop=metadataScroll;
-  if(gallery)gallery.scrollTop=coverScroll;
- }
- return result;
-};
-
-/* The confirmation is created synchronously inside mf444Confirm. Tag only the
- * newly opened dialog; do not mutate other pending recovery confirmations.
- */
-const mf458OriginalConfirm=mf444Confirm;
-mf444Confirm=function(title,detail,action='Continue',destructive=false,count=0,kind='metadata'){
- const result=mf458OriginalConfirm.apply(this,arguments);
- const root=document.getElementById('mf444-confirm');
- const label=root?.querySelector('#mf444-title')?.textContent;
- if(root&&String(label||'')===String(title||'')){
-  root.classList.add('mf458-confirm');
-  if(kind==='both'||/Cover\s*\+\s*Metadata/i.test(String(title))){
-   const tag=root.querySelector('.mf444-heading small');
-   if(tag)tag.textContent='COVER + METADATA RECOVERY';
-   const symbol=root.querySelector('.mf444-symbol');
-   if(symbol)symbol.innerHTML=mf425Icon('layers',24);
-  }
-  const approve=root.querySelector('[data-mf444-approve]');
-  if(approve){approve.setAttribute('aria-label',String(action));approve.disabled=false;}
- }
- return result;
-};
-window.MediaFlowV458=Object.freeze({version:458,eligible:mf458SelectableMetadata,canConfirm:mf458CanConfirmQuick,
- selectMetadataAll:mf458SelectMetadataAll,confirm:mf444Confirm,quickHtml:mf454QuickView});
-/* MediaFlow v459 — permanently retire the redundant v424 Cover Recovery
- * floating pill and controls. Do not alter the v424 recovery engine or saved
- * checkpoints; the unified v441 Background Processes UI is the sole widget.
- */
-const MF459_VERSION=459;
-function mf459RemoveLegacyCoverWidget(){
-  // Covers a stale indicator from a previous bundle or an early paint that
-  // happened before this final extension initialized.
-  document.querySelectorAll('#mf424-indicator').forEach(node=>node.remove());
-}
-MF424.expanded=false;
-mf459RemoveLegacyCoverWidget();
-// The v424-v427 paint chain only builds/decorates the retired widget; do not
-// invoke it. The v441 process display uses the SAME recovery state and is
-// updated independently after each cover engine state change.
-mf424Paint=function(){
-  mf459RemoveLegacyCoverWidget();
-  if(typeof mf441Paint==='function')mf441Paint();
-  mf459RemoveLegacyCoverWidget();
-};
-// A historic action may still call this public method from cached markup.
-// Do not recreate the old pill or change the process state.
-mf424Toggle=function(){
-  MF424.expanded=false;
-  mf459RemoveLegacyCoverWidget();
-  if(typeof mf441Paint==='function')mf441Paint();
-};
-App.mf424Toggle=mf424Toggle;
-window.MediaFlowV459=Object.freeze({
-  version:459,
-  cleanup:mf459RemoveLegacyCoverWidget,
-  paint:()=>mf424Paint(),
-  legacyVisible:()=>!!document.getElementById('mf424-indicator')
-});
-/* MediaFlow v460 — one Metadata Recovery shortcut, direct Background Processes visibility.
- * Presentation and persisted widget preferences only: never change any recovery job.
- */
-const MF460_VERSION=460;
-function mf460WidgetVisible(){
- const prefs=mf441Prefs(),state=mf441State();
- return Boolean(mf441Show(prefs,state));
-}
-function mf460EyeIcon(isShowing){
- // A crossed-out eye describes "hide"; an open eye describes "show".
- const eye='<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>';
- return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
-   (isShowing?eye+'<path d="M3 3l18 18"/>':eye)+'</svg>';
-}
-function mf460WidgetLabels(){
- const shown=mf460WidgetVisible();
- return {shown,title:shown?'Hide Background Processes':'Show Background Processes',
-  subtitle:shown?'Hide the widget · recovery jobs keep running':'Display recovery progress and controls'};
-}
-const mf460PreviousQuickMarkup=mf397Markup;
-mf397Markup=function(){
- let html=String(mf460PreviousQuickMarkup.apply(this,arguments)||'');
- // v441 and v447 both inserted the same metadataRecovery action. Preserve
- // the newest (unified-workspace) entry, with one fallback if v447 is disabled.
- const metadataButton=/<button\b[^>]*\bdata-action="metadataRecovery"[^>]*>[\s\S]*?<\/button>\s*/g;
- const matches=[...html.matchAll(metadataButton)];
- if(matches.length>1){
-  let current=0;
-  html=html.replace(metadataButton,part=>(++current===matches.length?part:''));
- }
- const anchor='      </div>\n      <button type="button" id="mf397-fab"';
- if(!html.includes(anchor))return html;
- const label=mf460WidgetLabels();
- const button='        <button type="button" class="mf397-fan-action mf447-float-action mf460-widget-action" data-action="backgroundProcessesVisibility" aria-label="'+label.title+'">'+
-  '<span class="mf397-action-symbol">'+mf460EyeIcon(label.shown)+'</span>'+
-  '<span><strong>'+label.title+'</strong><small>'+label.subtitle+'</small></span><em>07</em></button>\n';
- return html.replace(anchor,button+anchor);
-};
-function mf460RefreshWidgetAction(){
- const fan=document.getElementById('mf397-fan');
- const btn=fan?.querySelector('[data-action="backgroundProcessesVisibility"]');
- if(!btn)return;
- const label=mf460WidgetLabels();
- const name=btn.querySelector('strong'),detail=btn.querySelector('small'),symbol=btn.querySelector('.mf397-action-symbol');
- if(name)name.textContent=label.title;
- if(detail)detail.textContent=label.subtitle;
- if(symbol)symbol.innerHTML=mf460EyeIcon(label.shown);
- btn.setAttribute('aria-label',label.title);
-}
-const mf460PreviousSetMenu=mf397SetMenu;
-mf397SetMenu=function(open){
- mf460RefreshWidgetAction();
- return mf460PreviousSetMenu.apply(this,arguments);
-};
-function mf460ToggleWidget(){
- const shouldShow=!mf460WidgetVisible();
- // Reuse the existing v441 cloud-backed preference and paint pipeline.
- // Explicit Show must display immediately, even with zero active processes.
- mf441SaveSetting('visibility',shouldShow?'always':'hidden');
- mf460RefreshWidgetAction();
- mf397SetMenu(false);
- showToast(shouldShow?'Background Processes shown.':'Background Processes hidden; recovery jobs continue.');
-}
-const mf460PreviousAction=mf397Action;
-mf397Action=function(action){
- if(action==='backgroundProcessesVisibility')return mf460ToggleWidget();
- return mf460PreviousAction.apply(this,arguments);
-};
-window.MediaFlowV460=Object.freeze({
- version:MF460_VERSION,menuMarkup:()=>mf397Markup(),widgetVisible:mf460WidgetVisible,
- toggleWidget:mf460ToggleWidget,refresh:mf460RefreshWidgetAction
-});
-MediaFlowRuntime.version=MF460_VERSION;
-/* MediaFlow v461 — honor the background widget shortcut's own eye artwork.
- * v226's semantic pass otherwise injects a second "Show/Hide" eye before it,
- * squeezing the label in the compact action sheet. All jobs remain untouched.
- */
-const MF461_VERSION=461;
-const mf461PreviousButtonIconName=v225ButtonIconName;
-v225ButtonIconName=function(el){
- if(el?.matches?.('.mf460-widget-action'))return null;
- return mf461PreviousButtonIconName.apply(this,arguments);
-};
-window.MediaFlowV461=Object.freeze({version:MF461_VERSION,shortcutSelector:'.mf460-widget-action'});
-MediaFlowRuntime.version=MF461_VERSION;
-/* MediaFlow v462 — defer the unified Background Processes widget until
- * the signed-in shell AND authoritative cloud settings are fully hydrated.
- * A pre-hydration v424/v439 paint previously flashed defaults at bottom-right,
- * then vanished or jumped left when the user's saved preferences arrived.
- * This only gates presentation; it never changes jobs, cloud settings or queues.
- */
-const MF462_VERSION=462;
-const MF462_WIDGET_BOOT={ready:false,epoch:0};
-
-function mf462WidgetCanDisplay(){
- return Boolean(AUTH_USER&&AUTH_READY&&!S.loading&&!V115_STARTUP_GUARD&&
-  S.settings&&document.querySelector('#app .sidebar'));
-}
-function mf462SuspendWidget(){
- MF462_WIDGET_BOOT.ready=false;
- MF462_WIDGET_BOOT.epoch++;
- document.getElementById('mf441-process-widget')?.remove();
- document.body?.classList.remove('mf441-recovery-widget-active');
-}
-const mf462PaintBase=mf441Paint;
-mf441Paint=function(){
- if(!MF462_WIDGET_BOOT.ready||!mf462WidgetCanDisplay()){
-  document.getElementById('mf441-process-widget')?.remove();
-  document.body?.classList.remove('mf441-recovery-widget-active');
-  mf441RefreshSettingsStatus();
-  return;
- }
- // v441 reads cloud-backed position/visibility BEFORE DOM insertion; v462
- // CSS hides any transient node until the final placement is committed.
- const result=mf462PaintBase.apply(this,arguments);
- document.getElementById('mf441-process-widget')?.classList.add('mf462-ready');
- return result;
-};
-function mf462RevealAfterShell(){
- const epoch=++MF462_WIDGET_BOOT.epoch;
- // Two frames ensure the real dashboard has rendered once before the first
- // eligible widget paint. Do not race another login/logout or bootstrap.
- requestAnimationFrame(()=>requestAnimationFrame(()=>{
-  if(epoch!==MF462_WIDGET_BOOT.epoch||!mf462WidgetCanDisplay())return;
-  MF462_WIDGET_BOOT.ready=true;
-  mf441Paint();
- }));
-}
-const mf462RenderShellBase=renderShell;
-renderShell=function(){
- const result=mf462RenderShellBase.apply(this,arguments);
- if(!MF462_WIDGET_BOOT.ready)mf462RevealAfterShell();
- return result;
-};
-const mf462BootstrapBase=v115SafeBootstrap;
-v115SafeBootstrap=async function(){
- mf462SuspendWidget();
- return mf462BootstrapBase.apply(this,arguments);
-};
-const mf462StartWithDataBase=v115StartWithData;
-v115StartWithData=async function(){
- mf462SuspendWidget();
- return mf462StartWithDataBase.apply(this,arguments);
-};
-const mf462RenderAuthBase=renderAuthScreen;
-renderAuthScreen=function(){
- mf462SuspendWidget();
- return mf462RenderAuthBase.apply(this,arguments);
-};
-window.MediaFlowV462=Object.freeze({
- version:MF462_VERSION,
- isReady:()=>MF462_WIDGET_BOOT.ready,
- canDisplay:mf462WidgetCanDisplay,
- suspend:mf462SuspendWidget,
- reveal:mf462RevealAfterShell
-});
-MediaFlowRuntime.version=MF462_VERSION;
-/* MediaFlow v463 — show each recommended Seasonal Anime title's VERIFIED
- * fresh episodes remaining, in addition to existing category-wide totals.
- * The saved v377/v402 ledger and v401EpisodeOutcome are authoritative:
- * never invent a count from planned totals, an old scan, or manual detection.
- */
-const MF463_VERSION=463;
-function mf463FreshForRecommendedTitle(item,cat){
- if(!item||!v401IsSeasonal(cat)||!v401AutomaticEnabled()||
-   (typeof v380Mode==='function'&&v380Mode()==='manual'))return null;
- const status=v401EpisodeOutcome(item);
- const hit=S.settings?.v377JikanLedger?.[String(item.id)];
- const available=Number(hit?.available);
- // No trustworthy current result: display "Awaiting verification", never 0.
- if(!['fresh','none'].includes(status)||!Number.isSafeInteger(available)||available<0)
-  return {status:'unknown',count:null,available:null,progress:v401Progress(item),source:''};
- const progress=v401Progress(item),count=Math.max(0,available-progress);
- const sourceKey=String(hit?.v402Winner||hit?.v380Provider||'');
- const source=sourceKey&&V380_NAMES[sourceKey]?V380_NAMES[sourceKey]:'';
- return {status:count>0?'fresh':'none',count,available,progress,source};
-}
-function mf463FreshCard(report){
- if(!report)return '';
- const known=report.count!==null;
- const title='Recommended title · fresh episodes left';
- const count=known?report.count.toLocaleString():'—';
- const detail=!known?'Awaiting verification · Refresh Fresh Episodes to check this title':
-  report.count===0?'Caught up · '+report.available.toLocaleString()+' aired episodes verified':
-  report.available.toLocaleString()+' aired · '+report.progress.toLocaleString()+' logged'+
-   (report.source?' · '+escapeHtml(report.source):'');
- return '<section class="mf419-stat mf463-fresh-stat" data-mf463-fresh="'+report.status+
-  '" aria-label="Fresh episodes left for the recommended title">'+
-  '<span>'+mf419Icon('flame')+' '+title+'</span>'+
-  '<strong>'+count+'</strong><small>'+detail+'</small></section>';
-}
-// v419 owns the recommendation card and its existing two category statistics.
-// Add one title-specific statistic WITHOUT modifying the saved recommendation,
-// the verification pipeline, title progress or the global Category Remaining.
-const mf463RecBase=mf395DashboardRecommendationHtml;
-mf395DashboardRecommendationHtml=function(task,cat){
- const html=String(mf463RecBase.apply(this,arguments)||'');
- if(!S.settings?.exactTitleRecommendations||
-    !html.includes('<div class="mf419-category-stats">')||
-    !task?.title)return html;
- const item=mf395DashboardRecommendedItem(task);
- const report=mf463FreshForRecommendedTitle(item,cat);
- if(!report)return html;
- return html.replace('<div class="mf419-category-stats">',
-  '<div class="mf419-category-stats">'+mf463FreshCard(report));
-};
-window.MediaFlowV463=Object.freeze({
- version:MF463_VERSION,
- freshForTitle:mf463FreshForRecommendedTitle,
- card:mf463FreshCard
-});
-MediaFlowRuntime.version=MF463_VERSION;
-/* MediaFlow v464 — External Ratings for MediaFlow Recommends.
- * Read existing, user-scoped v437/v450 Universal Metadata scores only.
- * Never download or manufacture a provider score on Dashboard render.
- * Display original scales; optionally adjust future title ranking using only
- * explicitly VERIFIED provider evidence. Personal ratings and Personal Order
- * remain independent of external rating signals.
- */
-const MF464_VERSION=464;
-const MF464_RATING_CACHE=new WeakMap();
-const MF464_INFLUENCE={off:0,light:4,balanced:8};
-const MF464_EMPTY_RATINGS=Object.freeze({rows:[],verified:[],average:null,verifiedCount:0,votes:0});
-function mf464Prefs(){
- const s=S.settings||{};
- return {show:s.v464ShowExternalRatings!==false,
-  influence:Object.hasOwn(MF464_INFLUENCE,s.v464RatingInfluence)?s.v464RatingInfluence:'off'};
-}
-function mf464RatingsForTitle(item){
- if(!item||typeof item!=='object')return MF464_EMPTY_RATINGS;
- const env=item.universalMetadata;
- if(!env||typeof env!=='object')return MF464_EMPTY_RATINGS;
- const cached=MF464_RATING_CACHE.get(item);
- if(cached&&cached.env===env&&cached.revision===env.updatedAt&&
-   cached.ratings===env.externalRatings&&cached.provenance===env.provenance)
-  return cached.result;
- const ratings=env.externalRatings&&typeof env.externalRatings==='object'&&!Array.isArray(env.externalRatings)?env.externalRatings:{};
- const provenance=env.provenance&&typeof env.provenance==='object'&&!Array.isArray(env.provenance)?env.provenance:{};
- const rows=[];
- for(const [key,label,defaultScale] of MF437_RATING_SOURCES){
-  const entry=ratings[key];
-  if(!entry||typeof entry!=='object'||Array.isArray(entry)||entry.score===null||
-     entry.score===undefined||String(entry.score).trim()==='')continue;
-  const score=Number(entry.score),scale=Number(entry.scale??defaultScale);
-  if(!Number.isFinite(score)||!Number.isFinite(scale)||scale<=0||scale>100000||
-     score<0||score>scale)continue;
-  const voteRaw=entry.votes;
-  const votes=voteRaw===null||voteRaw===undefined||String(voteRaw).trim()===''?null:Number(voteRaw);
-  const safeVotes=votes!==null&&Number.isSafeInteger(votes)&&votes>=0?votes:null;
-  const proof=provenance['rating.'+key]||{};
-  const manual=proof.source==='manual'||entry.source==='manual';
-  // Entries missing genuine provider provenance remain viewable but NEVER
-  // contribute to a verified average or recommendation score.
-  const verified=!manual&&proof.verified===true&&typeof proof.source==='string'&&
-   proof.source.trim().length>0&&(!entry.source||entry.source===proof.source);
-  const normalized=score/scale*100;
-  const weight=safeVotes===null?1:Math.max(0.6,Math.min(2.5,0.8+Math.log10(safeVotes+1)*0.33));
-  rows.push({key,label,score,scale,votes:safeVotes,normalized,verified,manual,
-   provider:verified?String(proof.source):'',weight});
- }
- const verified=rows.filter(row=>row.verified);
- const totalWeight=verified.reduce((sum,row)=>sum+row.weight,0);
- const average=totalWeight>0?verified.reduce((sum,row)=>sum+row.normalized*row.weight,0)/totalWeight:null;
- const votes=verified.reduce((sum,row)=>sum+(row.votes||0),0);
- const result={rows,verified,average,verifiedCount:verified.length,votes};
- MF464_RATING_CACHE.set(item,{env,ratings:env.externalRatings,provenance:env.provenance,revision:env.updatedAt,result});
- return result;
-}
-function mf464RatingBonus(item){
- const influence=MF464_INFLUENCE[mf464Prefs().influence];
- if(!influence)return 0;
- const {average,verifiedCount,votes}=mf464RatingsForTitle(item);
- if(average===null||verifiedCount===0)return 0;
- // A single obscure score is intentionally less influential than several
- // verified sources with substantive vote evidence. Caps are strict.
- const confidence=Math.min(1,0.35+Math.min(0.3,verifiedCount*0.12)+
-  Math.min(0.35,Math.log10(votes+1)*0.09));
- const centered=Math.max(-1,Math.min(1,(average-50)/50));
- return centered*influence*confidence;
-}
-const mf464ScoreBase=scoreLibraryTitle;
-scoreLibraryTitle=function(item,cat){
- const original=mf464ScoreBase.apply(this,arguments);
- return Number.isFinite(original)?original+mf464RatingBonus(item):original;
-};
-function mf464Formatted(value){
- return Number(value).toLocaleString(undefined,{maximumFractionDigits:2});
-}
-function mf464RatingTile(row){
- return '<div class="mf464-rating-tile" data-mf464-provider="'+escapeHtml(row.key)+'">'+
-  '<div class="mf464-provider">'+mf450ProviderMark(row.key)+'<strong>'+escapeHtml(row.label)+'</strong></div>'+
-  '<div class="mf464-score"><b>'+escapeHtml(mf464Formatted(row.score))+'</b><small>/ '+escapeHtml(mf464Formatted(row.scale))+'</small></div>'+
-  '<div class="mf464-row-foot"><span class="mf464-proof '+(row.verified?'mf464-proof-verified':'')+'">'+
-  (row.verified?'Verified provider':row.manual?'Manually entered':'Saved · unverified')+'</span>'+
-  (row.votes!==null?'<span>'+escapeHtml(row.votes.toLocaleString())+' votes</span>':'')+'</div></div>';
-}
-function mf464RatingsHtml(item){
- const data=mf464RatingsForTitle(item),prefs=mf464Prefs();
- const enabled=prefs.influence!=='off',bonus=enabled?mf464RatingBonus(item):0;
- const heading='<div class="mf419-group-title mf464-title">'+mf419Icon('star',20)+
-  '<strong>External ratings</strong><span>Separate from your personal rating</span></div>';
- const summary=data.verifiedCount&&data.average!==null?
-  '<div class="mf464-aggregate" role="note"><span class="mf464-aggregate-score">'+
-  escapeHtml((Math.round(data.average*10)/10).toLocaleString())+
-  '<small>/ 100</small></span><span><strong>'+
-  (data.verifiedCount>1?'Weighted verified-source average':'Verified-source normalized score')+
-  '</strong><small>'+data.verifiedCount+' verified source'+(data.verifiedCount===1?'':'s')+
-  ' · Original ratings shown below</small></span></div>':
-  '<p class="mf464-no-verification">No verified-source average yet. Manually entered or unverified scores never influence recommendations.</p>';
- const message=!data.rows.length?
-  '<p class="mf464-no-data">No external ratings saved for this title yet. Use Edit Title → Universal Metadata or verified Metadata Recovery to add them.</p>':
-  '<div class="mf464-rating-grid">'+data.rows.slice(0,4).map(mf464RatingTile).join('')+'</div>'+
-  (data.rows.length>4?'<details class="mf464-more"><summary>Show '+(data.rows.length-4)+
-    ' more saved source rating'+(data.rows.length===5?'':'s')+'</summary><div class="mf464-rating-grid">'+
-    data.rows.slice(4).map(mf464RatingTile).join('')+'</div></details>':'');
- const impact=enabled&&data.verifiedCount?
-  'Verified ratings contribute '+(bonus>=0?'+':'')+bonus.toFixed(1)+' to future title selection ('+
-    (prefs.influence==='light'?'Light · maximum ±4':'Balanced · maximum ±8')+').':
-  enabled?'Rating influence is enabled, but there are no verified provider scores for this title.':
-  'Ratings do not affect which title is recommended unless you enable influence in Settings.';
- return '<section class="mf419-insight-group mf464-recommend-ratings" aria-label="Saved external ratings for this recommended title">'+
-  heading+(data.rows.length?summary:'')+message+'<small class="mf464-impact">'+escapeHtml(impact)+
-  ' Saved ratings are shown without making network requests.</small></section>';
-}
-// v463 already wraps the v419 recommendation card. Insert AFTER title progress
-// and BEFORE the category statistics; do not change recommendation ID/history.
-const mf464RecBase=mf395DashboardRecommendationHtml;
-mf395DashboardRecommendationHtml=function(task,cat){
- const html=String(mf464RecBase.apply(this,arguments)||'');
- if(!mf464Prefs().show||!S.settings?.exactTitleRecommendations||!task?.title||
-  !html.includes('<div class="mf419-category-stats">'))return html;
- const item=mf395DashboardRecommendedItem(task);
- if(!item)return html;
- return html.replace('<div class="mf419-category-stats">',
-  mf464RatingsHtml(item)+'<div class="mf419-category-stats">');
-};
-function mf464SettingsHtml(){
- const prefs=mf464Prefs();
- return '<section class="mf464-settings" data-mf-setting-id="external-recommendation-ratings">'+
-  '<div class="mf464-settings-head">'+mf419Icon('star',19)+
-  '<div><strong>External ratings in MediaFlow Recommends</strong><small>Source-specific ratings already saved in Universal Metadata. No automatic API requests.</small></div></div>'+
-  '<label class="mf464-show-setting" data-mf-setting-id="v464ShowExternalRatings"><input type="checkbox" '+
-  (prefs.show?'checked ':'')+'onchange="App.mf464Setting(&#39;show&#39;,this.checked)">'+
-  '<span>Show saved external ratings on the recommended title card</span></label>'+
-  '<label class="mf464-influence-setting" data-mf-setting-id="v464RatingInfluence"><span>'+
-  '<strong>Use verified ratings for future title ranking</strong>'+
-  '<small>Personal Order keeps precedence. Your own rating is never replaced. Default: Off.</small></span>'+
-  '<select aria-label="External rating influence" onchange="App.mf464Setting(&#39;influence&#39;,this.value)">'+
-  [['off','Off · existing ranking unchanged'],['light','Light · up to ±4 points'],['balanced','Balanced · up to ±8 points']].map(([key,label])=>
-  '<option value="'+key+'" '+(prefs.influence===key?'selected':'')+'>'+label+'</option>').join('')+
-  '</select></label><p class="mf464-settings-note">Only verified provider ratings are normalized for ranking. Missing, manually entered, or unverified values do not count. Existing title picks change only when you reroll or generate a new recommendation.</p></section>';
-}
-const mf464SettingsRenderer=V219_PAGE_RENDERERS.get('settings');
-if(typeof mf464SettingsRenderer==='function')MediaFlowRuntime.registerPageRenderer('settings',function(ctx){
- const html=String(mf464SettingsRenderer.call(this,ctx)||'');
- if(!html.includes('mf404-recommendations-card')||html.includes('data-mf-setting-id="external-recommendation-ratings"'))return html;
- const host=document.createElement('div');host.innerHTML=html;
- const card=host.querySelector('.mf404-recommendations-card');
- if(!card)return html;
- card.insertAdjacentHTML('beforeend',mf464SettingsHtml());
- return host.innerHTML;
-});
-if(typeof v366RegisterSetting==='function'){
- v366RegisterSetting({id:'external-recommendation-ratings',section:'title-recommendations',
-  selector:'[data-mf-setting-id="external-recommendation-ratings"]',
-  label:'External ratings for recommendations',subgroup:'Title Recommendations',
-  keywords:['rating','external','IMDb','AniList','MyAnimeList','consensus','provider','ranking','score']});
- v366RegisterSetting({id:'v464RatingInfluence',section:'title-recommendations',
-  selector:'[data-mf-setting-id="v464RatingInfluence"]',
-  label:'External ratings ranking influence',subgroup:'Title Recommendations',
-  keywords:['weighted','rank','score','votes','personal order','verified','recommend']});
-}
-App.mf464Setting=function(key,value){
- const settings=S.settings||(S.settings={});
- if(key==='show')settings.v464ShowExternalRatings=Boolean(value);
- else if(key==='influence')settings.v464RatingInfluence=Object.hasOwn(MF464_INFLUENCE,value)?value:'off';
- else return;
- Promise.resolve(persistSettings()).catch(e=>{
-  console.warn('v464 external rating preference could not sync',e);
-  showToast('Unable to sync external-rating preferences. Try again.');
- });
-};
-window.MediaFlowV464=Object.freeze({version:MF464_VERSION,prefs:mf464Prefs,
- ratings:mf464RatingsForTitle,bonus:mf464RatingBonus,tiles:mf464RatingsHtml,
- settings:mf464SettingsHtml});
-MediaFlowRuntime.version=MF464_VERSION;
-/* MediaFlow v465 — concise Fresh Episodes label and strict seasonal targeting.
- * This is a read-only presentation correction for the v463 recommendation card.
- * The category must explicitly have Seasonal checked in Category Details,
- * AND fresh episode checking must not be Manual. An ID named "seasonal" alone
- * is not sufficient, nor is the task's category if the recommended title
- * is associated with a different category.
- */
-const MF465_VERSION=465;
-function mf465EligibleRecommendedCategory(item){
- if(!item)return null;
- const category=getCategory(item.categoryId);
- if(!category||category.seasonal!==true)return null;
- if(!v401AutomaticEnabled()||
-    (typeof v380Mode==='function'&&v380Mode()==='manual'))return null;
- return category;
-}
-const mf465FreshBase=mf463FreshForRecommendedTitle;
-mf463FreshForRecommendedTitle=function(item,taskCategory){
- const category=mf465EligibleRecommendedCategory(item);
- if(!category)return null;
- // Pass the actual recommended title's category to v463's original verified
- // ledger calculation; keep all unknown / 0 / source / progress safeguards.
- return mf465FreshBase.call(this,item,category);
-};
-const mf465CardBase=mf463FreshCard;
-mf463FreshCard=function(report){
- return mf465CardBase.apply(this,arguments)
-  .replace('Recommended title · fresh episodes left','Fresh episodes left');
-};
-window.MediaFlowV465=Object.freeze({
- version:MF465_VERSION,
- eligibleCategory:mf465EligibleRecommendedCategory,
- freshForTitle:(item,cat)=>mf463FreshForRecommendedTitle(item,cat),
- card:report=>mf463FreshCard(report)
-});
-MediaFlowRuntime.version=MF465_VERSION;
-/* MediaFlow v466 — opt-in interval-controlled automatic refresh of the
- * CURRENT recommended title's verified metadata, provider ratings and missing
- * external IDs. Runs in an open tab (or catches up on reopen); GitHub Pages
- * cannot schedule reliable work while every device/browser is closed.
- *
- * Reuses v439/v450 adapters, evidence, proposals and v442 shared process lock.
- * No unverified provider result, unmatched ID, manual field or personal rating
- * can be overwritten. Never changes the recommended title or reroll history.
- */
-const MF466_VERSION=466;
-const MF466_INTERVALS=[0,6,12,24,72,168];
-const MF466_DEFAULT={hours:24,ratings:true,metadata:true,ids:true};
-const MF466={working:false,account:'',itemId:'',state:'idle',note:'',errors:[],provider:'',
- changed:0,checkedAt:0,timer:null,scheduleTimer:null,abort:null,sequence:0};
-function mf466Prefs(){
- const raw=S.settings?.v466RecommendedRefresh||{};
- return {
-  hours:MF466_INTERVALS.includes(Number(raw.hours))?Number(raw.hours):24,
-  ratings:raw.ratings!==false,metadata:raw.metadata!==false,ids:raw.ids!==false
- };
-}
-function mf466Store(){return S.settings?.v466RecommendedRefreshState||{};}
-function mf466History(id){return mf466Store()[String(id)]||{};}
-function mf466Date(ts){
- return Number.isFinite(Number(ts))&&Number(ts)>0?
-  new Date(Number(ts)).toLocaleString():'Never';
-}
-function mf466Recommended(){
- if(!AUTH_USER||!AUTH_READY||S.loading||!S.settings?.exactTitleRecommendations||
-  !S.sessionActive||!S.currentTask?.title)return null;
- return mf395DashboardRecommendedItem(S.currentTask)||null;
-}
-function mf466Same(account,id,item){
- return Boolean(mf439Account()===account&&mf466Recommended()?.id!=null&&
-  String(mf466Recommended().id)===String(id)&&mf439Item(id)===item);
-}
-function mf466Providers(item){
- // Use the SAME enabled/configured provider set as Quick Metadata Recovery.
- const candidates=typeof mf453Ready==='function'?mf453Ready('metadata',item):mf439Preferences().enabled;
- const enabled=new Set(mf439Preferences().enabled);
- const valid=new Set([...Object.keys(MF439_PUBLIC),...MF439_GATEWAY]);
- const ids=item?.externalIds||{},ratings=item?.universalMetadata?.externalRatings||{};
- const bias={jikan:['mal'],anilist:['anilist'],kitsu:['kitsu'],tvmaze:['tvmaze'],
-  vndb:['vndb'],steam:['steam_app'],openlibrary:['openlibrary_work'],itunes:['apple_music_album'],
-  tmdb:['tmdb','tmdb_tv'],omdb:['imdb'],malofficial:['mal'],simkl:['simkl'],trakt:['trakt']};
- return [...new Set(candidates)].filter(p=>enabled.has(p)&&valid.has(p))
- .map((p,index)=>({p,index,score:(bias[p]||[p]).some(id=>ids[id])?3:
-  Object.values(ratings).some(r=>r?.source===p)?2:0}))
- .sort((a,b)=>b.score-a.score||a.index-b.index).slice(0,4).map(x=>x.p);
-}
-function mf466AutoDue(item,now=Date.now()){
- const p=mf466Prefs();
- if(!p.hours||(!p.ratings&&!p.metadata&&!p.ids))return false;
- const h=mf466History(item.id),last=Math.max(Number(h.lastAttempt)||0,Number(h.lastSuccess)||0);
- // Failed checks retry at most once per hour, success at the configured interval.
- const retry=Number(h.success)===0?3600000:p.hours*3600000;
- return !last||now-last>=retry;
-}
-function mf466StatusHtml(item){
- const h=mf466History(item.id),p=mf466Prefs(),active=MF466.working&&MF466.itemId===String(item.id);
- const label=active?'Checking '+(MF466.provider||'providers')+'…':
-  MF466.state==='error'&&MF466.itemId===String(item.id)?MF466.note:
-  h.lastAttempt?'Last checked '+mf466Date(h.lastAttempt)+(h.updated?' · '+h.updated+' updated':' · No changes'):
-  'Not checked yet';
- const description=p.hours?'Automatic every '+p.hours+' hours while MediaFlow is open':'Automatic refresh off';
- return '<section class="mf466-refresh" data-mf466-title="'+escapeHtml(String(item.id))+'">'+
-  '<div class="mf466-refresh-details">'+mf419Icon('progress',18)+
-  '<span><strong>Ratings & metadata refresh</strong><small data-mf466-status role="status" aria-live="polite">'+
-  escapeHtml(label)+'</small><small>'+escapeHtml(description)+'</small></span></div>'+
-  '<button type="button" class="btn btn-sm btn-ghost mf466-now" onclick="App.mf466RefreshNow()" '+
-  (active?'disabled ':'')+'aria-label="Refresh recommended title ratings and metadata now">'+
-  mf419Icon('progress',15)+' '+(active?'Refreshing…':'Refresh now')+'</button></section>';
-}
-function mf466Repaint(){
- const item=mf466Recommended(),widget=document.querySelector('.mf466-refresh');
- if(item&&widget&&widget.dataset.mf466Title===String(item.id))
-  widget.outerHTML=mf466StatusHtml(item);
- if(!item||!widget||widget.dataset.mf466Title!==String(item.id))return;
- const info=document.querySelector('.mf464-recommend-ratings');
- if(info&&S.settings?.v464ShowExternalRatings!==false)
-  info.outerHTML=mf464RatingsHtml(item);
-}
-function mf466ExternalCandidates(item,rows){
- const proposed=new Map(),conflicts=new Set(),current=item.externalIds||{};
- const allowed=new Set(V377_ID_PROVIDERS.map(x=>x[0]));
- for(const row of rows){
-  for(const [key,value] of Object.entries(row.externalIds||{})){
-   const id=String(value??'').trim();
-   if(!allowed.has(key)||current[key]!=null&&String(current[key]).trim()!==''||
-     !id||id.length>120||!(/^[A-Za-z0-9_:.-]+$/.test(id)))continue;
-   if(proposed.has(key)&&proposed.get(key)!==id)conflicts.add(key);
-   else proposed.set(key,id);
-  }
- }
- for(const key of conflicts)proposed.delete(key);
- return proposed;
-}
-function mf466ApplyVerified(item,rows,opts){
- const timestamp=Date.now();
- // Build and apply missing-field proposals using existing guarded recovery.
- const preview=mf439Proposals(item,rows);
- if(!opts.ratings||!opts.metadata)
-  for(const prop of preview.proposals||[])
-   if(!opts.ratings&&prop.token.startsWith('rating.')||
-      !opts.metadata&&!prop.token.startsWith('rating.'))prop.selected=false;
- const filled=mf439Apply(item,preview,'automatic');
- let changed=filled.changed||0,ratings=filled.ratings||0,metadata=(filled.legacy||0)+(filled.fields||0),ids=0;
- const env=mf437Normalized(item.universalMetadata);
- const chosen=new Map(),conflicts=new Set();
- for(const row of rows){
-  const evidence=mf439Evidence(item,row);
-  if(evidence.confidence<mf439Preferences().minimumConfidence)continue;
-  for(const [prefix,values] of [['rating',row.ratings],['field',row.fields],['legacy',row.legacy]]){
-   if(prefix==='rating'&&!opts.ratings||prefix!=='rating'&&!opts.metadata)continue;
-   for(const [key,value] of Object.entries(values||{})){
-    const token=prefix+'.'+key,valid=mf439Value(token,value);
-    if(valid==null)continue;
-    // Conflicting results for the same token require manual review.
-    const fingerprint=mf439ValueKey(valid);
-    const old=chosen.get(token);
-    if(old&&old.fingerprint!==fingerprint){conflicts.add(token);continue;}
-    if(!old||evidence.confidence>old.confidence)
-     chosen.set(token,{token,value:valid,provider:row.provider,recordId:String(row.recordId),
-      confidence:evidence.confidence,fingerprint});
-   }
-  }
- }
- for(const [token,row] of chosen){
-  if(conflicts.has(token)||mf439IsProtected(item,token))continue;
-  const old=env.provenance[token];
-  // Existing data changes only when the SAME provider originally populated it
-  // and the provider's verified record ID is unchanged. Never touch manual.
-  if(!old||old.verified!==true||old.source!==row.provider||
-    old.recordId&&String(old.recordId)!==row.recordId)continue;
-  const previous=mf439FieldValue(item,token);
-  if(!mf439Has(previous?.score??previous)||mf439ValueKey(previous)===row.fingerprint)continue;
-  let done=false;
-  if(token.startsWith('rating.')){
-   done=mf437SetRating(env,token.slice(7),row.value,
-    {source:row.provider,verified:true,force:true,updatedAt:timestamp});
-   if(done)ratings++;
-  }else if(token.startsWith('field.')){
-   done=mf437SetField(env,token.slice(6),row.value,
-    {source:row.provider,verified:true,force:true,updatedAt:timestamp});
-   if(done)metadata++;
-  }else if(token.startsWith('legacy.')){
-   const key=token.slice(7);
-   if(MF439_LEGACY_FIELDS[key]&&item.richMetadataManual?.[key]!==true){
-    item[key]=structuredClone(row.value);done=true;metadata++;
-   }
-  }
-  if(done){changed++;env.provenance[token]={source:row.provider,verified:true,
-   recordId:row.recordId,updatedAt:timestamp};}
- }
- if(changed){
-  item.universalMetadata=env;
-  item.modifiedAt=Math.max(Number(item.modifiedAt)||0,timestamp);
- }
- if(opts.ids){
-  const allowed=mf466ExternalCandidates(item,rows),copy={...(item.externalIds||{})};
-  for(const [key,value] of allowed){if(copy[key]!=null&&String(copy[key]).trim()!=='')continue;
-   copy[key]=value;ids++;changed++;}
-  if(ids)item.externalIds=copy;
- }
- if(changed){
-  item.modifiedAt=Math.max(Number(item.modifiedAt)||0,timestamp);
-  item.v466RecommendedRefreshHistory=(Array.isArray(item.v466RecommendedRefreshHistory)?
-   item.v466RecommendedRefreshHistory:[]).slice(-9);
-  item.v466RecommendedRefreshHistory.push({at:timestamp,ratings,metadata,ids,
-   providers:[...new Set(rows.map(row=>row.provider))].slice(0,8)});
- }
- return {changed,ratings,metadata,ids};
-}
-function mf466Cancel(){MF466.sequence++;MF466.abort?.abort();}
-async function mf466Refresh(force=false){
- const item=mf466Recommended(),prefs=mf466Prefs();
- if(!item)return {ok:false,reason:'No active recommended title'};
- if(!prefs.ratings&&!prefs.metadata&&!prefs.ids)
-  return {ok:false,reason:'Enable at least one refresh target in Settings'};
- if(!force&&!mf466AutoDue(item))return {ok:false,reason:'Not due yet'};
- if(!navigator.onLine)return {ok:false,reason:'Offline; will retry when connected'};
- if(MF466.working)return {ok:false,reason:'Recommended title refresh already running'};
- if(MF439.working||MF424.running||MF442.process||
-  mf442CoverLockIsActive()||mf442MetadataLockIsActive()||
-  (typeof MF453Quick!=='undefined'&&MF453Quick.current))
-  return {ok:false,reason:'Another recovery is running. Try again when it finishes.'};
- const providers=mf466Providers(item);
- if(!providers.length)return {ok:false,reason:'No enabled, ready metadata providers. Configure them in Provider Management.'};
- if(!mf442AcquireProcess('metadata'))return {ok:false,reason:'Another tab owns recovery'};
- if(!mf439AcquireLease()){mf442ReleaseProcess('metadata');return {ok:false,reason:'Another tab owns metadata recovery'};}
- const account=mf439Account(),id=String(item.id),before=mf442TitleSignature(item);
- const priorAccount=MF439.account,epoch=++MF466.sequence,controller=new AbortController();
- MF466.abort=controller;MF466.account=account;MF466.itemId=id;MF466.working=true;
- MF466.state='working';MF466.note='';MF466.changed=0;MF466.provider='';
- MF439.account=account;MF439.working=true;
- const renewal=setInterval(()=>{
-  if(!mf442RenewMetadataLease()){controller.abort();}
- },8000);
- mf466Repaint();
- const result={ok:false,changed:0,failures:[]};
- try{
-  const found=await mf439Discover(item,providers,provider=>{
-   MF466.provider=provider;mf466Repaint();
-  },controller.signal);
-  result.failures=found.failures||[];
-  if(controller.signal.aborted||epoch!==MF466.sequence||!mf442ProcessOwned('metadata')||
-    !mf442MetadataLeaseOwned()||!mf466Same(account,id,item)||before!==mf442TitleSignature(item))
-   throw Error('Title, account or recovery ownership changed. Nothing saved.');
-  // Only exact title+year or exact title+existing ID can be automatically
-  // applied. Name-only matches remain manual-review-only.
-  const verified=(found.results||[]).filter(row=>
-   mf439Evidence(item,row).confidence>=mf439Preferences().minimumConfidence);
-  const counts=verified.length?mf466ApplyVerified(item,verified,prefs):{changed:0,ratings:0,metadata:0,ids:0};
-  result.changed=counts.changed;
-  if(controller.signal.aborted||epoch!==MF466.sequence||!mf466Same(account,id,item))
-   throw Error('Recommendation changed; refresh stopped safely.');
-  const now=Date.now(),store={...mf466Store()};
-  store[id]={lastAttempt:now,lastSuccess:verified.length?now:0,
-   success:verified.length?1:0,updated:counts.changed,
-   providers:verified.length,failures:result.failures.length};
-  const trimmed=Object.entries(store).sort((a,b)=>(b[1]?.lastAttempt||0)-(a[1]?.lastAttempt||0)).slice(0,24);
-  S.settings.v466RecommendedRefreshState=Object.fromEntries(trimmed);
-  // One atomic cloud-backed state commit after guarded Library mutations and
-  // timestamp update, never a per-provider write.
-  await saveState();
-  MF466.checkedAt=now;MF466.changed=counts.changed;
-  MF466.state=verified.length?'done':'error';
-  MF466.note=verified.length?counts.changed+' updated':'No high-confidence provider match';
-  result.ok=verified.length>0;
-  if(counts.changed)try{v53InvalidateLibraryCache();}catch(_){}
- }catch(e){
-  MF466.state='error';MF466.note=String(e?.message||e).slice(0,170);
-  result.reason=MF466.note;console.warn('Recommended metadata refresh skipped',e);
- }finally{
-  clearInterval(renewal);MF466.working=false;MF466.provider='';MF466.abort=null;
-  MF439.working=false;MF439.account=priorAccount;
-  mf439ReleaseLease();mf442ReleaseProcess('metadata');mf466Repaint();
- }
- return result;
-}
-function mf466CheckSchedule(){
- if(MF466.working)return;
- const title=mf466Recommended();
- if(!title||!mf466AutoDue(title))return;
- void mf466Refresh(false);
-}
-const mf466DashboardBase=mf395DashboardRecommendationHtml;
-mf395DashboardRecommendationHtml=function(task,category){
- const markup=String(mf466DashboardBase.apply(this,arguments)||'');
- const item=mf395DashboardRecommendedItem(task);
- if(!item||!markup.includes('mf419-recommend-card'))return markup;
- return markup.replace('<div class="mf419-category-stats">',
-  mf466StatusHtml(item)+'<div class="mf419-category-stats">');
-};
-const mf466RenderShellBase=renderShell;
-renderShell=function(){
- const result=mf466RenderShellBase.apply(this,arguments);
- if(MF466.scheduleTimer)clearTimeout(MF466.scheduleTimer);
- MF466.scheduleTimer=setTimeout(()=>{MF466.scheduleTimer=null;mf466CheckSchedule();},1300);
- return result;
-};
-function mf466SettingsHtml(){
- const p=mf466Prefs();
- const checkbox=(key,label)=>'<label class="mf466-option"><input type="checkbox" '+
-  (p[key]?'checked ':'')+'onchange="App.mf466Set(&#39;'+key+'&#39;,this.checked)"><span>'+label+'</span></label>';
- return '<section class="mf466-settings" data-mf-setting-id="v466RecommendedRefresh">'+
-  '<div class="mf466-settings-head">'+mf419Icon('progress',20)+
-  '<div><strong>Automatic recommended-title ratings & metadata</strong>'+
-  '<small>Checks the current recommended title while MediaFlow is open, and catches up after reopening.</small></div></div>'+
-  '<label class="mf466-interval">Automatic refresh interval<select onchange="App.mf466Set(&#39;hours&#39;,Number(this.value))" aria-label="Recommended-title refresh interval">'+
-  [[0,'Off'],[6,'Every 6 hours'],[12,'Every 12 hours'],[24,'Every 24 hours (recommended)'],
-   [72,'Every 3 days'],[168,'Every 7 days']].map(([v,t])=>
-   '<option value="'+v+'" '+(p.hours===v?'selected':'')+'>'+t+'</option>').join('')+
-  '</select></label><div class="mf466-options">'+
-  checkbox('ratings','Refresh verified external ratings and vote counts')+
-  checkbox('metadata','Fill missing metadata and update provider-owned verified fields')+
-  checkbox('ids','Recover missing verified External IDs (never replace existing IDs)')+
-  '</div><p>Always respects manually protected fields, verified ID matches, enabled providers, recovery locks and API cooldowns. '+
-  'Does not reroll your current title or alter your personal rating. GitHub Pages cannot run scheduled checks while the website is completely closed.</p></section>';
-}
-const mf466SettingsBase=V219_PAGE_RENDERERS.get('settings');
-if(typeof mf466SettingsBase==='function')MediaFlowRuntime.registerPageRenderer('settings',function(ctx){
- const html=String(mf466SettingsBase.call(this,ctx)||'');
- if(!html.includes('mf404-recommendations-card')||html.includes('data-mf-setting-id="v466RecommendedRefresh"'))return html;
- const host=document.createElement('div');host.innerHTML=html;
- const card=host.querySelector('.mf404-recommendations-card');
- card?.insertAdjacentHTML('beforeend',mf466SettingsHtml());
- return host.innerHTML;
-});
-if(typeof v366RegisterSetting==='function')v366RegisterSetting({
- id:'v466RecommendedRefresh',section:'title-recommendations',
- selector:'[data-mf-setting-id="v466RecommendedRefresh"]',
- label:'Automatic recommended title metadata refresh',subgroup:'Title Recommendations',
- keywords:['automatic','interval','periodic','refresh','metadata','external ratings','ids','schedule','update','providers']
-});
-App.mf466Set=function(key,value){
- if(!Object.hasOwn(MF466_DEFAULT,key))return;
- const p=mf466Prefs();
- if(key==='hours')p.hours=MF466_INTERVALS.includes(Number(value))?Number(value):24;
- else p[key]=Boolean(value);
- S.settings.v466RecommendedRefresh=p;
- Promise.resolve(persistSettings()).catch(e=>console.warn('Recommended metadata settings sync failed',e));
-};
-App.mf466RefreshNow=async function(){
- const result=await mf466Refresh(true);
- if(!result.ok)showToast(result.reason||MF466.note||'No verified source updates available.');
- else showToast(result.changed?result.changed+' verified metadata value(s) updated.':
-  'Recommended title already up to date.');
-};
-MF466.timer=setInterval(mf466CheckSchedule,60000);
-window.addEventListener('online',()=>setTimeout(mf466CheckSchedule,1200));
-window.MediaFlowV466=Object.freeze({
- version:MF466_VERSION,prefs:mf466Prefs,providers:mf466Providers,
- autoDue:mf466AutoDue,apply:mf466ApplyVerified,refresh:mf466Refresh,
- cancel:mf466Cancel,status:mf466StatusHtml,settings:mf466SettingsHtml,
- current:()=>({working:MF466.working,state:MF466.state,note:MF466.note,
-  itemId:MF466.itemId,changed:MF466.changed})
-});
-MediaFlowRuntime.version=MF466_VERSION;
-/* v467: official brand SVG contours from Simple Icons (CC0 icon geometry; trademarks remain their owners). Offline-bundled. */
-const MF467_LOGOS_A=Object.freeze({"imdb":"<path d=\"M22.3781 0H1.6218C.7411.0583.0587.7437.0018 1.5953l-.001 20.783c.0585.8761.7125 1.543 1.5559 1.6191A.337.337 0 0 0 1.6016 24h20.7971a.4579.4579 0 0 0 .0437-.002c.8727-.0768 1.5568-.8271 1.5568-1.7085V1.7098c0-.8914-.696-1.6416-1.584-1.7078A.3294.3294 0 0 0 22.3781 0zm0 .496a1.2144 1.2144 0 0 1 1.1252 1.2139v20.5797c0 .6377-.4875 1.1602-1.1045 1.2145H1.6016c-.5967-.0543-1.0645-.5297-1.1053-1.1258V1.6284C.5371 1.0185 1.0184.5364 1.6217.496h20.7564zM4.7954 8.2603v7.3636H2.8899V8.2603h1.9055zm6.5367 0v7.3636H9.6707v-4.9704l-.6711 4.9704H7.813l-.6986-4.8618-.0066 4.8618h-1.668V8.2603h2.468c.0748.4476.1492.9694.2307 1.5734l.2712 1.8713.4407-3.4447h2.4817zm2.9772 1.3289c.0742.0404.122.108.1417.2034.0279.0953.0345.3118.0345.6442v2.8548c0 .4881-.0345.7867-.0955.8954-.0609.1152-.2304.1695-.5018.1695V9.5211c.204 0 .3457.0205.4211.0681zm-.0211 6.0347c.4543 0 .8006-.0265 1.0245-.0742.2304-.0477.4204-.1357.5694-.2648.1556-.1218.2642-.298.3251-.5219.0611-.2238.1021-.6648.1021-1.3224v-2.5832c0-.6986-.0271-1.1668-.0742-1.4039-.041-.237-.1431-.4543-.3126-.6437-.1695-.1973-.4198-.3324-.7456-.421-.3191-.0808-.8542-.1285-1.7694-.1285h-1.4244v7.3636h2.3051zm5.14-1.7827c0 .3523-.0199.5762-.0544.6708-.033.0947-.1894.1424-.3046.1424-.1086 0-.19-.0477-.2238-.1351-.041-.0887-.0609-.2986-.0609-.6238v-1.9469c0-.3324.0199-.5423.0543-.6237.0338-.0808.1086-.122.2171-.122.1153 0 .2709.0412.3114.1425.041.0947.0609.2986.0609.6032v1.8926zm-2.4747-5.5809v7.3636h1.7157l.1152-.4675c.1556.1894.3251.3324.5152.4271.1828.0881.4608.1357.678.1357.3047 0 .5629-.0748.7802-.237.2165-.1562.3589-.3462.4198-.5628.0543-.2173.0887-.543.0887-.9841v-2.0675c0-.4409-.0139-.7324-.0344-.8681-.0199-.1357-.0742-.2781-.1695-.4204-.1021-.1425-.2437-.251-.4272-.3325-.1834-.0742-.3999-.1152-.6576-.1152-.2172 0-.4952.0477-.6846.1285-.1835.0887-.353.2238-.5086.4007V8.2603h-1.8309z\"/>","trakt":"<path d=\"m15.082 15.107-.73-.73 9.578-9.583a4.499 4.499 0 0 0-.115-.575L13.662 14.382l1.08 1.08-.73.73-1.81-1.81L23.422 3.144c-.075-.15-.155-.3-.25-.44L11.508 14.377l2.154 2.155-.73.73-7.193-7.199.73-.73 4.309 4.31L22.546 1.86A5.618 5.618 0 0 0 18.362 0H5.635A5.637 5.637 0 0 0 0 5.634V18.37A5.632 5.632 0 0 0 5.635 24h12.732C21.477 24 24 21.48 24 18.37V6.19l-8.913 8.918zm-4.314-2.155L6.814 8.988l.73-.73 3.954 3.96zm1.075-1.084-3.954-3.96.73-.73 3.959 3.96zm9.853 5.688a4.141 4.141 0 0 1-4.14 4.14H6.438a4.144 4.144 0 0 1-4.139-4.14V6.438A4.141 4.141 0 0 1 6.44 2.3h10.387v1.04H6.438c-1.71 0-3.099 1.39-3.099 3.1V17.55c0 1.71 1.39 3.105 3.1 3.105h11.117c1.71 0 3.1-1.395 3.1-3.105v-1.754h1.04v1.754z\"/>","rottentomatoes":"<path d=\"M5.866 0L4.335 1.262l2.082 1.8c-2.629-.989-4.842 1.4-5.012 2.338 1.384-.323 2.24-.422 3.344-.335-7.042 4.634-4.978 13.148-1.434 16.094 5.784 4.612 13.77 3.202 17.91-1.316C27.26 13.363 22.993.65 10.86 2.766c.107-1.17.633-1.503 1.243-1.602-.89-1.493-3.67-.734-4.556 1.374C7.52 2.602 5.866 0 5.866 0zM4.422 7.217H6.9c2.673 0 2.898.012 3.55.202 1.06.307 1.868.973 2.313 1.904.05.106.092.206.13.305l7.623.008.027 2.912-2.745-.024v7.549l-2.982-.016v-7.522l-2.127.016a2.92 2.92 0 0 1-1.056 1.134c-.287.176-.3.19-.254.264.127.2 2.125 3.642 2.125 3.659l-3.39.019-2.013-3.376c-.034-.047-.122-.068-.344-.084l-.297-.02.037 3.48-3.075-.038zm3.016 2.288l.024.338c.014.186.024.729.024 1.206v.867l.582-.025c.32-.013.695-.049.833-.078.694-.146 1.048-.478 1.087-1.018.027-.378-.063-.636-.303-.87-.318-.309-.761-.416-1.733-.418Z\"/>","mal":"<path d=\"M14.921 6.479c-.82 0-3.683 0-4.947 3.156-.662 1.652-.986 4.812.876 7.886l1.934-1.41s-.767-1.095-1.083-3.191h2.897l.022 3.19h2.604V8.835h-2.581v2.043l-2.46-.023s.413-2.408 2.877-2.336h2.454l-.572-2.04ZM0 6.528v9.624h2.348v-5.84l2.031 2.664 2.047-2.652v5.828h2.336V6.528H6.437L4.368 9.474 2.31 6.528Zm18.447.022v9.583h5.022L24 14.09h-3.232V6.55Z\"/>","anilist":"<path d=\"M24 17.53v2.421c0 .71-.391 1.101-1.1 1.101h-5l-.057-.165L11.84 3.736c.106-.502.46-.788 1.053-.788h2.422c.71 0 1.1.391 1.1 1.1v12.38H22.9c.71 0 1.1.392 1.1 1.101zM11.034 2.947l6.337 18.104h-4.918l-1.052-3.131H6.019l-1.077 3.131H0L6.361 2.948h4.673zm-.66 10.96-1.69-5.014-1.541 5.015h3.23z\"/>","kitsu":"<path d=\"M1.429 5.441a12.478 12.478 0 0 0 1.916 2.056c.011.011.022.011.022.022.452.387 1.313.947 1.937 1.173 0 0 3.886 1.496 4.091 1.582a1.4 1.4 0 0 0 .237.075.694.694 0 0 0 .808-.549c.011-.065.022-.172.022-.248V5.161c.011-.667-.205-1.679-.398-2.239 0-.011-.011-.022-.011-.032A11.979 11.979 0 0 0 8.824.36L8.781.285a.697.697 0 0 0-.958-.162c-.054.032-.086.075-.129.119L7.608.36a4.743 4.743 0 0 0-.786 3.412 8.212 8.212 0 0 0-.775.463c-.043.032-.42.291-.71.56A4.803 4.803 0 0 0 1.87 4.3c-.043.011-.097.021-.14.032-.054.022-.107.043-.151.076a.702.702 0 0 0-.193.958l.043.075zM8.222 1.07c.366.614.678 1.249.925 1.917-.495.086-.98.215-1.453.388a3.918 3.918 0 0 1 .528-2.305zM4.658 5.463a7.467 7.467 0 0 0-.893 1.216 11.68 11.68 0 0 1-1.453-1.55 3.825 3.825 0 0 1 2.346.334zm13.048-.302a7.673 7.673 0 0 0-2.347-.474 7.583 7.583 0 0 0-3.811.818l-.215.108v3.918c0 .054 0 .258-.032.431a1.535 1.535 0 0 1-.646.98 1.545 1.545 0 0 1-1.152.247 2.618 2.618 0 0 1-.409-.118 747.6 747.6 0 0 1-3.402-1.313 8.9 8.9 0 0 0-.323-.129 30.597 30.597 0 0 0-3.822 3.832l-.075.086a.698.698 0 0 0 .538 1.098.676.676 0 0 0 .42-.118c.011-.011.022-.022.043-.032 1.313-.947 2.756-1.712 4.284-2.325a.7.7 0 0 1 .818.13.704.704 0 0 1 .054.915l-.237.388a20.277 20.277 0 0 0-1.97 4.306l-.032.129a.646.646 0 0 0 .108.538.713.713 0 0 0 .549.301.657.657 0 0 0 .42-.118c.054-.043.108-.086.151-.14l.043-.065a18.95 18.95 0 0 1 1.765-2.153 20.156 20.156 0 0 1 10.797-6.018c.032-.011.065-.011.097-.011.237.011.42.215.409.452a.424.424 0 0 1-.344.398c-3.908.829-10.948 5.469-8.483 12.208.043.108.075.172.129.269a.71.71 0 0 0 .538.301.742.742 0 0 0 .657-.398c.398-.754 1.152-1.593 3.326-2.497 6.061-2.508 7.062-6.093 7.17-8.364v-.129a7.716 7.716 0 0 0-5.016-7.451zm-6.083 17.762c-.56-1.669-.506-3.283.151-4.823 1.26 2.035 3.456 2.207 3.456 2.207-2.25.937-3.133 1.863-3.607 2.616z\"/>","tmdb":"<path d=\"M6.62 12a2.291 2.291 0 0 1 2.292-2.295h-.013A2.291 2.291 0 0 1 11.189 12a2.291 2.291 0 0 1-2.29 2.291h.013A2.291 2.291 0 0 1 6.62 12zm10.72-4.062h4.266a2.291 2.291 0 0 0 2.29-2.291 2.291 2.291 0 0 0-2.29-2.296H17.34a2.291 2.291 0 0 0-2.291 2.296 2.291 2.291 0 0 0 2.29 2.29zM2.688 20.645h8.285a2.291 2.291 0 0 0 2.291-2.292 2.291 2.291 0 0 0-2.29-2.295H2.687a2.291 2.291 0 0 0-2.291 2.295 2.291 2.291 0 0 0 2.29 2.292zm10.881-6.354h.81l1.894-4.586H15.19l-1.154 3.008h-.013l-1.135-3.008h-1.154zm4.208 0h1.011V9.705h-1.011zm2.878 0h3.235v-.93h-2.223v-.933h1.99v-.934h-1.99v-.855h2.107v-.934h-3.112zM1.31 7.941h1.01V4.247h1.31v-.895H0v.895h1.31zm3.747 0h1.011V5.959h1.958v1.984h1.011v-4.59h-1.01v1.711H6.061V3.351H5.057zm5.348 0h3.242v-.933H11.41v-.934h1.99v-.933h-1.99v-.856h2.107v-.934h-3.112zM.162 14.296h1.005v-3.52h.013l1.167 3.52h.765l1.206-3.52h.013v3.52h1.011v-4.59H3.82L2.755 12.7h-.013L1.686 9.705H.156zm14.534 6.353h1.641a3.188 3.188 0 0 0 .98-.149 2.531 2.531 0 0 0 .824-.437 2.123 2.123 0 0 0 .567-.713 2.193 2.193 0 0 0 .223-.983 2.399 2.399 0 0 0-.218-1.07 1.958 1.958 0 0 0-.586-.716 2.405 2.405 0 0 0-.873-.392 4.349 4.349 0 0 0-1.046-.13h-1.519zm1.013-3.656h.596a2.26 2.26 0 0 1 .606.08 1.514 1.514 0 0 1 .503.244 1.167 1.167 0 0 1 .34.412 1.28 1.28 0 0 1 .13.587 1.546 1.546 0 0 1-.13.658 1.127 1.127 0 0 1-.347.433 1.41 1.41 0 0 1-.518.238 2.797 2.797 0 0 1-.649.07h-.538zm4.686 3.656h1.88a2.997 2.997 0 0 0 .613-.064 1.735 1.735 0 0 0 .554-.214 1.221 1.221 0 0 0 .402-.39 1.105 1.105 0 0 0 .155-.606 1.188 1.188 0 0 0-.071-.415 1.01 1.01 0 0 0-.204-.34 1.087 1.087 0 0 0-.317-.24 1.297 1.297 0 0 0-.413-.13v-.012a1.203 1.203 0 0 0 .575-.366.962.962 0 0 0 .216-.648 1.081 1.081 0 0 0-.149-.603 1.022 1.022 0 0 0-.389-.354 1.673 1.673 0 0 0-.54-.169 4.463 4.463 0 0 0-.6-.041h-1.712zm1.011-3.734h.687a1.4 1.4 0 0 1 .24.022.748.748 0 0 1 .22.075.432.432 0 0 1 .16.147.418.418 0 0 1 .061.236.47.47 0 0 1-.055.233.433.433 0 0 1-.146.156.62.62 0 0 1-.204.084 1.058 1.058 0 0 1-.23.026h-.745zm0 1.835h.765a1.96 1.96 0 0 1 .266.02 1.015 1.015 0 0 1 .26.07.519.519 0 0 1 .204.152.406.406 0 0 1 .08.26.481.481 0 0 1-.06.253.519.519 0 0 1-.16.168.62.62 0 0 1-.217.09 1.155 1.155 0 0 1-.237.027H21.4z\"/>","simkl":"<path d=\"M3.84 0A3.832 3.832 0 0 0 0 3.84v16.32A3.832 3.832 0 0 0 3.84 24h16.32A3.832 3.832 0 0 0 24 20.16V3.84A3.832 3.832 0 0 0 20.16 0zm8.567 4.11c2.074 0 3.538.061 4.393.186 1.127.168 1.94.46 2.438.877.672.578 1.009 1.613 1.009 3.104 0 .161-.004.417-.01.768h-4.234c-.014-.358-.039-.607-.074-.746-.098-.41-.42-.64-.966-.692-.484-.043-1.66-.066-3.53-.066-1.85 0-2.946.056-3.289.165-.385.133-.578.474-.578 1.024 0 .528.203.851.61.969.343.095 1.887.187 4.633.275 2.487.073 4.073.165 4.76.275.693.11 1.244.275 1.654.495.41.22.737.532.983.936.37.595.557 1.552.557 2.873 0 1.475-.182 2.557-.546 3.247-.364.683-.96 1.149-1.785 1.398-.812.25-3.05.374-6.71.374-2.226 0-3.832-.062-4.82-.187-1.204-.147-2.068-.434-2.593-.86-.567-.456-.903-1.1-1.008-1.93a10.522 10.522 0 0 1-.085-1.434v-.789H7.44c-.007.74.136 1.216.43 1.428.154.102.33.167.525.203.196.037.54.063 1.03.077a166.2 166.2 0 0 0 2.405.022c1.862-.007 2.94-.018 3.234-.033.553-.044.917-.12 1.092-.23.245-.161.368-.52.368-1.077 0-.38-.078-.648-.231-.802-.211-.212-.712-.325-1.503-.34-.547 0-1.688-.044-3.425-.132-1.794-.088-2.956-.14-3.488-.154-1.387-.044-2.364-.212-2.932-.505-.728-.373-1.205-1.01-1.429-1.91-.126-.498-.189-1.15-.189-1.956 0-1.698.309-2.895.925-3.59.462-.527 1.163-.875 2.102-1.044.848-.146 2.865-.22 6.053-.22z\"/>","metacritic":"<path d=\"M11.99 0A12 12 0 1 0 24 12v-.014A12 12 0 0 0 11.99 0Zm-.055 2.564a9.399 9.399 0 0 1 9.407 9.389v.01a9.399 9.399 0 1 1-9.408-9.399Zm-1.61 17.198 2.046-2.046-3.94-3.94c-.165-.166-.345-.373-.442-.608-.221-.47-.318-1.203.221-1.742.664-.664 1.548-.387 2.406.47l3.788 3.788 2.046-2.046-3.954-3.954a2.48 2.48 0 0 1-.456-.622c-.263-.539-.25-1.216.235-1.7.677-.678 1.562-.429 2.544.553l3.677 3.677 2.046-2.046-3.982-3.982c-2.018-2.018-3.912-1.949-5.212-.65-.498.499-.802 1.024-.954 1.618a4.026 4.026 0 0 0-.055 1.686l-.027.028c-.996-.414-2.13-.166-3 .705-1.162 1.161-1.12 2.392-.982 3.11l-.042.043-1.009-.816-1.77 1.77a64.1 64.1 0 0 1 2.213 2.1z\"/>","letterboxd":"<path d=\"M8.224 14.352a4.447 4.447 0 0 1-3.775 2.092C1.992 16.444 0 14.454 0 12s1.992-4.444 4.45-4.444c1.592 0 2.988.836 3.774 2.092-.427.682-.673 1.488-.673 2.352s.246 1.67.673 2.352zM15.101 12c0-.864.247-1.67.674-2.352-.786-1.256-2.183-2.092-3.775-2.092s-2.989.836-3.775 2.092c.427.682.674 1.488.674 2.352s-.247 1.67-.674 2.352c.786 1.256 2.183 2.092 3.775 2.092s2.989-.836 3.775-2.092A4.42 4.42 0 0 1 15.1 12zm4.45-4.444a4.447 4.447 0 0 0-3.775 2.092c.427.682.673 1.488.673 2.352s-.246 1.67-.673 2.352a4.447 4.447 0 0 0 3.775 2.092C22.008 16.444 24 14.454 24 12s-1.992-4.444-4.45-4.444z\"/>"});
-/* v467: additional official brand SVGs from Simple Icons; offline, no tracking or remote image requests. */
-const MF467_LOGOS_B=Object.freeze({"goodreads":"<path d=\"M17.346.026c.422-.083.859.037 1.179.325.346.284.55.705.557 1.153-.023.457-.247.88-.612 1.156l-2.182 1.748a.601.601 0 0 0-.255.43.52.52 0 0 0 .11.424 5.886 5.886 0 0 1 .832 6.58c-1.394 2.79-4.503 3.99-7.501 2.927a.792.792 0 0 0-.499-.01c-.224.07-.303.18-.453.383l-.014.02-.941 1.254s-.792.985.457.935c3.027-.119 3.817-.119 5.439-.01 2.641.18 3.806 1.903 3.806 3.275 0 1.623-1.036 3.383-3.809 3.383a117.46 117.46 0 0 0-5.517-.03c-.31.005-.597.013-.835.02-.228.006-.41.011-.52.011-.712 0-1.648-.186-1.66-1.068-.008-.729.624-1.12 1.11-1.172.43-.045.815.007 1.24.064.252.034.518.07.815.088.185.011.366.025.552.038.53.038 1.102.08 1.926.087.427.005.759.01 1.025.015.695.012.941.016 1.28-.015 1.248-.112 1.832-.61 1.832-1.376 0-.805-.584-1.264-1.698-1.414-1.564-.213-2.33-.163-3.72-.074a87.66 87.66 0 0 1-1.669.095c-.608.029-2.449.026-2.682-1.492-.053-.416-.073-1.116.807-2.325l.75-1.003c.36-.49.582-.898.053-1.559 0 0-.39-.468-.52-.638-1.215-1.587-1.512-4.08-.448-6.114 1.577-3.011 5.4-4.26 8.37-2.581.253.143.438.203.655.163.201-.032.27-.167.363-.344.02-.04.042-.082.067-.126.004-.01.241-.465.535-1.028l.734-1.41a1.493 1.493 0 0 1 1.041-.785ZM9.193 13.243c1.854.903 3.912.208 5.254-2.47 1.352-2.699.827-5.11-1.041-6.023C10.918 3.537 8.81 5.831 8.017 7.41c-1.355 2.698-.717 4.886 1.147 5.818Z\"/>","storygraph":"<path d=\"M18.1722.6246a.6788.6788 0 0 0-.1314.0252L14.095 1.818c-.3504.1039-.545.4673-.4413.8178l5.1137 17.3544c.104.3505.4673.5452.8178.4414l3.9455-1.1553c.3504-.1038.5451-.4673.4413-.8178L18.8584 1.0911a.6522.6522 0 0 0-.6862-.4665zM.662 1.0522c-.3634 0-.6619.2986-.6619.662v18.0944c0 .3634.2985.6619.662.6619h4.1143c.3634 0 .6619-.2985.6619-.662V1.7143c0-.3634-.2985-.662-.6619-.662zm6.9438 0c-.3634 0-.662.2986-.662.662v18.0944c0 .3634.2986.6619.662.6619H11.72c.3634 0 .649-.2985.662-.662V1.7143c0-.3634-.2986-.662-.662-.662zM.3634 21.431c-.1947 0-.3634.1558-.3634.3634v1.2202c0 .1948.1558.3635.3634.3635h23.2712c.1947 0 .3635-.1558.3635-.3635v-1.2202c0-.1947-.1557-.3634-.3635-.3634z\"/>","igdb":"<path d=\"M24 6.228c-8 .002-16 0-24 0v11.543a88.875 88.875 0 0 1 2.271-.333 74.051 74.051 0 0 1 17.038-.28c1.57.153 3.134.363 4.69.614V6.228zm-.706.707v10.013a74.747 74.747 0 0 0-22.588 0V6.934h22.588ZM7.729 8.84a2.624 2.624 0 0 0-1.857.72 2.55 2.55 0 0 0-.73 1.33c-.098.5-.063 1.03.112 1.51.177.488.515.917.954 1.196.547.354 1.224.472 1.865.401a3.242 3.242 0 0 0 1.786-.777c-.003-.724.002-1.449-.002-2.173-.725.004-1.45-.002-2.174.003.003.317 0 .634.001.951h1.105c.002.236 0 .473.002.71-.268.196-.603.286-.932.298-.32.02-.65-.05-.922-.225a1.464 1.464 0 0 1-.59-.744c-.18-.499-.134-1.085.163-1.53.23-.355.619-.61 1.043-.647a1.8 1.8 0 0 1 1.012.206c.152.082.286.192.424.295.228-.281.461-.559.692-.838a3.033 3.033 0 0 0-.595-.403c-.418-.212-.892-.285-1.357-.283Zm11.66.086c-.093 0-.187.002-.28 0-.68.002-1.359-.004-2.038.003.003 1.666 0 3.332.002 4.998h2.497c.239-.002.478-.034.709-.097.276-.076.546-.208.742-.422.194-.208.297-.492.304-.776.016-.278-.032-.572-.195-.804-.175-.252-.453-.408-.734-.514.211-.122.407-.285.521-.505.134-.246.149-.535.117-.807a1.156 1.156 0 0 0-.436-.73c-.264-.207-.599-.304-.93-.334a2.757 2.757 0 0 0-.279-.012Zm-16.715 0v5.002h1.102V8.927c-.368-.002-.735 0-1.102 0zm8.524 0v5.002h2.016a2.87 2.87 0 0 0 1.07-.211 2.445 2.445 0 0 0 1.174-.993c.34-.555.429-1.244.292-1.876a2.367 2.367 0 0 0-.828-1.338c-.478-.387-1.096-.577-1.707-.584h-2.017zm6.949.967c.392.002.784-.001 1.176.002.183.011.38.054.51.19.11.112.136.28.112.43a.436.436 0 0 1-.22.316 1.082 1.082 0 0 1-.483.116c-.365.002-.73-.001-1.094.001-.002-.351 0-.703-.001-1.054zm-5.031.026c.28 0 .567.053.815.19.274.149.491.396.607.685.113.272.138.574.107.865a1.456 1.456 0 0 1-.335.786 1.425 1.425 0 0 1-.865.466c-.168.031-.34.022-.51.023h-.632V9.92h.813zm5.03 1.948h1.36c.174.006.354.035.505.127.11.066.191.18.212.308.025.15.004.32-.099.44-.102.12-.258.176-.409.2-.172.032-.348.02-.522.022-.35-.001-.698.002-1.047-.001v-1.096z\"/>","opencritic":"<path d=\"M11.965 0a12.044 12.044 0 0 0-4.28.8 11.988 11.988 0 0 0-3.663 2.237A11.995 11.995 0 0 0 .22 14.29a11.925 11.925 0 0 0 1.93 4.565 12.039 12.039 0 0 0 5.896 4.478 12.043 12.043 0 0 0 8.793-.347 12.055 12.055 0 0 0 3.082-1.97c-.778-.785-1.56-1.564-2.34-2.345a8.688 8.688 0 0 1-2.69 1.533 8.73 8.73 0 0 1-4.757.29 8.658 8.658 0 0 1-3.485-1.637 8.73 8.73 0 0 1-2.394-2.9 8.722 8.722 0 0 1-.629-6.31 8.725 8.725 0 0 1 4.447-5.405 8.657 8.657 0 0 1 4.082-.934 8.667 8.667 0 0 1 5.43 2.027c.779-.78 1.562-1.56 2.34-2.344a12.007 12.007 0 0 0-3.77-2.25 12.044 12.044 0 0 0-4.19-.74zm9.047 4.076L18.67 6.418l.002.002a8.72 8.72 0 0 1 1.72 3.29 8.75 8.75 0 0 1-.046 4.742 8.725 8.725 0 0 1-1.678 3.13l2.342 2.341a12.013 12.013 0 0 0 2.347-4.04 12.049 12.049 0 0 0-.35-8.668 12.02 12.02 0 0 0-1.995-3.138zm-8.91.21a7.72 7.72 0 0 0-2.965.55v.002c0 1.07-.002 2.14 0 3.21L12 10.913c.96-.954 1.912-1.91 2.87-2.867V4.838a7.72 7.72 0 0 0-2.768-.553zM8.045 9.13c-1.07.003-2.14-.003-3.209.004a7.77 7.77 0 0 0 .004 5.733l3.203.002c.96-.955 1.916-1.914 2.873-2.872zm7.916 0c-.962.953-1.917 1.91-2.875 2.867V12c.958.956 1.915 1.914 2.875 2.87h3.203a7.747 7.747 0 0 0 0-5.74c-1.068 0-2.135.004-3.203 0zM12 13.084 9.137 15.95v3.211a7.718 7.718 0 0 0 5.734-.002v-3.203c-.957-.957-1.91-1.917-2.87-2.87z\"/>","steam":"<path d=\"M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z\"/>","mangaupdates":"<path d=\"M4.5 0C2.02 0 0 2.02 0 4.5v15C0 21.98 2.02 24 4.5 24h15c2.48 0 4.5-2.02 4.5-4.5v-15C24 2.02 21.98 0 19.5 0Zm0 1.5h15c1.675 0 3 1.325 3 3v15c0 1.675-1.325 3-3 3h-15c-1.675 0-3-1.325-3-3v-15c0-1.675 1.325-3 3-3zm12.791.595c-.475 0-.87.132-1.187.401-.3.253-.552.587-.758 1-.222.443-.39.901-.501 1.376-.111.475-.228.944-.355 1.403-.412 1.568-.84 3.127-1.283 4.68a36.509 36.509 0 0 1-1.64 4.56 35.575 35.575 0 0 1-1.093-5.059 37.104 37.104 0 0 1-.355-5.156c0-.206.015-.402.047-.592.032-.206.047-.412.047-.618a1.385 1.385 0 0 0-.689-1.236 2.084 2.084 0 0 0-.688-.308c-.253-.08-.5-.12-.738-.12-.333 0-.641.071-.926.214a2.9 2.9 0 0 0-.759.547 3.62 3.62 0 0 0-.548.783 3.629 3.629 0 0 0-.307.879 35.408 35.408 0 0 0-.405 2.115c-.095.696-.245 1.4-.45 2.112a51.043 51.043 0 0 1-.786 2.353c-.285.84-.563 1.687-.832 2.543-.27.854-.499 1.708-.689 2.563-.19.84-.284 1.632-.284 2.376 0 .349.023.698.07 1.046.064.333.176.633.335.902.158.27.372.484.641.642.27.174.608.26 1.02.26.443 0 .785-.116 1.022-.354.253-.221.437-.54.548-.952.143-.555.214-1.11.214-1.664.016-.57.061-1.13.14-1.685.096-.76.261-1.496.499-2.209.253-.712.538-1.426.855-2.138.238.903.493 1.789.762 2.66.285.871.53 1.76.735 2.663.08.333.15.671.214 1.02.063.332.15.666.26.999.143.443.365.845.666 1.21.3.364.706.547 1.213.547.316 0 .64-.048.972-.143.349-.08.65-.23.903-.451.11-.095.215-.238.31-.428s.182-.397.261-.618a6.432 6.432 0 0 0 .38-1.187c.096-.364.182-.736.262-1.116.079-.38.173-.752.284-1.116.126-.444.27-.88.427-1.307.175-.443.35-.879.525-1.306.222-.587.428-1.18.618-1.782.19-.602.37-1.206.545-1.807.19.76.317 1.519.38 2.279.064.76.102 1.53.118 2.306l.097 2.302c.047.76.149 1.522.307 2.283.095.459.268.846.522 1.163.269.316.659.474 1.166.474.412 0 .743-.094.996-.284.253-.19.452-.427.595-.712.142-.285.236-.604.284-.952.047-.347.073-.688.073-1.02v-.002c0-1.013-.079-2.008-.237-2.989a39.692 39.692 0 0 0-.548-2.994 39.075 39.075 0 0 1-.642-3.516 29.924 29.924 0 0 1-.214-3.565c0-.253.01-.498.027-.735.031-.254.047-.506.047-.76 0-.347-.08-.633-.238-.855a1.46 1.46 0 0 0-.57-.547 2.233 2.233 0 0 0-.81-.285 3.931 3.931 0 0 0-.855-.093z\"/>","discogs":"<path d=\"M1.7422 11.982c0-5.6682 4.61-10.2782 10.2758-10.2782 1.8238 0 3.5372.48 5.0251 1.3175l.8135-1.4879C16.1768.588 14.2474.036 12.1908.0024h-.1944C5.4091.0144.072 5.3107 0 11.886v.1152c.0072 3.4389 1.4567 6.5345 3.7748 8.7207l1.1855-1.2814c-1.9798-1.8743-3.218-4.526-3.218-7.4585zM20.362 3.4053l-1.1543 1.2406c1.903 1.867 3.0885 4.4636 3.0885 7.3361 0 5.6658-4.61 10.2758-10.2758 10.2758-1.783 0-3.4605-.456-4.922-1.2575l-.8542 1.5214c1.7086.9384 3.6692 1.4735 5.7546 1.4759C18.6245 23.9976 24 18.6246 24 11.9988c-.0048-3.3717-1.399-6.4146-3.638-8.5935zM1.963 11.982c0 2.8701 1.2119 5.4619 3.146 7.2953l1.1808-1.2767c-1.591-1.5166-2.587-3.6524-2.587-6.0186 0-4.586 3.7293-8.3152 8.3152-8.3152 1.483 0 2.875.3912 4.082 1.0751l.8351-1.5262C15.481 2.395 13.8034 1.927 12.018 1.927 6.4746 1.9246 1.963 6.4362 1.963 11.982zm18.3702 0c0 4.586-3.7293 8.3152-8.3152 8.3152-1.4327 0-2.7837-.3648-3.962-1.0055l-.852 1.5166c1.4303.7823 3.0718 1.2287 4.814 1.2287 5.5434 0 10.055-4.5116 10.055-10.055 0-2.8077-1.1567-5.3467-3.0165-7.1729l-1.183 1.2743c1.519 1.507 2.4597 3.5924 2.4597 5.8986zm-1.9486 0c0 3.5109-2.8558 6.3642-6.3642 6.3642a6.3286 6.3286 0 01-3.0069-.756l-.8471 1.507c1.147.624 2.4597.9768 3.854.9768 4.4636 0 8.0944-3.6308 8.0944-8.0944 0-2.239-.9143-4.2692-2.3902-5.7378l-1.1783 1.267c1.1351 1.152 1.8383 2.731 1.8383 4.4732zm-14.4586 0c0 2.3014.9671 4.382 2.515 5.8578l1.1734-1.2695c-1.207-1.159-1.9606-2.786-1.9606-4.5883 0-3.5108 2.8557-6.3642 6.3642-6.3642 1.1423 0 2.215.3048 3.1437.8352l.8303-1.5167c-1.1759-.6647-2.5317-1.0487-3.974-1.0487-4.4612 0-8.092 3.6308-8.092 8.0944zm12.5292 0c0 2.4502-1.987 4.4372-4.4372 4.4372a4.4192 4.4192 0 01-2.0614-.5088l-.8351 1.4879a6.1135 6.1135 0 002.8965.727c3.3885 0 6.1434-2.7548 6.1434-6.1433 0-1.6774-.6767-3.1989-1.7686-4.3076l-1.1615 1.2503c.7559.7967 1.2239 1.8718 1.2239 3.0573zm-10.5806 0c0 1.7374.7247 3.3069 1.8886 4.4252L8.92 15.1569l.0144.0144c-.8351-.8063-1.3559-1.9366-1.3559-3.1869 0-2.4502 1.9846-4.4372 4.4372-4.4372.8087 0 1.5646.2184 2.2174.5976l.8207-1.4975a6.097 6.097 0 00-3.0381-.8063c-3.3837-.0048-6.141 2.7525-6.141 6.141zm6.681 0c0 .2952-.2424.5351-.5376.5351-.2952 0-.5375-.24-.5375-.5351 0-.2976.24-.5375.5375-.5375.2952 0 .5375.24.5375.5375zm-3.9405 0c0-1.879 1.5239-3.4029 3.4005-3.4029 1.879 0 3.4005 1.5215 3.4005 3.4029 0 1.879-1.5239 3.4005-3.4005 3.4005S8.6151 13.861 8.6151 11.982zm.1488 0c.0048 1.7974 1.4567 3.2493 3.2517 3.2517 1.795 0 3.254-1.4567 3.254-3.2517-.0023-1.7974-1.4566-3.2517-3.254-3.254-1.795 0-3.2517 1.4566-3.2517 3.254Z\"/>","audible":"<path d=\"M12.008 17.362L24 9.885v2.028l-11.992 7.509L0 11.912V9.886l12.008 7.477zm0-9.378c-2.709 0-5.085 1.363-6.448 3.47.111-.111.175-.175.286-.254 3.374-2.804 8.237-2.17 10.883 1.362l1.758-1.124c-1.394-2.044-3.786-3.454-6.48-3.454m0 3.47a4.392 4.392 0 0 0-3.548 1.821 3.597 3.597 0 0 1 2.139-.697c1.299 0 2.455.666 3.232 1.79l1.679-1.045c-.729-1.157-2.028-1.87-3.501-1.87M3.897 8.412c4.943-3.897 11.929-2.836 15.652 2.344l.031.032 1.822-1.125a11.214 11.214 0 0 0-9.394-5.085c-3.897 0-7.366 1.996-9.394 5.085.364-.412.824-.903 1.283-1.251\"/>"});
-/* MediaFlow v467 — authentic rating-source logos in Recommends,
- * Edit/Add Title and Title Details; one-click verified external-rating refresh
- * for any already-saved Library title (not just the current recommendation).
- *
- * Bundled Simple Icons SVGs work offline. Niche brands not in that icon
- * collection use a real favicon of the provider through Google's favicon
- * service, with clear fallback if offline. No invented "official" logos.
- * Logos identify trademark owners, not an endorsement or affiliation.
- */
-const MF467_VERSION=467;
-const MF467_LOGO_DOMAINS=Object.freeze({
- anidb:'anidb.net',tvmaze:'tvmaze.com',hardcover:'hardcover.app',
- backloggd:'backloggd.com',vndb:'vndb.org',rateyourmusic:'rateyourmusic.com',
- ifdb:'ifdb.org',rawg:'rawg.io',googlebooks:'books.google.com'
-});
-const MF467_BRAND_COLORS=Object.freeze({
- imdb:'#F5C518',trakt:'#ED1C24',rottentomatoes:'#FA320A',mal:'#2E51A2',
- anilist:'#02A9FF',kitsu:'#F75239',tmdb:'#01B4E4',simkl:'#E40817',
- metacritic:'#F6A11D',letterboxd:'#00E054',goodreads:'#7C5038',
- storygraph:'#F2B343',igdb:'#A9DA44',opencritic:'#FC7D14',steam:'#66C0F4',
- mangaupdates:'#59B9D5',discogs:'#FFCC00',audible:'#F8991D'
-});
-function mf467Mark(key){
- const id=String(key||'').toLowerCase(),logoKey=
-  id.startsWith('rottentomatoes_')?'rottentomatoes':id;
- const label=MF437_RATING_MAP.get(id)?.[1]||id;
- const inner=MF467_LOGOS_A[logoKey]||MF467_LOGOS_B[logoKey];
- const brand=MF467_BRAND_COLORS[logoKey];
- const style=brand?' style="--mf467-brand:'+brand+'"':'';
- const fallback=(MF450_MARKS[id]||id.slice(0,2).toUpperCase());
- const officialDomain=MF467_LOGO_DOMAINS[logoKey];
- const media=inner?'<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+inner+'</svg>':
-  officialDomain?'<img src="https://www.google.com/s2/favicons?domain='+encodeURIComponent(officialDomain)+
-   '&amp;sz=64" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"'+
-   ' onerror="this.hidden=true" />'+
-   '<span class="mf467-source-fallback" aria-hidden="true">'+escapeHtml(fallback)+'</span>':
-  '<span class="mf467-source-fallback" aria-hidden="true">'+escapeHtml(fallback)+'</span>';
- return '<span class="mf450-source-mark mf467-source-logo" data-mf450-source="'+escapeHtml(id)+
-  '" title="'+escapeHtml(label)+'" aria-hidden="true"'+style+'>'+media+'</span>';
-}
-// Existing v450/v464 rendering calls the function at paint-time.
-mf450ProviderMark=mf467Mark;
-// Existing v437 Save Capture does not include a provider rating URL in the
-// editor's numeric inputs. Keep its hidden URL when score/scale/votes are
-// untouched; otherwise an ordinary Edit Title save could silently rewrite
-// a just-refreshed verified value as a new manual rating.
-const mf467CaptureBase=mf437SaveCapture;
-mf437SaveCapture=function(item,previous,capture){
- if(!item||!capture?.ratings)return mf467CaptureBase.apply(this,arguments);
- const existing=item.universalMetadata?.externalRatings||{};
- const ratings={...capture.ratings};
- for(const [key,rating] of Object.entries(ratings)){
-  const old=existing[key];
-  if(!old||!rating||!old.url)continue;
-  if(Number(rating.score??NaN)!==Number(old.score??NaN)||
-     Number(rating.scale)!==Number(old.scale)||
-     (rating.votes==null?null:Number(rating.votes))!==
-     (old.votes==null?null:Number(old.votes)))continue;
-  ratings[key]={...rating,url:old.url};
- }
- return mf467CaptureBase.call(this,item,previous,{...capture,ratings});
-};
-
-const MF467={working:false,titleId:'',account:'',provider:'',note:'',success:null,
- abort:null,sequence:0};
-const MF467_RATING_PROVIDERS=new Set([
- 'jikan','anilist','kitsu','tvmaze','vndb','tmdb','omdb',
- 'malofficial','trakt','simkl','watchmode'
-]);
-function mf467RatingProviders(item){
- // Unlike general Metadata Recovery, avoid wasting the four-slot provider
- // budget on bibliographic adapters that cannot return external scores.
- const opts=mf439Preferences(),enabled=new Set(opts.enabled);
- const all=typeof mf453Ready==='function'?mf453Ready('metadata',item):
-  typeof mf466Providers==='function'?mf466Providers(item):opts.enabled;
- const ids=item?.externalIds||{};
- const saved=item?.universalMetadata?.provenance||{};
- const keyMap={jikan:['mal'],malofficial:['mal'],anilist:['anilist'],
-  kitsu:['kitsu'],tvmaze:['tvmaze'],vndb:['vndb'],
-  tmdb:['tmdb','tmdb_tv'],omdb:['imdb'],trakt:['trakt'],
-  simkl:['simkl'],watchmode:['watchmode']};
- return [...new Set(all)].filter(x=>enabled.has(x)&&MF467_RATING_PROVIDERS.has(x))
-  .map((id,index)=>({id,index,weight:(keyMap[id]||[id]).some(k=>ids[k])?4:
-   Object.entries(saved).some(([token,v])=>token.startsWith('rating.')&&v?.source===id&&v.verified===true)?3:0}))
-  .sort((a,b)=>b.weight-a.weight||a.index-b.index).slice(0,4).map(x=>x.id);
-}
-
-function mf467IsCurrent(item,id,account,signature){
- return Boolean(mf439Account()===account&&mf439Item(id)===item&&
-  mf442TitleSignature(item)===signature&&!S.loading);
-}
-function mf467Button(item,placement){
- const id=item?.id!=null&&mf439Item(item.id)===item?String(item.id):'';
- const running=MF467.working,selected=running&&MF467.titleId===id;
- const hint=!id?'Save this title to your Library before refreshing ratings.':
-  selected?'Checking '+(MF467.provider||'available providers')+'…':
-  running?'Another title is currently refreshing.':
-  MF467.titleId===id&&MF467.note?MF467.note:
-  'Checks configured providers; only verified, unprotected ratings change.';
- return '<div class="mf467-rating-refresh" data-mf467-title="'+escapeHtml(id)+'" data-mf467-placement="'+
-  escapeHtml(placement)+'">'+
-  '<button type="button" class="btn btn-sm btn-ghost mf467-rating-refresh-btn" '+
-  (!id||running?'disabled ':'')+'onclick="App.mf467RefreshRatings('+escapeHtml(JSON.stringify(id))+')">'+
-  mf425Icon('refresh',17)+
-  '<span>'+ (selected?'Refreshing ratings…':'Refresh external ratings')+'</span></button>'+
-  '<small class="mf467-rating-hint" role="status" aria-live="polite">'+escapeHtml(hint)+'</small></div>';
-}
-const mf467EditorBase=libraryModalHtml;
-libraryModalHtml=function(item){
- const html=String(mf467EditorBase.apply(this,arguments)||'');
- if(!html.includes('mf437-ratings'))return html;
- try{
-  const root=document.createElement('div');root.innerHTML=html;
-  const summary=root.querySelector('.mf437-ratings > summary');
-  if(!summary)return html;
-  // New unsaved titles get a disabled button with an explicit explanation.
-  summary.insertAdjacentHTML('afterend',mf467Button(item||{},'editor'));
-  return root.innerHTML;
- }catch(e){console.warn('v467 editor ratings control:',e);return html;}
-};
-function mf467DetailsRatings(item){
- return '<div class="mf467-details-values mf437-detail-grid">'+
-  (mf450RatingTiles(item)||'<p class="mf467-empty-ratings">No saved external ratings yet.</p>')+
-  '</div>';
-}
-const mf467DetailsBase=v181TitleDetailsHtml;
-v181TitleDetailsHtml=function(item){
- const html=String(mf467DetailsBase.apply(this,arguments)||'');
- if(!item?.id||!html.includes('v181-title-details'))return html;
- try{
-  const root=document.createElement('div');root.innerHTML=html;
-  // Remove the older rating subsection so each provider appears only once,
-  // even after ratings update live. Keep the rest of Universal Metadata.
-  const meta=root.querySelector('.mf437-details');
-  if(meta){
-   for(const header of [...meta.querySelectorAll('.v181-detail-section-label')]){
-    if(!header.textContent.includes('External ratings'))continue;
-    const next=header.nextElementSibling;
-    if(next?.classList.contains('mf437-detail-grid'))next.remove();
-    header.remove();
-   }
-  }
-  const area=root.querySelector('.v181-title-details-body');
-  const panel='<section class="mf467-details-ratings" data-mf467-detail-title="'+
-   escapeHtml(String(item.id))+'"><div class="mf467-details-head"><strong>'+
-   mf425Icon('star',17)+' External ratings</strong><small>Provider scores · separate from your rating</small></div>'+
-   mf467Button(item,'details')+mf467DetailsRatings(item)+'</section>';
-  if(meta)meta.insertAdjacentHTML('afterend',panel);
-  else if(area)area.insertAdjacentHTML('beforeend',panel);
-  else return html;
-  return root.innerHTML;
- }catch(e){console.warn('v467 title details ratings panel:',e);return html;}
-};
-function mf467PatchEditor(item,before){
- const root=document.querySelector('#modal-root [data-mf437-editor]');
- if(!root)return;
- const found=root.closest('.v240-library-editor,.v238-library-editor');
- const persisted=found&&String(item.id||'');
- if(!persisted)return;
- // Do not repaint an unrelated open editor while refreshing Title Details.
- // The editor may also contain unsaved draft title text; preserve that draft.
- if(S.modal?.type==='library'&&S.modal.id!=null&&
-  String(S.modal.id)!==String(item.id))return;
- if(typeof mf456EditorMatches==='function'&&mf456EditorMatches(item)!==found)return;
- // Only update form fields that are still unmodified. In-progress user edits
- // (including ratings or manual locks) must survive the background check.
- const original=before||{},next=item.universalMetadata?.externalRatings||{};
- for(const [key,latest] of Object.entries(next)){
-  const old=original[key]||{};
-  for(const [field,current,prior] of [
-   ['rating',latest?.score,old.score],
-   ['scale',latest?.scale,old.scale],
-   ['votes',latest?.votes,old.votes]
-  ]){
-   const inp=root.querySelector('[data-mf437-'+field+'="'+CSS.escape(key)+'"]');
-   if(!inp||inp.dataset.mf467Dirty==='1'||document.activeElement===inp)continue;
-   const fallback=field==='scale'?MF437_RATING_MAP.get(key)?.[2]:null;
-   const expected=prior==null?(fallback==null?'':String(fallback)):String(prior);
-   if(inp.value!==expected)continue;
-   const updated=current==null?(fallback==null?'':String(fallback)):String(current);
-   inp.value=updated;
-  }
- }
- const note=root.querySelector('.mf467-rating-refresh .mf467-rating-hint');
- if(note)note.textContent=MF467.note;
-}
-function mf467PatchDetails(item){
- for(const panel of document.querySelectorAll('.mf467-details-ratings[data-mf467-detail-title]')){
-  if(panel.dataset.mf467DetailTitle!==String(item.id))continue;
-  const grid=panel.querySelector('.mf467-details-values');
-  if(grid)grid.innerHTML=mf450RatingTiles(item)||
-   '<p class="mf467-empty-ratings">No saved external ratings yet.</p>';
- }
-}
-function mf467Paint(item){
- for(const button of document.querySelectorAll('.mf467-rating-refresh[data-mf467-title]')){
-  if(button.dataset.mf467Title!==String(item?.id??''))continue;
-  const next=mf467Button(item,button.dataset.mf467Placement||'editor');
-  // Never replace the parent editor or close/overwrite any draft changes.
-  button.outerHTML=next;
- }
-}
-document.addEventListener('input',event=>{
- const input=event.target;
- if(input?.matches?.('[data-mf437-rating],[data-mf437-scale],[data-mf437-votes]'))
-  input.dataset.mf467Dirty='1';
-},true);
-document.addEventListener('change',event=>{
- const input=event.target;
- if(input?.matches?.('[data-mf437-rating],[data-mf437-scale],[data-mf437-votes]'))
-  input.dataset.mf467Dirty='1';
-},true);
-async function mf467RefreshRatings(id){
- id=String(id??'');
- const item=mf439Item(id);
- if(!item||!AUTH_USER||!AUTH_READY||S.loading)
-  return {ok:false,reason:'Save the title and finish loading MediaFlow first.'};
- if(MF467.working||MF466.working||MF439.working||MF424.running||
-  MF442.process||mf442CoverLockIsActive()||mf442MetadataLockIsActive()||
-  (typeof MF453Quick!=='undefined'&&MF453Quick.current)){
-  const reason='Another recovery or ratings refresh is already running.';
-  showToast(reason);return {ok:false,reason};
- }
- if(!navigator.onLine){showToast('Offline. Ratings need provider access.');return {ok:false,reason:'Offline'};}
- const providers=mf467RatingProviders(item);
- if(!providers.length){
-  const reason='No ready rating metadata providers. Enable/configure them in Provider Management.';
-  showToast(reason);return {ok:false,reason};
- }
- if(!mf442AcquireProcess('metadata')){showToast('A recovery is already active in another tab.');return {ok:false,reason:'Another tab owns recovery'};}
- if(!mf439AcquireLease()){mf442ReleaseProcess('metadata');showToast('Metadata recovery is already active.');return {ok:false,reason:'Another tab owns metadata'};}
- const account=mf439Account(),signature=mf442TitleSignature(item),epoch=++MF467.sequence;
- const before=structuredClone(item.universalMetadata?.externalRatings||{});
- const oldAccount=MF439.account,controller=new AbortController(),result={ok:false,changed:0};
- MF467.working=true;MF467.titleId=id;MF467.account=account;MF467.abort=controller;
- MF467.provider='';MF467.note='Checking configured rating providers…';MF467.success=null;
- MF439.account=account;MF439.working=true;
- const keepAlive=setInterval(()=>{if(!mf442RenewMetadataLease())controller.abort();},8000);
- mf467Paint(item);
- try{
-  const discovered=await mf439Discover(item,providers,provider=>{
-   MF467.provider=provider;MF467.note='Checking '+provider+'…';mf467Paint(item);
-  },controller.signal);
-  if(controller.signal.aborted||epoch!==MF467.sequence||
-   !mf442ProcessOwned('metadata')||!mf442MetadataLeaseOwned()||
-   !mf467IsCurrent(item,id,account,signature))
-   throw Error('Title, account, or recovery ownership changed. Nothing saved.');
-  const verified=(discovered.results||[]).filter(row=>
-   mf439Evidence(item,row).confidence>=mf439Preferences().minimumConfidence);
-  // One bounded, rating-only guarded merge: no metadata, external IDs,
-  // personal score, history, cover, progress, or recommendation changes.
-  if(!verified.length){
-   const errors=discovered.failures?.length?' Some providers were unavailable.':'';
-   MF467.note='No verified rating match was returned.'+errors;
-   result.ok=true;result.changed=0;return result;
-  }
-  const written=mf466ApplyVerified(item,verified,{ratings:true,metadata:false,ids:false});
-  result.changed=written.ratings||0;
-  if(controller.signal.aborted||epoch!==MF467.sequence||mf439Account()!==account||
-    mf439Item(id)!==item)
-   throw Error('Account or title changed before saving.');
-  if(written.changed){
-   await saveState();
-   try{v53InvalidateLibraryCache();}catch(_){}
-  }
-  MF467.note=result.changed?result.changed+' verified rating'+(result.changed===1?'':'s')+
-   ' updated and saved.':'Ratings already up to date.';
-  result.ok=true;MF467.success=true;
-  mf467PatchEditor(item,before);mf467PatchDetails(item);
-  // Keep recommendation tiles live if the updated title is also recommended.
-  if(typeof mf466Repaint==='function')mf466Repaint();
- }catch(e){
-  result.reason=String(e?.message||e).slice(0,160);
-  MF467.note=result.reason;MF467.success=false;
-  console.warn('v467 ratings refresh:',e);
- }finally{
-  clearInterval(keepAlive);
-  MF467.working=false;MF467.provider='';MF467.abort=null;
-  MF439.working=false;MF439.account=oldAccount;
-  mf439ReleaseLease();mf442ReleaseProcess('metadata');
-  mf467Paint(item);
- }
- showToast(MF467.note);
- return result;
-}
-App.mf467RefreshRatings=mf467RefreshRatings;
-window.MediaFlowV467=Object.freeze({
- version:MF467_VERSION,logo:mf467Mark,refresh:mf467RefreshRatings,providers:mf467RatingProviders,
- button:mf467Button,details:mf467DetailsRatings,
- active:()=>({working:MF467.working,titleId:MF467.titleId,note:MF467.note})
-});
-MediaFlowRuntime.version=MF467_VERSION;
-/* MediaFlow v468 — two selectable, isolated Fresh Episodes engines.
- * Legacy is the exact v467 implementation: NO mutations to its functions,
- * original ledger, detection methods, provider selection or cloud settings
- * when Legacy is selected. Advanced has separate cloud-backed evidence, mode,
- * verification, scan checkpoints, schedules and preferences.
- */
-const MF468_VERSION=468;
-const MF468_SYSTEMS=['legacy','advanced'];
-const MF468_SOURCES=['smart','automatic','tenrai','anizip','anilist','kitsu','tvmaze','manual'];
-const MF468_SETTINGS_DEFAULT=Object.freeze({
- source:'smart',verification:'balanced',refresh:'manual',
- schedules:true,compare:true,includeUnknown:true,freshOnly:false,
- providerOrder:['tenrai','anizip','anilist','tvmaze','kitsu']
-});
-const MF468_AGE=24*60*60*1000;
-const MF468_RUNTIME={
- working:false,stopping:false,checked:0,total:0,updated:0,
- account:'',provider:'',error:'',startedAt:0,finishedAt:0,
- sequence:0,scanAbort:null,heartbeat:null,nextTimer:null
-};
-function mf468System(){return S.settings?.v468FreshEpisodesSystem==='advanced'?'advanced':'legacy';}
-function mf468AdvancedPrefs(){
- const source=S.settings?.v468AdvancedFresh||{};
- const valid=Array.isArray(source.providerOrder)?source.providerOrder:[];
- const ordered=[...new Set(valid.filter(x=>V380_PROVIDER_SEQUENCE.includes(x)))];
- for(const p of V380_PROVIDER_SEQUENCE)if(!ordered.includes(p))ordered.push(p);
- return {...MF468_SETTINGS_DEFAULT,...source,
-  source:MF468_SOURCES.includes(source.source)?source.source:'smart',
-  verification:source.verification==='maximum'?'maximum':'balanced',
-  refresh:['manual','adaptive'].includes(source.refresh)?source.refresh:'manual',
-  providerOrder:ordered};
-}
-function mf468Active(){return mf468System()==='advanced';}
-function mf468AutoEnabled(){return mf468Active()?mf468AdvancedPrefs().source!=='manual':mf468LegacyAutomatic();}
-function mf468Candidates(){
- return (S.library||[]).filter(i=>i?.id!=null&&
-  getCategory(i.categoryId)?.seasonal===true);
-}
-function mf468Ledger(){return S.settings?.v468AdvancedEpisodeLedger||{};}
-function mf468Fingerprint(item){
- if(!item)return '';
- const ids=item.externalIds||{};
- const seasons=typeof v252Seasons==='function'?v252Seasons(item):[];
- const trim=s=>String(s??'').trim().toLocaleLowerCase();
- const idkeys=['mal','anilist','kitsu','tvmaze','imdb','tmdb','tvdb'];
- return JSON.stringify([trim(item.title),trim(item.originalTitle),Number(item.year)||0,
-  String(item.categoryId||''),idkeys.map(k=>String(ids[k]??item[k+'Id']??'')),
-  seasons.map(s=>[s.number,trim(s.name),s.total])]);
-}
-function mf468Progress(item){
- // v252 syncs the authoritative title aggregate; do not add seasons a
- // second time, or mistake planned season totals for aired episode counts.
- return v401Progress(item);
-}
-function mf468Entry(item){
- if(!item)return null;
- const entry=mf468Ledger()[String(item.id)];
- if(!entry||entry.fingerprint!==mf468Fingerprint(item)||
-  !Number.isFinite(Number(entry.at))||Date.now()-Number(entry.at)>MF468_AGE||
-  !Number.isSafeInteger(entry.available)||entry.available<0||
-  !['fresh','none'].includes(entry.status))return null;
- return entry;
-}
-function mf468Outcome(item){
- const entry=mf468Entry(item);
- return !entry?'unknown':entry.available>mf468Progress(item)?'fresh':'none';
-}
-function mf468FreshReport(item){
- if(!item||getCategory(item.categoryId)?.seasonal!==true||!mf468AutoEnabled())return null;
- const entry=mf468Entry(item),progress=mf468Progress(item);
- if(!entry)return {status:'unknown',count:null,available:null,progress,source:''};
- const count=Math.max(0,entry.available-progress);
- return {status:count?'fresh':'none',count,available:entry.available,progress,
-  source:V380_NAMES[entry.winner]||entry.winner||'',confidence:entry.confidence,
-  nextEpisode:entry.nextEpisode||null,nextAt:entry.nextAt||null};
-}
-function mf468Verdict(item,identity,raw,opts=mf468AdvancedPrefs()){
- const replies=(raw?.results||[]).filter(x=>x&&typeof x==='object');
- const signed=!!identity?.verifiedMal||Array.isArray(identity?.evidence)&&identity.evidence.some(e=>e.status==='verified'&&['anilist','kitsu'].includes(e.source));
- const trustworthy=replies.filter(x=>x.status==='verified'&&Number.isSafeInteger(x.available)&&x.available>=0);
- const count=trustworthy.length?Math.max(...trustworthy.map(x=>x.available)):null;
- const winner=trustworthy.filter(x=>x.available===count).sort((a,b)=>
-  opts.providerOrder.indexOf(a.source)-opts.providerOrder.indexOf(b.source))[0];
- const disagreement=new Set(trustworthy.map(x=>x.available)).size>1;
- const fresh=count!==null&&count>mf468Progress(item);
- // A single dated/finished-season proof can establish "caught up", exactly
- // like the v403 legacy verifier. Unverified negatives remain UNKNOWN.
- const dated=raw?.v403SingleSourceCertified===true&&raw?.v403Proof?.verified===true;
- const completeNegative=count!==null&&count<=mf468Progress(item)&&
-  (trustworthy.length>=2||dated);
- let status=!signed||identity?.conflict?'unknown':
-  fresh?'fresh':completeNegative?'none':'unknown';
- // Different media identities/season numbering must never be merged into
- // invented per-season episodes. v380 adapter identity checks are retained.
- const seasons=typeof v252Seasons==='function'?v252Seasons(item):[];
- const seasonAmbiguous=seasons.length>1;
- const nextEpisode=Number(raw?.v403Proof?.upcomingEpisode);
- const nextAt=Number(raw?.v403Proof?.upcomingAt);
- const verifiedDate=dated&&Number.isSafeInteger(nextEpisode)&&nextEpisode>0&&
-   Number.isFinite(nextAt)&&nextAt>Date.now();
- const confidence=identity?.conflict?'conflict':status==='unknown'?'unknown':
-  disagreement?'disagreement':trustworthy.length>1?'high':'verified';
- return {
-  status,available:status==='unknown'?null:count,winner:status==='unknown'?'':winner?.source||'',
-  confidence,disagreement,verifiedSources:trustworthy.length,
-  identity:{malId:identity?.malId||'',verifiedMal:!!identity?.verifiedMal,
-   anilistId:identity?.anilistId||'',kitsuId:identity?.kitsuId||'',
-   conflict:!!identity?.conflict},
-  seasonAmbiguous,seasonEvidence:seasonAmbiguous?
-   'Multiple seasons: title-level aired count only. A per-season breakdown requires verified season mappings.':
-   seasons.length===1?'One saved season; no separate season mapping assumed.':'No manual season breakdown.',
-  nextEpisode:verifiedDate?nextEpisode:null,nextAt:verifiedDate?nextAt:null,
-  providers:replies.slice(0,12).map(x=>({source:String(x.source||''),
-   status:String(x.status||'unknown'),available:Number.isSafeInteger(x.available)?x.available:null,
-   reason:String(x.reason||'').slice(0,120)})),
-  at:Date.now(),fingerprint:mf468Fingerprint(item)
- };
-}
-async function mf468Schedule(item,identity,entry){
- const opts=mf468AdvancedPrefs();
- if(!opts.schedules||entry?.status==='unknown')return null;
- // Only the CURRENT recommended title gets an optional schedule query by
- // default. In Maximum mode, add verified schedule checks for all items.
- const selected=String(S.currentTask?.libraryId||'')===String(item.id);
- if(!selected&&opts.verification!=='maximum')return null;
- const id=identity?.anilistId||identity?.malId;
- if(!id)return null;
- const native=!!identity?.anilistId;
- const query=native?
-  'query ($id:Int){Media(id:$id,type:ANIME){id idMal status nextAiringEpisode{episode airingAt}}}':
-  'query ($id:Int){Media(idMal:$id,type:ANIME){id idMal status nextAiringEpisode{episode airingAt}}}';
- try{
-  const response=await v380Request('https://graphql.anilist.co',{
-   method:'POST',body:JSON.stringify({query,variables:{id:Number(id)}}),
-   force:false,ttl:30*60*1000});
-  const media=response?.data?.Media;
-  if(!media||native&&Number(media.id)!==Number(id)||
-    !native&&String(media.idMal)!==String(identity.malId))return null;
-  if(identity?.malId&&media.idMal&&String(media.idMal)!==String(identity.malId))return null;
-  const episode=Number(media.nextAiringEpisode?.episode),air=v380AiredTimestamp(media.nextAiringEpisode?.airingAt);
-  if(!Number.isSafeInteger(episode)||episode<=0||!Number.isFinite(air)||
-    air<=Date.now()+5*60000||episode<=entry.available)return null;
-  return {nextEpisode:episode,nextAt:air};
- }catch(_){return null;}
-}
-async function mf468SequentialCheck(item,identity,force,opts){
- // Ordered fallback is truly sequential; unlike Smart, it can stop once
- // dependable release evidence is found. Unconfirmed negative results must
- // continue to another provider rather than pretending to verify zero fresh.
- const result=[],progress=mf468Progress(item);
- let proof=null;
- for(const source of opts.providerOrder){
-  if(!identity?.malId&&!(['anilist','kitsu'].includes(source)))continue;
-  try{
-   const count=!identity.malId&&source==='anilist'&&identity.anilistId?
-    await v402AniListById(identity.anilistId,force):
-    !identity.malId&&source==='kitsu'&&identity.kitsuId?
-    await v402KitsuById(identity.kitsuId,force):
-    identity.malId&&V380_ADAPTERS[source]?
-    await V380_ADAPTERS[source](identity.malId,force):null;
-   if(!Number.isSafeInteger(count)||count<0)throw Error('No usable aired episode count');
-   result.push({source,status:'verified',available:count});
-   if(count>progress)break;
-   if(source==='anilist')proof=await v403VerifyAniListNoFresh(identity,count,force);
-   if(proof?.verified||result.filter(row=>row.status==='verified').length>=2)break;
-  }catch(e){result.push({source,status:'unknown',reason:String(e?.message||e).slice(0,140)});}
- }
- return {results:result,v403SingleSourceCertified:!!proof?.verified,
-  v403Proof:proof};
-}
-function mf468MediaSupported(item){
- const media=String(item?.universalMetadata?.mediaType||item?.mediaType||
-  getCategory(item?.categoryId)?.mediaType||'unspecified').toLowerCase();
- // Existing v380/v402 adapters are verified for ANIME identity/episodes, not
- // for TV seasons, manga chapters, books, games or comic issues.
- return ['anime','unspecified',''].includes(media);
-}
-async function mf468CheckItem(item,force=false){
- if(!mf468MediaSupported(item))
-  return {status:'unknown',reason:'This media type needs a separate verified release adapter',
-   fingerprint:mf468Fingerprint(item),at:Date.now(),providers:[]};
- const copy={...item,externalIds:{...(item.externalIds||{})},
-  v377ManualExternalIds:item.v377ManualExternalIds?{...item.v377ManualExternalIds}:undefined};
- const identity=await v402ResolveIdentity(copy,force);
- if(identity.conflict||!(identity.verifiedMal||identity.evidence?.some(e=>e.status==='verified'&&['anilist','kitsu'].includes(e.source))))
-  return {status:'unknown',reason:'Unverified or conflicting identity',fingerprint:mf468Fingerprint(item),
-   at:Date.now(),providers:[],identity:{conflict:!!identity.conflict}};
- const opts=mf468AdvancedPrefs(),source=opts.source;
- let report=null;
- if(source==='smart'){
-  // v403 augments the v402 verified checker with genuine airing evidence.
-  report=await v402CheckAllProviders(copy,identity,force);
- }else if(source==='automatic'){
-  report=await mf468SequentialCheck(copy,identity,force,opts);
- }else if(source==='manual'){
-  return {status:'unknown',reason:'Manual detection',fingerprint:mf468Fingerprint(item),at:Date.now()};
- }else{
-  try{
-   const count=!identity.malId&&source==='anilist'&&identity.anilistId?
-    await v402AniListById(identity.anilistId,force):
-    !identity.malId&&source==='kitsu'&&identity.kitsuId?
-    await v402KitsuById(identity.kitsuId,force):
-    identity.malId&&V380_ADAPTERS[source]?
-    await V380_ADAPTERS[source](identity.malId,force):null;
-   if(!Number.isSafeInteger(count)||count<0)throw Error('No verified count for this provider');
-   const proof=count<=mf468Progress(item)&&source==='anilist'?
-    await v403VerifyAniListNoFresh(identity,count,force):null;
-   report={results:[{source,status:'verified',available:count}],
-    v403SingleSourceCertified:!!proof?.verified,v403Proof:proof};
-  }catch(e){report={results:[{source,status:'unknown',reason:String(e?.message||e)}]};}
- }
- const result=mf468Verdict(item,identity,report,opts);
- const schedule=await mf468Schedule(item,identity,result);
- if(schedule)Object.assign(result,schedule);
- return result;
-}
-function mf468Counts(rows=mf468Candidates()){
- let freshTitles=0,freshEpisodes=0,caughtUp=0,unknown=0,conflicts=0,scheduled=0;
- for(const item of rows){
-  const entry=mf468Entry(item),status=mf468Outcome(item);
-  if(status==='fresh'){freshTitles++;freshEpisodes+=Math.max(0,entry.available-mf468Progress(item));}
-  else if(status==='none')caughtUp++;
-  else unknown++;
-  if(entry?.disagreement)conflicts++;
-  if(entry?.nextAt>Date.now())scheduled++;
- }
- return {freshTitles,freshEpisodes,caughtUp,unknown,conflicts,scheduled,total:rows.length};
-}
-function mf468ScanBusy(){
- return MF468_RUNTIME.working||V166_SEASONAL_SYNC_RUNNING||
-  typeof MF466!=='undefined'&&MF466.working||
-  typeof MF467!=='undefined'&&MF467.working||
-  typeof MF439!=='undefined'&&MF439.working||
-  typeof MF424!=='undefined'&&MF424.running||
-  typeof MF442!=='undefined'&&MF442.process||
-  typeof MF453Quick!=='undefined'&&MF453Quick.current;
-}
-function mf468RequestStop(){
- if(MF468_RUNTIME.working){MF468_RUNTIME.stopping=true;showToast('Advanced scan will stop after the current title. Completed checks will be saved.');}
-}
-async function mf468Scan({ids=null,force=false,notify=false}={}){
- if(!mf468Active())return {ok:false,reason:'Advanced engine is not selected'};
- if(mf468AdvancedPrefs().source==='manual')return {ok:false,reason:'Choose an automatic Advanced source'};
- if(mf468ScanBusy())return {ok:false,reason:'Another recovery or Fresh Episodes scan is running'};
- if(typeof navigator!=='undefined'&&!navigator.onLine)return {ok:false,reason:'Offline'};
- if(typeof AUTH_USER==='undefined'||!AUTH_USER||!AUTH_READY||S.loading)
-  return {ok:false,reason:'Wait for your account to load'};
- // Reuse existing recovery process ownership. Keep all legacy recovery job
- // locks intact; renew the metadata lease while the Advanced scan runs.
- if(!mf442AcquireProcess('metadata'))return {ok:false,reason:'Another tab owns recovery'};
- if(!mf439AcquireLease()){mf442ReleaseProcess('metadata');return {ok:false,reason:'Another tab owns metadata recovery'};}
- const account=mf439Account(),beforeMode=mf468System();
- const oldAccount=MF439.account,previousWorking=MF439.working;
- const rows=mf468Candidates(),filter=ids?new Set(ids.map(String)):null;
- const selected=filter?rows.filter(x=>filter.has(String(x.id))):rows;
- const ledger={...mf468Ledger()},seq=++MF468_RUNTIME.sequence;
- Object.assign(MF468_RUNTIME,{working:true,stopping:false,checked:0,total:selected.length,
-  updated:0,startedAt:Date.now(),finishedAt:0,error:'',account});
- V166_SEASONAL_SYNC_RUNNING=true;MF439.working=true;MF439.account=account;
- MF468_RUNTIME.heartbeat=setInterval(()=>{
-  if(!mf442RenewMetadataLease())MF468_RUNTIME.stopping=true;
- },8000);
- let skipped=0,completed=0;
- try{
-  for(const item of selected){
-   if(MF468_RUNTIME.stopping||seq!==MF468_RUNTIME.sequence||mf468System()!==beforeMode||
-    mf439Account()!==account||!mf442MetadataLeaseOwned()||!mf442ProcessOwned('metadata'))break;
-   const oldSignature=mf442TitleSignature(item),fingerprint=mf468Fingerprint(item);
-   const current=ledger[String(item.id)];
-   if(!force&&current?.fingerprint===fingerprint&&Date.now()-Number(current.at||0)<6*60*60*1000){
-    skipped++;MF468_RUNTIME.checked++;continue;
-   }
-   try{
-    const result=await mf468CheckItem(item,force);
-    if(mf439Account()!==account||mf439Item(item.id)!==item||
-      oldSignature!==mf442TitleSignature(item)||fingerprint!==mf468Fingerprint(item)||
-      seq!==MF468_RUNTIME.sequence)break;
-    // Unverified checks never replace a still-current verified result.
-    if(result.status==='unknown'){
-     const old=ledger[String(item.id)];
-     if(!old||old.fingerprint!==fingerprint||Date.now()-Number(old.at||0)>MF468_AGE)
-      delete ledger[String(item.id)];
-    }else{
-     ledger[String(item.id)]=result;MF468_RUNTIME.updated++;completed++;
-    }
-   }catch(e){MF468_RUNTIME.error=String(e?.message||e).slice(0,180);}
-   MF468_RUNTIME.checked++;
-   if(MF468_RUNTIME.checked%10===0){
-    if(mf439Account()!==account||mf468System()!==beforeMode)break;
-    S.settings.v468AdvancedEpisodeLedger={...ledger};
-    try{await saveState();}catch(e){MF468_RUNTIME.error='Cloud checkpoint unsuccessful: '+String(e?.message||e).slice(0,100);}
-    if(S.view==='settings')mf468UpdateDashboard();
-    await new Promise(resolve=>setTimeout(resolve,0));
-   }
-  }
-  if(mf439Account()===account&&mf468System()===beforeMode){
-   // Avoid large unbounded stale evidence accumulation across 100k titles.
-   const recent=Object.entries(ledger).sort((a,b)=>Number(b[1]?.at||0)-Number(a[1]?.at||0)).slice(0,20000);
-   S.settings.v468AdvancedEpisodeLedger=Object.fromEntries(recent);
-   S.settings.v468AdvancedLastCheck={at:Date.now(),checked:MF468_RUNTIME.checked,
-    total:selected.length,verified:completed,skipped,
-    stopped:MF468_RUNTIME.stopping,mode:mf468AdvancedPrefs().source};
-   await saveState();
-  }
-  const summary=mf468Counts();
-  if(notify)showToast('Advanced: '+summary.freshTitles+' fresh titles · '+summary.unknown+' unverified.');
-  return {ok:true,checked:MF468_RUNTIME.checked,verified:completed,skipped,
-   stopped:MF468_RUNTIME.stopping,summary};
- }catch(e){
-  MF468_RUNTIME.error=String(e?.message||e).slice(0,200);
-  if(notify)showToast('Advanced Fresh Episodes error: '+MF468_RUNTIME.error);
-  return {ok:false,error:MF468_RUNTIME.error,checked:MF468_RUNTIME.checked};
- }finally{
-  if(MF468_RUNTIME.heartbeat)clearInterval(MF468_RUNTIME.heartbeat);
-  Object.assign(MF468_RUNTIME,{working:false,stopping:false,provider:'',finishedAt:Date.now()});
-  V166_SEASONAL_SYNC_RUNNING=false;MF439.working=previousWorking;MF439.account=oldAccount;
-  mf439ReleaseLease();mf442ReleaseProcess('metadata');
-  if(S.view==='settings'||S.view==='dashboard')render();
- }
-}
-// Keep the legacy algorithm reference and legacy cloud ledger untouched.
-const mf468LegacyRun=v377RunJikan;
-v377RunJikan=function(options={}){return mf468Active()?mf468Scan(options):mf468LegacyRun.apply(this,arguments);};
-const mf468LegacyAutomatic=v401AutomaticEnabled;
-v401AutomaticEnabled=function(){return mf468Active()?mf468AdvancedPrefs().source!=='manual':mf468LegacyAutomatic();};
-const mf468LegacyIsSeasonal=v401IsSeasonal;
-v401IsSeasonal=function(cat){return mf468Active()?cat?.seasonal===true:mf468LegacyIsSeasonal(cat);};
-const mf468LegacyOutcome=v401EpisodeOutcome;
-const mf468Legacy402=v402EpisodeOutcomeFor;
-v402EpisodeOutcomeFor=function(item){return mf468Active()?mf468Outcome(item):mf468Legacy402.apply(this,arguments);};
-v401EpisodeOutcome=function(item){return mf468Active()?mf468Outcome(item):mf468LegacyOutcome.apply(this,arguments);};
-const mf468LegacyFilterEnabled=v401FilterEnabled;
-v401FilterEnabled=function(){
- return mf468Active()?mf468AutoEnabled()&&mf468AdvancedPrefs().freshOnly===true:
-  mf468LegacyFilterEnabled.apply(this,arguments);
-};
-const mf468LegacyEligible=v401Eligible;
-v401Eligible=function(item,cat){
- if(!mf468Active())return mf468LegacyEligible.apply(this,arguments);
- if(!item)return false;
- if(!v401FilterEnabled()||!v401IsSeasonal(cat))return true;
- if(String(item.categoryId||'')!==String(cat.id||''))return false;
- const outcome=mf468Outcome(item);
- return outcome==='fresh'||outcome==='unknown'&&mf468AdvancedPrefs().includeUnknown;
-};
-const mf468LegacyCategoryFresh=mf419FreshRemaining;
-mf419FreshRemaining=function(category){
- if(!mf468Active())return mf468LegacyCategoryFresh.apply(this,arguments);
- if(!category?.seasonal||!mf468AutoEnabled())return null;
- let fresh=0,unknown=0;
- for(const item of S.library||[]){
-  if(!item||String(item.categoryId)!==String(category.id))continue;
-  const entry=mf468Entry(item),status=mf468Outcome(item);
-  if(status==='unknown')unknown++;
-  else if(status==='fresh')
-   fresh+=Math.max(0,entry.available-mf468Progress(item));
- }
- return {fresh,unknown};
-};
-const mf468LegacyFreshCard=mf463FreshForRecommendedTitle;
-mf463FreshForRecommendedTitle=function(item,cat){
- return mf468Active()?mf468FreshReport(item):mf468LegacyFreshCard.apply(this,arguments);
-};
-window.MediaFlowV468=Object.freeze({version:468,system:mf468System,advanced:mf468AdvancedPrefs,
- candidates:mf468Candidates,verdict:mf468Verdict,outcome:mf468Outcome,
- entry:mf468Entry,report:mf468FreshReport,counts:mf468Counts,
- scan:mf468Scan,check:mf468CheckItem,stop:mf468RequestStop,
- sequential:mf468SequentialCheck,supports:mf468MediaSupported,
- runtime:()=>({working:MF468_RUNTIME.working,stopping:MF468_RUNTIME.stopping,
-  checked:MF468_RUNTIME.checked,total:MF468_RUNTIME.total,error:MF468_RUNTIME.error})});
-MediaFlowRuntime.version=MF468_VERSION;
-/* v468 — source selection, Advanced checker workspace, diagnostics and
- * cloud-backed mode preferences. Legacy markup remains byte-for-byte intact
- * when Legacy is selected, aside from the new switch above it.
- */
-const MF468_UI={query:'',filter:'all',sort:'fresh',page:1,perPage:24,timer:null};
-function mf468ModePickerHtml(location='fresh'){
- const active=mf468System(),head=location==='settings'?
-  '<div class="mf468-mode-title"><strong>Fresh Episodes System</strong><small>Both systems keep their own detection settings and results.</small></div>':'';
- return '<section class="mf468-engine-select" data-mf468-system="'+escapeHtml(location)+'">'+head+
-  '<div class="mf468-engine-choices" role="radiogroup" aria-label="Fresh Episodes System">'+
-  [['legacy','Legacy','Your existing Fresh Episodes system · unchanged'],
-   ['advanced','Advanced','Alex Godly\'s Smart Fresh Episodes Engine 2.0']].map(([key,name,description])=>
-    '<label class="mf468-engine-choice '+(active===key?'mf468-selected':'')+'">'+
-    '<input type="radio" name="mf468-system-'+escapeHtml(location)+'" value="'+key+'" '+
-    (active===key?'checked ':'')+'onchange="App.mf468SelectSystem(this.value)">'+
-    '<span><strong>'+name+'</strong><small>'+escapeHtml(description)+'</small></span></label>').join('')+
-  '</div><small class="mf468-mode-footnote">'+(active==='legacy'?
-   'Legacy uses the existing algorithms, provider selection and saved verification ledger.':
-   'Advanced uses separate verification data. Legacy results remain available if you switch back.')+
-  '</small></section>';
-}
-function mf468AdvancedSettingsHtml(){
- const p=mf468AdvancedPrefs(),switcher=(key,label)=>
-  '<label class="mf468-preference-switch"><input type="checkbox" '+
-  (p[key]?'checked ':'')+'onchange="App.mf468SetAdvanced(&#39;'+key+'&#39;,this.checked)">'+
-  '<span>'+escapeHtml(label)+'</span></label>';
- const options=(values,selected)=>values.map(([id,label])=>
-  '<option value="'+id+'" '+(selected===id?'selected':'')+'>'+escapeHtml(label)+'</option>').join('');
- return '<section class="mf468-options" aria-label="Advanced Fresh Episodes settings">'+
-  '<div class="mf468-options-head"><strong>Advanced Engine Configuration</strong>'+
-  '<small>Independent from your Legacy provider settings.</small></div>'+
-  '<div class="mf468-options-grid">'+
-  '<label>Advanced detection method<select onchange="App.mf468SetAdvanced(&#39;source&#39;,this.value)">'+
-  options([['smart','Smart Multi-Provider · compare verified evidence'],
-   ['automatic','Automatic Multi-Provider · verified comparisons'],
-   ['anilist','AniList only'],['tenrai','Tenrai only'],['anizip','AniZip only'],
-   ['kitsu','Kitsu only'],['tvmaze','TVmaze only'],['manual','Manual · no automatic verification']],p.source)+
-  '</select></label>'+
-  '<label>Verification depth<select onchange="App.mf468SetAdvanced(&#39;verification&#39;,this.value)">'+
-  options([['balanced','Balanced · fewer airing-schedule requests'],
-   ['maximum','Maximum · verify additional airing schedules']],p.verification)+
-  '</select></label>'+
-  '<label>Background checking<select onchange="App.mf468SetAdvanced(&#39;refresh&#39;,this.value)">'+
-  options([['manual','Manual checks only'],['adaptive','Adaptive while app is open']],p.refresh)+
-  '</select></label></div>'+
-  '<details class="mf468-provider-priority"><summary>Advanced provider priority (used for fallback and tie-breaking)</summary>'+
-  '<div class="mf468-provider-priority-rows">'+p.providerOrder.map((name,index)=>
-   '<div class="mf468-provider-priority-row"><span><b>'+(index+1)+'.</b> '+
-   escapeHtml(V380_NAMES[name]||name)+'</span>'+
-   '<div><button type="button" class="btn btn-sm btn-ghost" aria-label="Move '+
-   escapeHtml(name)+' earlier" '+(index===0?'disabled ':'')+
-   'onclick="App.mf468Reorder(&#39;'+name+'&#39;,-1)">↑</button>'+
-   '<button type="button" class="btn btn-sm btn-ghost" aria-label="Move '+
-   escapeHtml(name)+' later" '+(index===p.providerOrder.length-1?'disabled ':'')+
-   'onclick="App.mf468Reorder(&#39;'+name+'&#39;,1)">↓</button></div></div>').join('')+
-  '</div><small>Legacy provider order is never modified. Smart compares every applicable source; Automatic uses the selected fallback order.</small></details>'+
-  switcher('schedules','Show upcoming episodes when a verified schedule is available')+
-  switcher('compare','Show provider disagreement and evidence')+
-  switcher('includeUnknown','Keep Unknown titles eligible for fresh-only recommendations')+
-  '<small class="mf468-caution">Unknown results never mean 0 episodes. '
-  +'Multiple saved seasons are displayed as title-level counts until independently verified season mappings are available. '
-  +'Provider checks follow existing API rate limits and recovery locks.</small></section>';
-}
-function mf468ProviderSummary(entry){
- const rows=(entry?.providers||[]).slice(0,10);
- if(!rows.length)return '<small>No verified provider evidence saved.</small>';
- return rows.map(r=>'<div class="mf468-provider-evidence"><b>'+
-  escapeHtml(V380_NAMES[r.source]||r.source)+'</b><span>'+
-  escapeHtml(r.status==='verified'?r.available+' aired':
-   r.status+(r.reason?' · '+r.reason:''))+'</span></div>').join('');
-}
-function mf468Next(entry){
- if(!entry?.nextAt||!entry?.nextEpisode||entry.nextAt<=Date.now())return '';
- const when=new Date(entry.nextAt).toLocaleString(),time=Math.max(0,entry.nextAt-Date.now()),
-  days=Math.floor(time/86400000),hours=Math.floor(time%86400000/3600000);
- return '<small class="mf468-upcoming">Next episode '+escapeHtml(String(entry.nextEpisode))+
-  ' · '+escapeHtml(when)+' · in '+days+'d '+hours+'h</small>';
-}
-function mf468AdvancedRows(){
- const all=mf468Candidates(),q=MF468_UI.query.trim().toLocaleLowerCase();
- const filtered=all.filter(item=>{
-  if(q&&!String(item.title||'').toLocaleLowerCase().includes(q))return false;
-  const status=mf468Outcome(item),entry=mf468Entry(item);
-  switch(MF468_UI.filter){
-   case 'fresh':return status==='fresh';case 'caught':return status==='none';
-   case 'unknown':return status==='unknown';case 'disagreement':return !!entry?.disagreement;
-   case 'scheduled':return !!entry?.nextAt&&entry.nextAt>Date.now();
-   case 'missingids':return !v166GetMalId(item)&&!item.externalIds?.anilist&&!item.externalIds?.kitsu;
-   default:return true;
-  }
- });
- const priority=i=>({high:3,medium:2,low:1}[String(i.priority||'').toLowerCase()]||0);
- const aired=i=>Math.max(0,(mf468Entry(i)?.available||0)-mf468Progress(i));
- const upcoming=i=>mf468Entry(i)?.nextAt||Number.MAX_SAFE_INTEGER;
- if(MF468_UI.sort==='fresh')filtered.sort((a,b)=>aired(b)-aired(a));
- else if(MF468_UI.sort==='upcoming')filtered.sort((a,b)=>upcoming(a)-upcoming(b));
- else if(MF468_UI.sort==='oldest')filtered.sort((a,b)=>(mf468Entry(a)?.at||0)-(mf468Entry(b)?.at||0));
- else if(MF468_UI.sort==='priority')filtered.sort((a,b)=>priority(b)-priority(a)||aired(b)-aired(a));
- else filtered.sort((a,b)=>String(a.title||'').localeCompare(String(b.title||'')));
- return filtered;
-}
-function mf468RowsHtml(){
- const rows=mf468AdvancedRows(),pages=Math.max(1,Math.ceil(rows.length/MF468_UI.perPage));
- MF468_UI.page=Math.max(1,Math.min(pages,MF468_UI.page));
- const visible=rows.slice((MF468_UI.page-1)*MF468_UI.perPage,MF468_UI.page*MF468_UI.perPage);
- const cards=visible.map(item=>{
-  const entry=mf468Entry(item),status=mf468Outcome(item),fresh=entry?
-   Math.max(0,entry.available-mf468Progress(item)):null;
-  const label=status==='fresh'?fresh+' fresh episodes':
-   status==='none'?'Caught up':'Awaiting verification';
-  const id=escapeHtml(JSON.stringify(String(item.id)));
-  const summary=entry?entry.available+' verified aired · '+mf468Progress(item)+' logged':'No reliable current release count';
-  const confidence=entry?.confidence||'unknown';
-  return '<article class="mf468-title-card" data-mf468-title="'+escapeHtml(String(item.id))+'">'+
-   '<div class="mf468-title-card-head"><strong>'+escapeHtml(item.title||'Untitled')+'</strong>'+
-   '<span class="mf468-status mf468-'+status+'">'+escapeHtml(label)+'</span></div>'+
-   '<small>'+escapeHtml(getCategory(item.categoryId)?.name||'Category')+' · '+
-   escapeHtml(summary)+'</small>'+
-   '<div class="mf468-card-meta"><span>Evidence: '+escapeHtml(confidence)+
-   '</span><span>Last checked: '+(entry?escapeHtml(new Date(entry.at).toLocaleString()):'Never')+'</span></div>'+
-   mf468Next(entry)+
-   '<details class="mf468-evidence"><summary>Provider verification and season details</summary>'+
-   '<small>'+escapeHtml(entry?.seasonEvidence||'No verified season mapping available.')+'</small>'+
-   mf468ProviderSummary(entry)+'</details>'+
-   '<button type="button" class="btn btn-sm btn-ghost" onclick="App.mf468RefreshOne('+id+')"'+
-   (MF468_RUNTIME.working?' disabled':'')+'>Refresh this title</button></article>';
- }).join('');
- return '<div class="mf468-table-info">'+rows.length.toLocaleString()+' matching titles · page '+
-  MF468_UI.page+' of '+pages+'</div>'+
-  '<div class="mf468-cards">'+(cards||'<div class="mf468-empty">No titles match these filters.</div>')+'</div>'+
-  '<div class="mf468-pagination"><button class="btn btn-sm" onclick="App.mf468Page(-1)" '+
-   (MF468_UI.page===1?'disabled':'')+'>Previous</button><span>'+MF468_UI.page+' / '+pages+
-   '</span><button class="btn btn-sm" onclick="App.mf468Page(1)" '+
-   (MF468_UI.page===pages?'disabled':'')+'>Next</button></div>';
-}
-function mf468AdvancedWorkspaceHtml(){
- const counts=mf468Counts(),run=MF468_RUNTIME,progress=run.total?
-  Math.round(run.checked/run.total*100):0;
- const tile=(n,label)=>'<div class="mf468-summary-stat"><strong>'+n.toLocaleString()+
-  '</strong><small>'+escapeHtml(label)+'</small></div>';
- return '<section class="mf468-workspace" aria-label="Advanced Fresh Episodes Checker">'+
-  '<div class="mf468-workspace-head"><div><small>SMART ENGINE 2.0</small>'+
-  '<h3>Advanced Fresh Episodes Checker</h3><p>Verified releases, provider evidence, schedules, and title-by-title diagnostics.</p></div>'+
-  '<div class="mf468-workspace-actions"><button type="button" class="btn btn-primary" '+
-  (run.working||mf468AdvancedPrefs().source==='manual'?'disabled ':'')+
-  'onclick="App.mf468RefreshAll()">Check Fresh Episodes</button>'+
-  (run.working?'<button type="button" class="btn" onclick="App.mf468Stop()">Stop after current title</button>':'')+
-  '</div></div>'+
-  v401FilterControl('checker')+
-  '<div class="mf468-overview">'+tile(counts.freshTitles,'Verified fresh titles')+
-   tile(counts.freshEpisodes,'Fresh episodes remaining')+tile(counts.caughtUp,'Verified caught up')+
-   tile(counts.unknown,'Unknown')+tile(counts.conflicts,'Provider disagreements')+
-   tile(counts.scheduled,'Upcoming verified schedules')+'</div>'+
-  '<div class="mf468-scan-progress" role="status" aria-live="polite">'+
-   (run.working?'Checking '+run.checked+' / '+run.total+' titles · '+progress+'%'+(run.stopping?' · stopping safely':''):
-    'Advanced results are separate from Legacy. Last check: '+
-    (S.settings?.v468AdvancedLastCheck?.at?
-      new Date(S.settings.v468AdvancedLastCheck.at).toLocaleString():'Never'))+
-   '</div>'+
-  '<div class="mf468-tools"><input id="mf468-search" type="search" placeholder="Search fresh episode titles" '+
-   'value="'+escapeHtml(MF468_UI.query)+'" oninput="App.mf468Search(this.value)" aria-label="Search titles">'+
-   '<label>Filter <select onchange="App.mf468Filter(this.value)">'+
-   [['all','All'],['fresh','Fresh available'],['caught','Caught up'],['unknown','Unknown'],
-    ['disagreement','Provider disagreements'],['scheduled','Upcoming'],
-    ['missingids','Missing verified External IDs']].map(([id,name])=>
-      '<option value="'+id+'" '+(MF468_UI.filter===id?'selected':'')+'>'+name+'</option>').join('')+
-   '</select></label><label>Sort <select onchange="App.mf468Sort(this.value)">'+
-   [['fresh','Most fresh episodes'],['upcoming','Next release'],
-    ['oldest','Oldest verification'],['priority','Highest priority'],['alpha','Alphabetical']].map(([id,name])=>
-      '<option value="'+id+'" '+(MF468_UI.sort===id?'selected':'')+'>'+name+'</option>').join('')+
-   '</select></label></div>'+
-  '<div id="mf468-list">'+mf468RowsHtml()+'</div>'+
-  '<div class="mf468-workspace-note">Unknown is never zero. Verified provider identity and release dates are required. '+
-  'Airing schedules and per-season information appear only when actual supporting evidence exists.</div>'+
-  '</section>';
-}
-function mf468UpdateDashboard(){
- const list=document.getElementById('mf468-list');
- if(list)list.innerHTML=mf468RowsHtml();
- const progress=document.querySelector('.mf468-scan-progress');
- if(progress&&MF468_RUNTIME.working)progress.textContent='Checking '+
-  MF468_RUNTIME.checked+' / '+MF468_RUNTIME.total+
-  ' · '+(MF468_RUNTIME.total?Math.round(MF468_RUNTIME.checked/MF468_RUNTIME.total*100):0)+'%';
-}
-App.mf468Search=function(q){
- MF468_UI.query=String(q||'');MF468_UI.page=1;
- clearTimeout(MF468_UI.timer);MF468_UI.timer=setTimeout(mf468UpdateDashboard,180);
-};
-App.mf468Filter=function(value){MF468_UI.filter=value;MF468_UI.page=1;mf468UpdateDashboard();};
-App.mf468Sort=function(value){MF468_UI.sort=value;MF468_UI.page=1;mf468UpdateDashboard();};
-App.mf468Page=function(direction){MF468_UI.page+=direction;mf468UpdateDashboard();};
-App.mf468RefreshAll=async function(){
- const result=await mf468Scan({force:true,notify:true});
- if(!result.ok)showToast(result.reason||result.error||'Advanced scan could not start');
-};
-App.mf468RefreshOne=async function(id){
- const result=await mf468Scan({ids:[id],force:true,notify:true});
- if(!result.ok)showToast(result.reason||result.error||'Title refresh unavailable');
-};
-App.mf468Reorder=async function(name,delta){
- if(!mf468Active()||MF468_RUNTIME.working)return;
- const current=mf468AdvancedPrefs(),old=S.settings.v468AdvancedFresh,
-  list=current.providerOrder.slice(),idx=list.indexOf(String(name)),j=idx+Number(delta);
- if(idx<0||j<0||j>=list.length)return;
- [list[idx],list[j]]=[list[j],list[idx]];
- current.providerOrder=list;S.settings.v468AdvancedFresh=current;
- try{await persistSettings();}
- catch(e){S.settings.v468AdvancedFresh=old;showToast('Unable to save provider order.');}
- render();
-};
-App.mf468Stop=mf468RequestStop;
-async function mf468SetSystem(mode){
- if(!MF468_SYSTEMS.includes(mode)||mode===mf468System())return;
- if(MF468_RUNTIME.working||V166_SEASONAL_SYNC_RUNNING||
-  typeof MF442!=='undefined'&&MF442.process){
-  showToast('Finish the current recovery or stop the Advanced scan before switching engines.');
-  render();return;
- }
- const old=mf468System(),settings=S.settings||(S.settings={});
- settings.v468FreshEpisodesSystem=mode;
- try{await persistSettings();}
- catch(e){settings.v468FreshEpisodesSystem=old;showToast('Could not sync Fresh Episodes system preference.');}
- render();
-}
-async function mf468SetAdvanced(key,value){
- if(MF468_RUNTIME.working){showToast('Wait for the Advanced scan to finish before changing settings.');return;}
- const keys=['source','verification','refresh','schedules','compare','includeUnknown'];
- if(!keys.includes(key))return;
- const current=mf468AdvancedPrefs(),old=S.settings.v468AdvancedFresh;
- if(key==='source'){if(!MF468_SOURCES.includes(value))return;current.source=value;}
- else if(key==='verification'){current.verification=value==='maximum'?'maximum':'balanced';}
- else if(key==='refresh'){current.refresh=value==='adaptive'?'adaptive':'manual';}
- else current[key]=Boolean(value);
- S.settings.v468AdvancedFresh=current;
- try{await persistSettings();}
- catch(e){S.settings.v468AdvancedFresh=old;showToast('Unable to synchronize Advanced settings.');}
- render();
-}
-const mf468OldFreshToggle=App.v401ToggleFreshRecommendations;
-App.v401ToggleFreshRecommendations=async function(){
- if(!mf468Active())return mf468OldFreshToggle.apply(this,arguments);
- if(!mf468AutoEnabled()){showToast('Choose an automatic Advanced source to enable fresh-only recommendations.');return;}
- const current=mf468AdvancedPrefs();
- const previous=S.settings.v468AdvancedFresh;
- current.freshOnly=!current.freshOnly;
- S.settings.v468AdvancedFresh=current;
- try{await persistSettings();}
- catch(e){S.settings.v468AdvancedFresh=previous;showToast('Unable to save the Advanced Fresh Episodes filter.');}
- render();
-};
-App.mf468SelectSystem=mf468SetSystem;
-App.mf468SetAdvanced=mf468SetAdvanced;
-// Fresh Episodes area: Legacy markup and controls remain untouched in Legacy,
-// including the exact source selection, fresh-only toggle and diagnostics.
-const mf468SeasonalBase=v166SeasonalSettingsHtml;
-v166SeasonalSettingsHtml=function(){
- return mf468ModePickerHtml('fresh')+
-  (mf468Active()?mf468AdvancedSettingsHtml()+mf468AdvancedWorkspaceHtml():
-   mf468SeasonalBase.apply(this,arguments));
-};
-// Settings Title Recommendations also exposes the system selection. The mode
-// itself is saved once in existing cloud-backed Settings.
-const mf468SettingsBase=V219_PAGE_RENDERERS.get('settings');
-if(typeof mf468SettingsBase==='function')MediaFlowRuntime.registerPageRenderer('settings',function(ctx){
- const html=String(mf468SettingsBase.call(this,ctx)||'');
- if(!html.includes('mf404-recommendations-card'))return html;
- const root=document.createElement('div');root.innerHTML=html;
- const card=root.querySelector('.mf404-recommendations-card');
- if(!card||card.querySelector('[data-mf468-system="settings"]'))return html;
- card.insertAdjacentHTML('beforeend',mf468ModePickerHtml('settings'));
- return root.innerHTML;
-});
-if(typeof v366RegisterSetting==='function'){
- v366RegisterSetting({id:'v468FreshEpisodesSystem',section:'title-recommendations',
-  selector:'[data-mf468-system="settings"]',label:'Legacy or Advanced Fresh Episodes system',
-  subgroup:'Title Recommendations',keywords:['legacy','advanced','fresh','episode','engine','switch']});
-}
-MF468_RUNTIME.nextTimer=setInterval(()=>{
- if(!mf468Active()||MF468_RUNTIME.working||
-  mf468AdvancedPrefs().refresh!=='adaptive'||mf468AdvancedPrefs().source==='manual')return;
- const recent=S.settings?.v468AdvancedLastCheck?.at||0;
- if(Date.now()-Number(recent)<6*60*60*1000)return;
- void mf468Scan({force:false,notify:false});
-},6*60*1000);
-window.MediaFlowV468Interface=Object.freeze({version:468,picker:mf468ModePickerHtml,
- settings:mf468AdvancedSettingsHtml,workspace:mf468AdvancedWorkspaceHtml,
- select:mf468SetSystem,configure:mf468SetAdvanced,list:mf468RowsHtml});
-/* MediaFlow v469 — Mobile floating-control collision avoidance.
- * A compact Background Processes launcher lives below the mobile header,
- * not in the same bottom-right lane as Task Progress and the + quick dock.
- * The open recovery panel has a measured height ceiling above either the
- * compact dock or the expanded task panel. While + action sheet is open,
- * temporarily hide the recovery launcher (jobs keep running normally).
- * Desktop and all recovery data/settings remain unchanged.
- */
-const MF469_VERSION=469;
-const MF469_MOBILE_QUERY='(max-width:720px)';
-const MF469={pending:false,lastRoom:null,lastMenu:false,observedDock:null,observedProgress:null};
-function mf469Mobile(){return !!window.matchMedia?.(MF469_MOBILE_QUERY)?.matches;}
-function mf469VisibleBox(el){
- if(!el||el.hidden||!el.getClientRects?.().length)return null;
- const r=el.getBoundingClientRect();
- return Number.isFinite(r.top)&&r.width>0&&r.height>0?r:null;
-}
-function mf469Layout(){
- const widget=document.getElementById('mf441-process-widget');
- // The body flag also protects freshly re-created widgets during menu open.
- const plusOpen=!!(typeof MF397!=='undefined'&&MF397.open)||
-  !!document.getElementById('mf397-fan')?.classList.contains('open');
- document.body?.classList.toggle('mf469-actions-open',mf469Mobile()&&plusOpen);
- if(!widget){MF469.lastRoom=null;return {mobile:mf469Mobile(),widget:false,plusOpen};}
- if(!mf469Mobile()){
-  widget.classList.remove('mf469-no-room');
-  widget.style.removeProperty('--mf469-room');
-  MF469.lastRoom=null;
-  return {mobile:false,widget:true,plusOpen};
- }
- const rect=widget.getBoundingClientRect();
- const viewport=window.visualViewport?.height||window.innerHeight;
- // Keep a bottom-safe lane for the mobile floating task/+ controls,
- // including the optional expanded task panel, not just their closed dock.
- const dock=mf469VisibleBox(document.getElementById('mf397-dock'));
- const progress=document.getElementById('mf397-progress');
- const expanded=progress&&!progress.classList.contains('compact')?
-  mf469VisibleBox(progress):null;
- let ceiling=viewport-15;
- if(dock)ceiling=Math.min(ceiling,dock.top);
- if(expanded)ceiling=Math.min(ceiling,expanded.top);
- const room=Math.max(0,Math.floor(Math.min(viewport*0.61,ceiling-rect.top-14)));
- widget.style.setProperty('--mf469-room',room+'px');
- // A 52px launcher will not fit if a tiny landscape viewport already has
- // the expanded task panel at the top. Hide only the visual launcher then.
- widget.classList.toggle('mf469-no-room',room<54);
- MF469.lastRoom=room;MF469.lastMenu=plusOpen;
- return {mobile:true,widget:true,room,plusOpen,expandedTask:!!expanded,
-  dockTop:dock?.top??null,progressTop:expanded?.top??null};
-}
-function mf469Schedule(){
- if(MF469.pending)return;
- MF469.pending=true;
- requestAnimationFrame(()=>{
-  MF469.pending=false;
-  mf469Layout();
- });
-}
-const mf469BackgroundPaintBase=mf441Paint;
-mf441Paint=function(){
- const result=mf469BackgroundPaintBase.apply(this,arguments);
- mf469Schedule();
- return result;
-};
-const mf469DockUpdateBase=mf397Update;
-mf397Update=function(){
- const result=mf469DockUpdateBase.apply(this,arguments);
- mf469ObserveDock();mf469Schedule();
- return result;
-};
-const mf469DockMenuBase=mf397SetMenu;
-mf397SetMenu=function(){
- const result=mf469DockMenuBase.apply(this,arguments);
- mf469Schedule();
- return result;
-};
-// Resize events also cover orientation/keyboard transitions and device
-// rotation. Watching the dock sizes catches task expansion without polling.
-function mf469ObserveDock(){
- if(!MF469.observer)return;
- const dock=document.getElementById('mf397-dock');
- const progress=document.getElementById('mf397-progress');
- if(dock&&dock!==MF469.observedDock){
-  if(MF469.observedDock)MF469.observer.unobserve(MF469.observedDock);
-  MF469.observer.observe(dock);MF469.observedDock=dock;
- }
- if(progress&&progress!==MF469.observedProgress){
-  if(MF469.observedProgress)MF469.observer.unobserve(MF469.observedProgress);
-  MF469.observer.observe(progress);MF469.observedProgress=progress;
- }
-}
-if(typeof ResizeObserver==='function')
- MF469.observer=new ResizeObserver(()=>mf469Schedule());
-const mf469ShellBase=renderShell;
-renderShell=function(){
- const result=mf469ShellBase.apply(this,arguments);
- mf469ObserveDock();mf469Schedule();
- return result;
-};
-window.addEventListener('resize',mf469Schedule,{passive:true});
-window.addEventListener('orientationchange',mf469Schedule,{passive:true});
-window.visualViewport?.addEventListener('resize',mf469Schedule,{passive:true});
-window.visualViewport?.addEventListener('scroll',mf469Schedule,{passive:true});
-window.MediaFlowV469=Object.freeze({version:MF469_VERSION,mobile:mf469Mobile,
- layout:mf469Layout,schedule:mf469Schedule,last:()=>({room:MF469.lastRoom,plusOpen:MF469.lastMenu})});
-MediaFlowRuntime.version=MF469_VERSION;
-/* MediaFlow v470 — cloud/readback, portable exports, PWA and XP integrity.
- * Additive to v201 cloud schema and v29 backups. Never mutate an account in an
- * audit, upload during an export, or award/recalculate XP as a side effect. */
-const MF470_STATE_FIELDS=Object.freeze([...new Set(V402_ACCOUNT_FIELDS)]);
-function mf470Version(){
-  const reported=Number(v161CurrentVersion());
-  return Number.isSafeInteger(reported)&&reported>=470?reported:470;
-}
-function mf470Own(value,key){return value!=null&&Object.prototype.hasOwnProperty.call(value,key)&&value[key]!==undefined;}
-function mf470Copy(value){
-  const result=JSON.stringify(value);
-  if(result===undefined)throw new Error('MediaFlow backup contains non-portable undefined data');
-  return JSON.parse(result);
-}
-function mf470Parity(a,b){return v402Same(a,b);}
-const mf470BackupBase=v148BuildFullBackup;
-v148BuildFullBackup=function(){
-  const backup=mf470BackupBase.apply(this,arguments);
-  const state=snapshot();
-  if(!backup||typeof backup!=='object')throw new Error('Full Backup builder returned invalid data');
-  // Older builders skipped some cloud-snapshot fields or normalized their old
-  // equivalents. A Full Backup must preserve the current *exact* cloud value.
-  for(const field of MF470_STATE_FIELDS){
-    if(field==='savedAt'||field==='cloudSyncVersion')continue;
-    if(mf470Own(state,field))backup[field]=mf470Copy(state[field]);
-  }
-  backup.mediaFlowVersion=backup.backupVersion=mf470Version();
-  const manifest=backup.backupManifest||(backup.backupManifest={});
-  manifest.schemaVersion=V201_BACKUP_SCHEMA_VERSION;
-  manifest.includes=Object.assign({},manifest.includes||{},{
-    v470CloudSnapshotParity:true,v470FullHistory:true,v470XpLedger:true,
-    v470DualFreshEpisodes:true,v470PersonalOrder:true,v470Collections:true,
-    v470CurrentSettings:true,v470AutoBackupSameBuilder:true
-  });
-  manifest.v470={
-    release:mf470Version(),cloudSyncSchema:V201_CLOUD_SYNC_VERSION,
-    backupSchema:V201_BACKUP_SCHEMA_VERSION,createdAt:new Date().toISOString(),
-    accountFields:MF470_STATE_FIELDS.filter(field=>mf470Own(state,field)),
-    sessions:Array.isArray(state.sessions)?state.sessions.length:0,
-    library:Array.isArray(state.library)?state.library.length:0,
-    collections:Array.isArray(state.collections)?state.collections.length:0,
-    xpEvents:Object.keys(state.xpLedger?.v348EventMeta||{}).length,
-    freshSystem:state.settings?.v468FreshEpisodesSystem==='advanced'?'advanced':'legacy'
-  };
-  return backup;
-};
-// Existing scheduled automatic exports call backupSnapshot; make them use the
-// same release-current implementation as manual Full Data exports.
-backupSnapshot=function(){return v148BuildFullBackup();};
-const mf470PresetBase=v196BuildSettingsPreset;
-v196BuildSettingsPreset=function(){
-  const preset=mf470PresetBase.apply(this,arguments);
-  const state=snapshot();
-  if(!preset||typeof preset!=='object')throw new Error('Settings exporter returned invalid data');
-  // Include every user preference, including recovery, themes, advanced fresh
-  // detection, floating controls, auto-export and PWA/update preferences.
-  if(mf470Own(state,'settings'))preset.settings=mf470Copy(state.settings);
-  preset.mediaFlowVersion=mf470Version();
-  const manifest=preset.presetManifest||(preset.presetManifest={});
-  manifest.v470={release:mf470Version(),allCurrentSettings:true,appDataExcluded:true};
-  return preset;
-};
-const mf470OrderBase=v142OrderExportPayload;
-v142OrderExportPayload=function(){
-  const payload=mf470OrderBase.apply(this,arguments);
-  if(payload)payload.mediaFlowVersion=mf470Version();
-  return payload;
-};
-const mf470CollectionsBase=v281CollectionsExportPayload;
-v281CollectionsExportPayload=function(){
-  const payload=mf470CollectionsBase.apply(this,arguments);
-  if(payload){
-    payload.appVersion=payload.mediaFlowVersion=mf470Version();
-    payload.collectionTombstones=mf470Copy(S.collectionTombstones||[]);
-  }
-  return payload;
-};
-// Extend existing Sync Now post-upload readback to later account fields instead
-// of relying on a fixed v402 field list. This runs only during explicit sync.
-const mf470VerifyBase=v155VerifyCloudState;
-v155VerifyCloudState=function(actual,expected){
-  const previous=mf470VerifyBase.apply(this,arguments)||{ok:true,missing:[]};
-  const missing=new Set(previous.missing||[]);
-  for(const field of Object.keys(expected||{})){
-    if(!mf470Own(expected,field))continue; // JSON drops undefined values
-    if(!mf470Own(actual,field)||!mf470Parity(actual[field],expected[field]))
-      missing.add(field+' cloud readback');
-  }
-  return {ok:missing.size===0,missing:[...missing]};
-};
-function mf470DataIntegrityAudit(){
-  const before=v250Fingerprint({xpLedger:S.xpLedger,sessions:S.sessions,orderPlan:S.orderPlan,collections:S.collections});
-  const state=snapshot(),backup=v148BuildFullBackup(),preset=v196BuildSettingsPreset();
-  const order=v142OrderExportPayload(),collections=v281CollectionsExportPayload();
-  const failures=[],fields={};
-  for(const field of MF470_STATE_FIELDS){
-    if(!mf470Own(state,field)||field==='savedAt'||field==='cloudSyncVersion')continue;
-    const included=mf470Own(backup,field),equal=included&&mf470Parity(state[field],backup[field]);
-    fields[field]={cloudSnapshot:true,fullExport:included,roundTrip:equal};
-    if(!equal)failures.push(field+' Full Backup mismatch');
-  }
-  for(const field of Object.keys(state.settings||{})){
-    if(!mf470Own(preset.settings,field)||!mf470Parity(state.settings[field],preset.settings[field]))
-      failures.push('Settings preset: '+field);
-  }
-  const stamp=mf470Version();
-  for(const [type,version] of Object.entries({
-    full:backup.mediaFlowVersion,settings:preset.mediaFlowVersion,
-    personalOrder:order?.mediaFlowVersion,collections:collections?.appVersion
-  }))if(Number(version)!==stamp)failures.push(type+' stale release version');
-  if(!mf470Parity(state.orderPlan?.collectionAssignments||[],order?.orderPlan?.collectionAssignments||[]))
-    failures.push('Personal Order assignments');
-  if(!mf470Parity(state.orderPlan?.categoryQueues||{},order?.orderPlan?.categoryQueues||{}))
-    failures.push('Personal Order category queues');
-  if(!mf470Parity(state.collectionTombstones||[],collections?.collectionTombstones||[]))
-    failures.push('Collections deletion tombstones');
-  if(!mf470Parity(backup,mf470Copy(backup)))failures.push('Full JSON backup round-trip');
-  if(!mf470Parity(backup,backupSnapshot())) {
-    // The manifest timestamp is intentionally regenerated; compare actual
-    // saved data instead of the volatile backup-created-at audit marker.
-    const secondary=backupSnapshot();
-    for(const field of MF470_STATE_FIELDS)if(field!=='savedAt'&&field!=='cloudSyncVersion'&&
-      mf470Own(backup,field)&&!mf470Parity(backup[field],secondary[field]))
-      failures.push(field+' automatic export mismatch');
-  }
-  const after=v250Fingerprint({xpLedger:S.xpLedger,sessions:S.sessions,orderPlan:S.orderPlan,collections:S.collections});
-  if(before!==after)failures.push('Audit unexpectedly changed canonical History / XP / Order / Collections');
-  const methods={
-    cloudSave:typeof saveState==='function',
-    syncNow:typeof App.syncNow==='function',
-    automaticExport:typeof backupSnapshot==='function',
-    dataExport:typeof App.exportJSON==='function',
-    dataImport:typeof App.importJSON==='function',
-    settingsExport:typeof App.exportSettingsPreset==='function',
-    settingsImport:typeof App.importSettingsPreset==='function',
-    historyExport:typeof App.v271ExportConsumptionCSV==='function'&&typeof App.v271ExportLogsCSV==='function',
-    xpHistoryExport:typeof App.v348ExportXPHistory==='function',
-    xpCalculation:typeof App.calculateXPNow==='function',
-    personalOrderExport:typeof App.v142ExportOrder==='function',
-    personalOrderImport:typeof App.v142ImportOrder==='function',
-    collectionsExport:typeof App.v279ExportCollections==='function',
-    collectionsImport:typeof App.v279ImportCollections==='function',
-    updateCheck:typeof v161EnsureAutomaticUpdateCheck==='function'
-  };
-  for(const [method,available] of Object.entries(methods))if(!available)failures.push('Missing '+method+' entry point');
-  return {version:stamp,ok:failures.length===0,failures,fields,methods,
-    counts:{library:state.library?.length||0,history:state.sessions?.length||0,
-      libraryHistory:state.activityLog?.length||0,collections:state.collections?.length||0,
-      xpHistory:Object.keys(state.xpLedger?.v348EventMeta||{}).length},
-    notes:'Read-only local parity, not an authenticated Supabase round-trip. Use Sync Now to test real cloud readback. PWA verified separately.'};
-}
-async function mf470PwaIntegrityAudit(){
-  const version=mf470Version(),issues=[];
-  let hosted=null,worker=null;
-  try{
-    const res=await fetch('version.json?mf470-audit='+Date.now(),{cache:'no-store'});
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const payload=await res.json();hosted=Number(payload.appVersion||payload.version||0);
-    if(!Number.isFinite(hosted)||hosted<version)issues.push('Hosted version is older than loaded app');
-  }catch(e){issues.push('Cannot read hosted version: '+String(e?.message||e));}
-  if('serviceWorker' in navigator){
-    try{
-      const reg=await navigator.serviceWorker.getRegistration();
-      if(reg?.active){
-        worker=await new Promise((resolve,reject)=>{
-          const channel=new MessageChannel();
-          const timeout=setTimeout(()=>{channel.port1.close();reject(new Error('worker reply timed out'));},2200);
-          channel.port1.onmessage=event=>{clearTimeout(timeout);channel.port1.close();resolve(Number(event.data?.version)||0);};
-          reg.active.postMessage({type:'GET_VERSION'},[channel.port2]);
-        });
-        if(worker<version)issues.push('Installed service worker still uses an older release');
-      }else issues.push('No active service worker (browser install may be unavailable)');
-    }catch(e){issues.push('PWA diagnostics unavailable: '+String(e?.message||e));}
-  }
-  return {version,hosted,worker,ok:issues.length===0,issues,
-    note:'PWA update detection remains managed by existing automatic update controls; no unsafe automatic reload was attempted.'};
-}
-App.v470AuditDataIntegrity=mf470DataIntegrityAudit;
-App.v470AuditPWA=mf470PwaIntegrityAudit;
-window.MediaFlowV470={version:470,audit:mf470DataIntegrityAudit,pwaAudit:mf470PwaIntegrityAudit};
-MediaFlowRuntime.version=mf470Version();
-/* MediaFlow v471 — Collections > Showcase ONLY.
- * An unrestricted, responsive edge-to-edge poster strip. No account writes.
- * Other Collections display modes and the collection detail page are untouched.
- */
-const MF471_VERSION=471;
-function mf471Posters(c){
-  const own=v274Text(c?.coverUrl);
-  const found=v274CollectionItems(c);
-  const posters=[];
-  if(own)posters.push({url:own,title:String(c?.title||'Collection')+' · featured cover',color:'',icon:''});
-  for(const item of found){
-    const source=typeof v200TitleCoverSource==='function'?v200TitleCoverSource(item):null;
-    const url=v274Text(source?.url||v274CoverUrl(item));
-    const cat=v274Cat(item);
-    // The manually chosen Collection cover is a featured image, not a reason
-    // to hide its other members. Avoid an identical first image duplicate.
-    if(own&&url===own)continue;
-    posters.push({url,title:v274SafeTitle(item),color:cat?.color||'var(--flow)',
-      icon:cat?v144CategoryIconHtml(cat):'<span aria-hidden="true">◇</span>'});
-  }
-  return posters;
-}
-function mf471StripHtml(c){
-  const posters=mf471Posters(c);
-  if(!posters.length)return '<div class="mf471-showcase-empty" aria-label="Collection contains no covers"><span aria-hidden="true">◇</span></div>';
-  const count=posters.length;
-  const slides=posters.map((poster,index)=>{
-    const label=escapeHtml(String(poster.title||'Collection title'));
-    const fallback='<span class="mf471-showcase-fallback" style="--mf471-category:'+escapeHtml(poster.color||'var(--flow)')+'">'+(poster.icon||'◇')+'</span>';
-    return '<span class="mf471-showcase-poster'+(poster.url?'':' mf471-no-cover')+'" role="listitem" aria-label="'+label+'" title="'+label+'" data-cover-index="'+index+'">'+
-      (poster.url?'<img src="'+escapeHtml(poster.url)+'" loading="lazy" decoding="async" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false">'+
-        '<span class="mf471-showcase-fallback" hidden style="--mf471-category:'+escapeHtml(poster.color||'var(--flow)')+'">'+(poster.icon||'◇')+'</span>':fallback)+
-      '</span>';
-  }).join('');
-  return '<div class="mf471-showcase-strip" role="list" tabindex="0" style="--mf471-count:'+count+'" aria-label="Collection poster showcase, '+count+' covers. Use Left and Right arrow keys or swipe to explore." onscroll="App.mf471SyncShowcase(this.closest(\'.mf471-showcase-frame\'))" onkeydown="App.mf471Key(event)">'+slides+'</div>';
-}
-const mf471BrowserCardBase=v274CollectionBrowserCard;
-v274CollectionBrowserCard=function(c,mode){
-  if(mode!=='showcase')return mf471BrowserCardBase.apply(this,arguments);
-  const id=escapeHtml(String(c.id)),name=escapeHtml(c.title),desc=escapeHtml(c.description||'No description yet.');
-  const dates='<div class="mf418-dates">Created '+new Date(c.createdAt).toLocaleDateString()+
-    ' · Updated '+new Date(c.updatedAt).toLocaleDateString()+'</div>';
-  const coverCount=mf471Posters(c).length;
-  const art='<div class="mf274-showcase-cover mf276-showcase-cover mf471-showcase-frame" data-cover-count="'+coverCount+'"'+
-    ' onpointerdown="App.mf471PointerStart(event)" onpointermove="App.mf471PointerMove(event)" onpointerup="App.mf471PointerEnd(event)" onpointercancel="App.mf471PointerEnd(event)" onclick="App.mf471PreviewClick(event)">'+
-    mf471StripHtml(c)+
-    '<button type="button" class="mf471-showcase-arrow mf471-prev" aria-label="Previous collection posters" onclick="App.mf471Scroll(event,-1)">&#8249;</button>'+
-    '<button type="button" class="mf471-showcase-arrow mf471-next" aria-label="Next collection posters" onclick="App.mf471Scroll(event,1)">&#8250;</button>'+
-    '</div>';
-  mf471ScheduleSync();
-  // Preserve the established v418 card content, actions, progress and opening.
-  return '<article class="mf274-browser-showcase mf276-browser-showcase mf279-open-surface mf418-browser-entry mf418-browser-showcase mf471-showcase-entry" data-mode="showcase" role="button" tabindex="0" onclick="App.v279OpenCollectionSurface(event,\''+id+'\')" onkeydown="if(event.target===this&&(event.key===\'Enter\'||event.key===\' \')){event.preventDefault();App.v274OpenCollection(\''+id+'\')}">'+
-    art+'<div class="mf418-browser-copy"><button type="button" class="mf274-title-link" onclick="App.v274OpenCollection(\''+id+'\')">'+name+'</button>'+
-    '<p>'+desc+'</p>'+dates+v418CollectionBrowseFacts(c)+v418CollectionBrowseProgress(c)+'</div>'+v418CollectionBrowseActions(c)+'</article>';
-};
-function mf471SyncShowcase(frame){
-  if(!frame?.isConnected)return;
-  const strip=frame.querySelector('.mf471-showcase-strip');
-  if(!strip)return;
-  const over=strip.scrollWidth>strip.clientWidth+2;
-  frame.classList.toggle('mf471-can-scroll',over);
-  const left=strip.scrollLeft<=2, right=strip.scrollLeft+strip.clientWidth>=strip.scrollWidth-2;
-  const prev=frame.querySelector('.mf471-prev'),next=frame.querySelector('.mf471-next');
-  if(prev)prev.disabled=!over||left;
-  if(next)next.disabled=!over||right;
-}
-function mf471SyncAll(){
-  document.querySelectorAll('.mf274-collections-browser .mf471-showcase-frame').forEach(mf471SyncShowcase);
-}
-let MF471_SYNC_PENDING=false;
-function mf471ScheduleSync(){
-  if(MF471_SYNC_PENDING)return;
-  MF471_SYNC_PENDING=true;
-  requestAnimationFrame(()=>{MF471_SYNC_PENDING=false;mf471SyncAll();mf471Observe();});
-}
-let MF471_RESIZE_OBSERVER=null;
-function mf471Observe(){
-  if(typeof ResizeObserver==='undefined')return;
-  if(!MF471_RESIZE_OBSERVER)MF471_RESIZE_OBSERVER=new ResizeObserver(mf471SyncAll);
-  // Observe the active gallery widths, not unrelated application surfaces.
-  MF471_RESIZE_OBSERVER.disconnect();
-  document.querySelectorAll('.mf274-collections-browser .mf471-showcase-strip').forEach(node=>MF471_RESIZE_OBSERVER.observe(node));
-}
-function mf471Scroll(event,direction){
-  event.preventDefault();event.stopPropagation();
-  const strip=event.currentTarget?.closest('.mf471-showcase-frame')?.querySelector('.mf471-showcase-strip');
-  if(strip)strip.scrollBy({left:Math.round(strip.clientWidth*.78)*direction,behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'instant':'smooth'});
-}
-function mf471Key(event){
-  if(event.key!=='ArrowRight'&&event.key!=='ArrowLeft')return;
-  event.preventDefault();event.stopPropagation();
-  const strip=event.currentTarget;
-  strip.scrollBy({left:(event.key==='ArrowRight'?1:-1)*Math.max(48,Math.round(strip.clientWidth*.65)),
-    behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'instant':'smooth'});
-}
-function mf471PointerStart(event){
-  if(event.target?.closest?.('.mf471-showcase-arrow'))return;
-  const frame=event.currentTarget;
-  frame.__mf471Gesture={x:event.clientX,y:event.clientY,lastX:event.clientX,moved:false,
-    kind:event.pointerType};
-}
-function mf471PointerMove(event){
-  const frame=event.currentTarget,g=frame.__mf471Gesture;
-  if(!g||((event.buttons&1)===0&&g.kind==='mouse'))return;
-  const dx=event.clientX-g.x,dy=event.clientY-g.y;
-  if(Math.abs(dx)>7&&Math.abs(dx)>Math.abs(dy))g.moved=true;
-  if(g.kind==='mouse'&&g.moved){
-    const strip=frame.querySelector('.mf471-showcase-strip');
-    if(strip){strip.scrollLeft+=g.lastX-event.clientX;event.preventDefault();}
-  }
-  g.lastX=event.clientX;
-}
-function mf471PointerEnd(event){
-  const frame=event.currentTarget,g=frame.__mf471Gesture;
-  if(!g)return;
-  if(g.moved)setTimeout(()=>{if(frame.__mf471Gesture===g)delete frame.__mf471Gesture;},350);
-  else delete frame.__mf471Gesture;
-}
-function mf471PreviewClick(event){
-  const frame=event.currentTarget,g=frame.__mf471Gesture;
-  if(g?.moved){event.preventDefault();event.stopPropagation();delete frame.__mf471Gesture;}
-}
-Object.assign(App,{mf471SyncShowcase,mf471Scroll,mf471Key,mf471PointerStart,mf471PointerMove,
-  mf471PointerEnd,mf471PreviewClick});
-window.addEventListener('resize',mf471ScheduleSync,{passive:true});
-window.MediaFlowV471=Object.freeze({version:471,posters:mf471Posters,strip:mf471StripHtml,sync:mf471SyncAll});
-MediaFlowRuntime.version=MF471_VERSION;
-/* MediaFlow v472 — presentation-only release marker.
- * Simkl-inspired poster hover depth is implemented via the Showcase-scoped
- * 274-v472-showcase-hover-depth.css sheet; no application data changes. */
-window.MediaFlowV472=Object.freeze({version:472,scope:'collections-showcase',supports:{
-  individualCoverHover:true,layeredShadows:true,touchFeedback:true,
-  keyboardFocus:true,responsive:true,reducedMotion:true}});
-MediaFlowRuntime.version=472;
-/* MediaFlow v473 — Collections browser Showcase only.
- * Fixed five-poster preview, smooth Simkl-inspired expansion, uncropped hovered
- * cover, and no previous/next buttons. Does not modify account data. */
-const MF473_SHOWCASE_MAX=5;
-function mf473FeaturedPosters(collection){
-  return mf471Posters(collection).slice(0,MF473_SHOWCASE_MAX);
-}
-function mf473PosterHtml(poster,index){
-  const alt=escapeHtml(String(poster.title||'Collection poster'));
-  const fallback='<span class="mf471-showcase-fallback mf473-fallback" style="--mf471-category:'+escapeHtml(poster.color||'var(--flow)')+'">'+(poster.icon||'◇')+'</span>';
-  const url=escapeHtml(poster.url||'');
-  // Two views of the same URL (shared browser cache): the resting poster crop,
-  // and a full, uncropped image cross-faded above it while hovering. The
-  // expanded cell stays within the frame, so outer overflow never clips art.
-  const image=url?
-    '<img class="mf473-poster-crop" src="'+url+'" alt="" loading="lazy" decoding="async" onerror="App.mf473MissingImage(this)">'+
-    '<img class="mf473-poster-full" src="'+url+'" alt="" loading="lazy" decoding="async" onerror="App.mf473MissingImage(this)">'+
-    '<span class="mf471-showcase-fallback mf473-fallback" hidden style="--mf471-category:'+escapeHtml(poster.color||'var(--flow)')+'">'+(poster.icon||'◇')+'</span>':fallback;
-  return '<span class="mf471-showcase-poster mf473-showcase-poster'+(url?'':' mf471-no-cover')+'" role="listitem" data-cover-index="'+index+'" title="'+alt+'" aria-label="'+alt+'">'+image+'</span>';
-}
-function mf473StripHtml(collection){
-  const posters=mf473FeaturedPosters(collection);
-  if(!posters.length)return '<div class="mf471-showcase-empty" aria-label="Collection has no posters"><span aria-hidden="true">◇</span></div>';
-  return '<div class="mf471-showcase-strip mf473-showcase-strip" role="list" style="--mf471-count:'+posters.length+'" aria-label="'+posters.length+' featured collection posters">'+
-    posters.map(mf473PosterHtml).join('')+'</div>';
-}
-function mf473MissingImage(img){
-  const poster=img?.closest?.('.mf473-showcase-poster');
-  if(!poster)return;
-  poster.querySelectorAll('img').forEach(node=>{node.hidden=true;});
-  const fallback=poster.querySelector('.mf473-fallback');
-  if(fallback)fallback.hidden=false;
-}
-const mf473CollectionCardBase=v274CollectionBrowserCard;
-v274CollectionBrowserCard=function(collection,mode){
-  if(mode!=='showcase')return mf473CollectionCardBase.apply(this,arguments);
-  const id=escapeHtml(String(collection.id)),name=escapeHtml(collection.title),desc=escapeHtml(collection.description||'No description yet.');
-  const date='<div class="mf418-dates">Created '+new Date(collection.createdAt).toLocaleDateString()+
-    ' · Updated '+new Date(collection.updatedAt).toLocaleDateString()+'</div>';
-  const art='<div class="mf274-showcase-cover mf276-showcase-cover mf471-showcase-frame mf473-showcase-frame" data-cover-count="'+mf473FeaturedPosters(collection).length+'">'+mf473StripHtml(collection)+'</div>';
-  // Preserve standard MediaFlow collection metadata, progress, and actions.
-  // Crucially this frame contains NO arrow buttons / circle-arrow icons.
-  return '<article class="mf274-browser-showcase mf276-browser-showcase mf279-open-surface mf418-browser-entry mf418-browser-showcase mf471-showcase-entry mf473-showcase-entry" data-mode="showcase" role="button" tabindex="0" onclick="App.v279OpenCollectionSurface(event,\''+id+'\')" onkeydown="if(event.target===this&&(event.key===\'Enter\'||event.key===\' \')){event.preventDefault();App.v274OpenCollection(\''+id+'\')}">'+
-    art+'<div class="mf418-browser-copy"><button type="button" class="mf274-title-link" onclick="App.v274OpenCollection(\''+id+'\')">'+name+'</button>'+
-    '<p>'+desc+'</p>'+date+v418CollectionBrowseFacts(collection)+v418CollectionBrowseProgress(collection)+'</div>'+v418CollectionBrowseActions(collection)+'</article>';
-};
-App.mf473MissingImage=mf473MissingImage;
-window.MediaFlowV473=Object.freeze({version:473,maximum:5,posters:mf473FeaturedPosters,strip:mf473StripHtml});
-MediaFlowRuntime.version=473;
-/* MediaFlow v474 — Collections > Showcase: intrinsic poster proportions.
- * Every hover target is sized from the cover's NATURAL width / height rather
- * than using a fixed 2.3x expansion. Uses only browser layout and Image data.
- * No writes to Library, Collections, Supabase, Settings, History or XP.
- */
-const MF474_MIN_PEEK=5;
-let MF474_REFRESH_PENDING=false;
-let MF474_OBSERVER=null;
-function mf474Measure(poster){
-  if(!poster?.isConnected)return null;
-  const strip=poster.closest('.mf474-showcase-strip');
-  if(!strip)return null;
-  const cover=poster.querySelector('.mf473-poster-crop');
-  const sourceWidth=Number(cover?.naturalWidth);
-  const sourceHeight=Number(cover?.naturalHeight);
-  const valid=Number.isFinite(sourceWidth)&&Number.isFinite(sourceHeight)&&sourceWidth>0&&sourceHeight>0;
-  const ratio=valid?sourceWidth/sourceHeight:2/3;
-  const bounds=poster.getBoundingClientRect();
-  const rowWidth=strip.clientWidth;
-  const rowHeight=bounds.height;
-  if(rowWidth<1||rowHeight<1)return null;
-  const peers=Math.max(0,strip.querySelectorAll('.mf474-poster').length-1);
-  const css=getComputedStyle(strip);
-  const contentWidth=Math.max(1,rowWidth-(parseFloat(css.paddingLeft)||0)-(parseFloat(css.paddingRight)||0));
-  const readablePeek=peers*MF474_MIN_PEEK;
-  const maxWidth=Math.max(16,contentWidth-readablePeek);
-  // Match the real pixels needed to display the complete image at the
-  // showcase's current height. No cover-specific "portrait" assumptions.
-  const target=Math.min(maxWidth,Math.max(16,rowHeight*ratio));
-  const px=Math.round(target*100)/100;
-  poster.style.setProperty('--mf474-native-width',px+'px');
-  poster.dataset.mf474Aspect=ratio.toFixed(4);
-  poster.dataset.mf474Source=valid?'natural':'placeholder';
-  return px;
-}
-function mf474ImageReady(img){
-  mf474Measure(img?.closest?.('.mf474-poster'));
-}
-function mf474RefreshAll(){
-  document.querySelectorAll('.mf274-collections-browser .mf474-poster').forEach(mf474Measure);
-  if(typeof ResizeObserver==='undefined')return;
-  if(!MF474_OBSERVER)MF474_OBSERVER=new ResizeObserver(entries=>{
-    for(const entry of entries){
-      entry.target.querySelectorAll('.mf474-poster').forEach(mf474Measure);
-    }
-  });
-  MF474_OBSERVER.disconnect();
-  document.querySelectorAll('.mf274-collections-browser .mf474-showcase-frame').forEach(frame=>MF474_OBSERVER.observe(frame));
-}
-function mf474ScheduleRefresh(){
-  if(MF474_REFRESH_PENDING)return;
-  MF474_REFRESH_PENDING=true;
-  requestAnimationFrame(()=>{MF474_REFRESH_PENDING=false;mf474RefreshAll();});
-}
-// The v473 HTML generator already enforces the strict five-poster preview.
-// Add only ratio measurement hooks; preserve missing-cover behavior, alt
-// labels, collection actions, per-cover shadows and all other view modes.
-const mf474PosterBase=mf473PosterHtml;
-mf473PosterHtml=function(poster,index){
-  return mf474PosterBase(poster,index)
-    .replace('class="mf471-showcase-poster mf473-showcase-poster',
-      'class="mf471-showcase-poster mf473-showcase-poster mf474-poster')
-    .replace('role="listitem"', 'role="listitem" onmouseenter="App.mf474Measure(this)" onpointerdown="App.mf474Measure(this)"')
-    .replace('class="mf473-poster-crop"',
-      'class="mf473-poster-crop" onload="App.mf474ImageReady(this)"');
-};
-const mf474BrowserBase=v274CollectionBrowserCard;
-v274CollectionBrowserCard=function(collection,mode){
-  const html=mf474BrowserBase.apply(this,arguments);
-  if(mode!=='showcase')return html;
-  mf474ScheduleRefresh();
-  return html
-    .replace('mf473-showcase-entry"','mf473-showcase-entry mf474-showcase-entry"')
-    .replace('mf473-showcase-frame"','mf473-showcase-frame mf474-showcase-frame"')
-    .replace('mf473-showcase-strip"','mf473-showcase-strip mf474-showcase-strip"');
-};
-Object.assign(App,{mf474Measure,mf474ImageReady,mf474RefreshAll});
-window.addEventListener('resize',mf474ScheduleRefresh,{passive:true});
-window.MediaFlowV474=Object.freeze({version:474,maxCovers:5,measure:mf474Measure,refresh:mf474RefreshAll});
-MediaFlowRuntime.version=474;
-/* MediaFlow v475 — PWA installer/login handoff hardening.
- * Never activate/reload a PWA while an account is still hydrating or the
- * cloud-recovery guard is active. Save fully before any manual worker switch.
- * The primary auth/initial session race fix is in core/rendering/035. */
-const MF475_UPDATE_MIN_READY=()=>Boolean(
-  AUTH_USER?.id&&AUTH_READY&&V475_AUTH.hydrated===true&&!V475_AUTH.restoring&&
-  !V115_STARTUP_GUARD&&!V475_AUTH.bootPromise
-);
-async function mf475PrepareAppTransition(){
-  if(!MF475_UPDATE_MIN_READY()){
-    try{showToast('MediaFlow is still restoring your account. Wait for your Library to load before updating.');}catch(_){}
-    return false;
-  }
-  // v250's cloud save awaits the same serialized saveQueue as Sync Now.
-  // Explicitly check the guard first: saveState() legitimately returns false
-  // under protected startup, which older callers mistook for a successful save.
-  if(typeof v250SaveStateBeforeAppTransition==='function'){
-    const result=await v250SaveStateBeforeAppTransition();
-    if(result!==true)return false;
-  }else{
-    try{
-      const result=await saveState();
-      await saveQueue;
-      if(result===false||(typeof lastSaveFailed!=='undefined'&&lastSaveFailed))return false;
-    }catch(err){console.warn('v475 app transition save failed',err);return false;}
-  }
-  return MF475_UPDATE_MIN_READY();
-}
-const mf475PwaReloadBase=v246ReloadPwa;
-v246ReloadPwa=async function(){
-  if(!await mf475PrepareAppTransition())return false;
-  return mf475PwaReloadBase.apply(this,arguments);
-};
-App.v246ReloadPwa=v246ReloadPwa;
-if(window.MediaFlowPWA)window.MediaFlowPWA.reload=v246ReloadPwa;
-const mf475PwaApplyBase=v244ApplyPwaUpdate;
-v244ApplyPwaUpdate=async function(){
-  if(!await mf475PrepareAppTransition())return false;
-  return mf475PwaApplyBase.apply(this,arguments);
-};
-App.v244ApplyPwaUpdate=v244ApplyPwaUpdate;
-if(window.MediaFlowPWA)window.MediaFlowPWA.applyUpdate=v244ApplyPwaUpdate;
-const mf475InstallBase=v248InstallLatestUpdate;
-v248InstallLatestUpdate=async function(manual=true){
-  if(!MF475_UPDATE_MIN_READY()){
-    // Autoupdate waits for next healthy hosted/PWA update check; it must never
-    // reload an anonymous or pre-hydration shell with blank account state.
-    if(manual)try{showToast('Finish restoring your cloud account before installing the update.');}catch(_){}
-    return false;
-  }
-  return mf475InstallBase.apply(this,arguments);
-};
-App.v248InstallLatestUpdate=v248InstallLatestUpdate;
-if(window.MediaFlowPWA)window.MediaFlowPWA.installLatestUpdate=v248InstallLatestUpdate;
-window.MediaFlowV475=Object.freeze({version:475,canUpdate:MF475_UPDATE_MIN_READY,
-  saveBeforeUpdate:mf475PrepareAppTransition});
-MediaFlowRuntime.version=475;
-/* MediaFlow v476 — Background Processes visual refresh ONLY.
- * Retain v441/v462/v469 lifecycle, job progress, actions, prefs, persistence,
- * and mobile collision avoidance. Cover and Metadata each have their OWN
- * percentage; never represent MAX(cover,meta) as an overall job percentage.
- */
-const MF476_VERSION=476;
-function mf476Progress(item,pct,label,icon){
-  const exists=Boolean(item);
-  const percent=exists?Math.min(100,Math.max(0,Math.floor(Number(pct)||0))):0;
-  const displayed=exists?percent+'%':'—';
-  const aria=exists?label+' recovery '+percent+' percent':label+' recovery not started';
-  return '<span class="mf476-metric mf476-metric-'+label.toLowerCase()+'" data-mf476-metric="'+label.toLowerCase()+
-   '" data-mf476-present="'+String(exists)+'" aria-label="'+mf441Esc(aria)+'">'+
-   '<span class="mf476-metric-top"><span class="mf476-metric-label">'+icon+'<span>'+label+'</span></span>'+
-   '<strong class="mf476-metric-value">'+displayed+'</strong></span>'+
-   '<span class="mf476-metric-rail" aria-hidden="true"><i style="width:'+percent+'%"></i></span>'+
-   '</span>';
-}
-function mf476ProcessCard(base,type,status){
-  // Reuse ORIGINAL v441 job rows, progress counters, resume/pause/review/setup
-  // buttons, exact handlers and semantics. Only presentation is enriched.
-  return String(base)
-   .replace('class="mf441-process"','class="mf441-process mf476-process mf476-'+type+'" data-mf476-status="'+mf441Esc(status||'idle')+'"')
-   .replace('class="mf441-process-heading"','class="mf441-process-heading mf476-process-heading"')
-   .replace('class="mf441-process-number"','class="mf441-process-number mf476-process-number"')
-   .replace('class="mf441-track"','class="mf441-track mf476-track"')
-   .replace('class="mf441-process-stats"','class="mf441-process-stats mf476-process-stats"')
-   .replace('class="mf441-process-actions"','class="mf441-process-actions mf476-process-actions"');
-}
-const mf476WidgetBase=mf441WidgetHtml;
-mf441WidgetHtml=function(prefs,state){
-  // Extract the *fully decorated* footer from the v441/v451 wrapper chain:
-  // stop-all, discard, resume-interrupted and any future controls must survive
-  // a visual redesign even when their appearance is restyled.
-  const previous=String(mf476WidgetBase.apply(this,arguments)||'');
-  const footerMatch=previous.match(/<div class="mf441-widget-foot[^"]*">[\s\S]*?<\/div>/);
-  const originalFooter=footerMatch?footerMatch[0].replace('class="mf441-widget-foot','class="mf441-widget-foot mf476-widget-foot'):null;
-  const expanded=Boolean(prefs.expanded),active=Number(state.activeCount)||0;
-  const cover=mf476Progress(state.cover,state.coverPct,'Covers',mf425Icon('images',13));
-  const metadata=mf476Progress(state.metadata,state.metaPct,'Metadata',mf425Icon('database',13));
-  const status=active?active+' process'+(active===1?'':'es')+' active':'Your recovery command center';
-  const coverRow=mf476ProcessCard(mf441CoverRow(state),'cover',state.cover?.status);
-  const metaRow=mf476ProcessCard(mf441MetadataRow(state),'metadata',state.metadata?.status);
-  return '<aside class="mf441-widget mf441-position-'+prefs.position+(expanded?' mf441-expanded':'')+
-    ' mf476-widget" id="mf441-process-widget" data-mf476-active="'+active+
-    '" aria-label="Background Processes: Cover and Metadata recovery">'+
-    '<span class="mf476-ambient" aria-hidden="true"></span>'+
-    '<button type="button" class="mf441-widget-toggle mf476-widget-toggle" onclick="App.mf441Toggle()" '+
-      'aria-expanded="'+String(expanded)+'" aria-controls="mf441-process-content">'+
-      '<span class="mf441-widget-symbol mf476-widget-symbol">'+mf425Icon('layers',20)+'</span>'+
-      '<span class="mf441-widget-name mf476-widget-name"><strong>Background Processes</strong>'+
-        '<small><i class="mf476-live-dot" aria-hidden="true"></i>'+mf441Esc(status)+'</small></span>'+
-      '<span class="mf476-toggle-chevron" aria-hidden="true">'+mf425Icon(expanded?'chevronDown':'chevronUp',16)+'</span>'+
-      '<span class="mf476-widget-summary" role="group" aria-label="Individual recovery progress">'+cover+metadata+'</span>'+
-    '</button>'+
-    '<div class="mf441-widget-content mf476-widget-content" id="mf441-process-content" '+(expanded?'':'hidden')+'>'+
-      '<div class="mf476-content-heading"><span><i class="mf476-live-dot" aria-hidden="true"></i>PROCESS MONITOR</span>'+
-      '<em>'+active+' active</em></div>'+
-      '<div class="mf476-process-grid">'+coverRow+metaRow+'</div>'+
-      (originalFooter||'<div class="mf441-widget-foot mf476-widget-foot"><button type="button" onclick="App.mf441Settings()">'+mf425Icon('settings',15)+' Recovery Settings</button><button type="button" onclick="App.mf441Hide()">'+mf425Icon('x',15)+' Hide widget</button></div>')+
-    '</div></aside>';
-};
-window.MediaFlowV476=Object.freeze({version:MF476_VERSION,
-  progress:mf476Progress,widget:(prefs,state)=>mf441WidgetHtml(prefs,state)});
-MediaFlowRuntime.version=MF476_VERSION;
-/* MediaFlow v477 — presentation-only Background Processes footer layout fix.
- * Existing recovery buttons/actions are preserved; CSS handles responsive
- * grouping. No provider, queue, account or persistence code is changed. */
-window.MediaFlowV477=Object.freeze({version:477,scope:'background-processes-actions'});
-MediaFlowRuntime.version=477;
-/* MediaFlow v478 — view-only room guard for Background Processes launcher.
- * v469 reserved just 54px for the old one-line widget, but the redesigned
- * v476 widget is >110px high. Keep the new header 100% visible; if the dock
- * leaves insufficient room, hide the widget TEMPORARILY instead of clipping
- * it into a green status dot. Does not touch providers/jobs/settings/cloud.
- */
-const MF478_VERSION=478;
-const mf478LayoutBase=mf469Layout;
-function mf478Layout(){
-  const result=mf478LayoutBase.apply(this,arguments);
-  if(!result?.mobile||!result.widget)return result;
-  const widget=document.getElementById('mf441-process-widget');
-  if(!widget?.classList.contains('mf476-widget'))return result;
-  const toggle=widget.querySelector('.mf476-widget-toggle');
-  if(!toggle)return result;
-  const headerHeight=toggle.getBoundingClientRect().height;
-  const room=Number(result.room);
-  // Include the outer border and small breathing room to avoid visual
-  // clipping at exactly the threshold. Expanded still scrolls its contents.
-  const required=Math.ceil(headerHeight)+(widget.classList.contains('mf441-expanded')?75:7);
-  const enough=Number.isFinite(room)&&room>=required;
-  widget.classList.toggle('mf469-no-room',!enough);
-  widget.dataset.mf478Visibility=enough?'complete':'temporarily-hidden';
-  return {...result,headerHeight,required,unclipped:enough};
-}
-mf469Layout=mf478Layout;
-window.MediaFlowV478=Object.freeze({
- version:MF478_VERSION,layout:mf478Layout,
- refresh:()=>mf469Schedule(),status:()=>{
-  const el=document.getElementById('mf441-process-widget');
-  return {visibility:el?.dataset.mf478Visibility||'none',
-   collapsed:!!el&&!el.classList.contains('mf441-expanded')};
- }
-});
-MediaFlowRuntime.version=MF478_VERSION;
-/* v479: the 'Refresh external ratings' button uses mf425Icon('refresh').
- * v425 previously omitted this icon key and silently returned an image.
- * The semantic refresh glyph is registered in MF425_PATHS. No logic changes.
- */
-window.MediaFlowV479=Object.freeze({version:479,scope:'external-rating-refresh-icon',icon:'refresh'});
-MediaFlowRuntime.version=479;
-/* MediaFlow v480 — optional Category Classes and hierarchical recommendations.
- * Uses the existing scheduler/category scorer, title picker, category icon
- * palette, Settings Center, and canonical settings persistence.
- * Off by default; disabled mode invokes the original weightedPick verbatim.
- */
-const V480_DEFAULTS=Object.freeze({
- enabled:false,strength:'balanced',avoidRepeat:true,rewardNeglect:true,
- freshInfluence:true,adaptAmount:false,classes:[]
-});
-DEFAULT_SETTINGS.v480CategoryClasses=JSON.parse(JSON.stringify(V480_DEFAULTS));
-function v480Clean(raw){
- const s=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
- const strength=['gentle','balanced','strong'].includes(s.strength)?s.strength:'balanced';
- const used=new Set();
- const validCategories=new Set((S.categories||[]).map(c=>String(c.id)));
- const input=Array.isArray(s.classes)?s.classes:[];
- const classes=[];
- for(const entry of input.slice(0,200)){
-  if(!entry||typeof entry!=='object')continue;
-  const id=String(entry.id||'').trim().slice(0,100);
-  if(!id||classes.some(c=>c.id===id))continue;
-  const ids=[];
-  for(const value of Array.isArray(entry.categoryIds)?entry.categoryIds:[]){
-   const key=String(value);
-   if(validCategories.has(key)&&!used.has(key)){ids.push(key);used.add(key);}
-  }
-  const color=String(entry.color||'#A78BFA').toUpperCase();
-  const iconUrl=v144SafeIconUrl(entry.iconUrl||'');
-  classes.push({
-   id,name:String(entry.name||'Untitled Class').trim().slice(0,80)||'Untitled Class',
-   icon:String(entry.icon||'📚').slice(0,32),iconUrl,
-   color:/^#[A-F0-9]{6}$/.test(color)?color:'#A78BFA',
-   weight:Math.max(1,Math.min(5,Number(entry.weight)||1)),
-   enabled:entry.enabled!==false,categoryIds:ids
-  });
- }
- return {
-  enabled:s.enabled===true,strength,
-  avoidRepeat:s.avoidRepeat!==false,rewardNeglect:s.rewardNeglect!==false,
-  freshInfluence:s.freshInfluence!==false,adaptAmount:s.adaptAmount===true,classes
- };
-}
-function v480Prefs(){return v480Clean(S.settings?.v480CategoryClasses);}
-function v480Write(changed){
- const next=v480Clean(changed);
- S.settings=S.settings||{};
- S.settings.v480CategoryClasses=next;
- persistSettings();
- v480RefreshPanel();
- return next;
-}
-function v480ClassMembership(prefs){
- const lookup=new Map();
- for(const group of prefs.classes){
-  if(!group.enabled)continue;
-  for(const id of group.categoryIds)lookup.set(String(id),group);
- }
- return lookup;
-}
-function v480Groups(scored,prefs){
- const byCategory=v480ClassMembership(prefs),groups=new Map();
- for(const row of scored){
-  const id=String(row?.cat?.id||'');
-  if(!id||row.cat.enabled===false)continue;
-  const group=byCategory.get(id);
-  const key=group?'class:'+group.id:'single:'+id;
-  let found=groups.get(key);
-  if(!found){
-   found={key,kind:group?'class':'single',group:group||null,
-    members:group?new Set(group.categoryIds.map(String)):new Set([id]),
-    rows:[],weight:group?group.weight:1};
-   groups.set(key,found);
-  }
-  found.rows.push(row);
- }
- return [...groups.values()];
-}
-function v480ClassScore(g,prefs,allGroups){
- // The single-category virtual classes retain their preexisting scheduler
- // scores, so unassigned categories do not lose native recommendation weights.
- if(g.kind==='single')return {score:Math.max(.5,g.rows[0].score),reasons:[]};
- const now=Date.now(),sessions=schedulerConsumptionSessions();
- const windowDefs=[{days:3,w:.35,min:60},{days:7,w:.25,min:120},{days:30,w:.20,min:240},{days:null,w:.20,min:1}];
- const totalWeights=allGroups.reduce((sum,x)=>sum+x.weight,0)||1;
- const desired=Math.max(.01,g.weight/totalWeights);
- let weightedRatio=0,usedWeight=0;
- for(const win of windowDefs){
-  const cut=win.days==null?0:now-win.days*86400000;
-  const rows=win.days==null?sessions:sessions.filter(x=>Number(x.timestamp)>=cut);
-  const total=rows.reduce((sum,x)=>sum+Math.max(0,Number(x.minutes)||0),0);
-  if(total<win.min)continue;
-  const mine=rows.reduce((sum,x)=>sum+(g.members.has(String(x.categoryId))
-    ?Math.max(0,Number(x.minutes)||0):0),0);
-  weightedRatio+=Math.min(6,mine/total/desired)*win.w;usedWeight+=win.w;
- }
- const ratio=usedWeight?weightedRatio/usedWeight:1;
- const relevant=sessions.filter(s=>g.members.has(String(s.categoryId)));
- const lastTime=relevant.reduce((t,x)=>Math.max(t,Number(x.timestamp)||0),0);
- const daysIdle=lastTime?Math.max(0,(now-lastTime)/86400000):Infinity;
- const st=S.settings||DEFAULT_SETTINGS;
- const factor={gentle:.5,balanced:1,strong:1.65}[prefs.strength]||1;
- const neglect=prefs.rewardNeglect
-  ?(!lastTime?Math.max(0,Number(st.neglectCap)||0):
-    Math.min(Math.max(0,Number(st.neglectCap)||0),daysIdle*Math.max(0,Number(st.neglectRate)||0)))
-  :0;
- const seen=recentTaskWindow(6).filter(e=>[...g.members].some(id=>e.categoryIds.has(id))).length;
- let consecutive=0;
- for(const event of schedulerLogicalEvents()){
-  if([...g.members].some(id=>event.categoryIds.has(id)))consecutive++;
-  else break;
- }
- const repeat=prefs.avoidRepeat
-  ?seen*(Number(st.repetitionPenalty)||0)+consecutive*(Number(st.consecutivePenalty)||0):0;
- const saturation=Math.min(70,Math.max(0,ratio-1)*(Number(st.saturationWeight)||0)*2.2);
- const balance=Math.min(28,Math.max(0,1-ratio)*(Number(st.neglectCap)||0)*.55);
- const fresh=prefs.freshInfluence&&g.rows.some(row=>row.cat.seasonal)
-  ?(Number(st.seasonalBonus)||0)+(Number(st.seasonalFreshCount)||0)*4:0;
- const raw=g.weight*8+(neglect+balance+fresh-repeat-saturation)*factor;
- // Match scheduler's existing score floor and configurable jitter.
- const baseline=Math.max(1.5,raw);
- const randomness=Math.max(0,Math.min(1,Number(st.randomness)||0));
- const score=Math.max(.5,baseline*(1+(Math.random()*2-1)*randomness));
- const why=[];
- if(ratio>1.25)why.push('Class '+g.group.name+' is overrepresented in recent consumption');
- else if(ratio<.75)why.push('Class '+g.group.name+' is underrepresented in recent consumption');
- else if(!lastTime)why.push('Class '+g.group.name+' has not been consumed yet');
- if(seen&&prefs.avoidRepeat)why.push('Recent '+g.group.name+' sessions influence class rotation');
- return {score,reasons:why};
-}
-const v480WeightedPickBase=weightedPick;
-weightedPick=function(scored){
- const prefs=v480Prefs();
- if(!prefs.enabled||!prefs.classes.length||!Array.isArray(scored)||!scored.length||
-    !scored.every(x=>x&&x.cat&&Number.isFinite(x.score)))
-  return v480WeightedPickBase.apply(this,arguments);
- const groups=v480Groups(scored,prefs);
- if(!groups.length)return null;
- const choices=groups.map(group=>{
-  const info=v480ClassScore(group,prefs,groups);
-  return {...group,...info};
- });
- const selected=v480WeightedPickBase(choices);
- if(!selected)return v480WeightedPickBase(scored);
- const picked=v480WeightedPickBase(selected.rows);
- if(!picked)return null;
- if(selected.kind!=='class')return picked;
- return {...picked,reasons:[
-  ...selected.reasons.map(t=>({t,w:0})),...(picked.reasons||[])
- ].slice(0,3)};
-};
-// Optional class-size influence is bounded; the baseline amount logic and
-// task amount reason remain unchanged when that option is disabled.
-const v480AmountBase=suggestedAmount;
-suggestedAmount=function(cat){
- const standard=v480AmountBase.apply(this,arguments);
- const prefs=v480Prefs();
- if(!prefs.enabled||!prefs.adaptAmount)return standard;
- const group=v480ClassMembership(prefs).get(String(cat?.id));
- if(!group)return standard;
- const members=new Set(group.categoryIds.map(String));
- const rows=schedulerConsumptionSessions();
- const total=rows.reduce((sum,x)=>sum+Math.max(0,Number(x.minutes)||0),0);
- if(total<=0)return standard;
- const spent=rows.reduce((sum,x)=>sum+(members.has(String(x.categoryId))?Math.max(0,Number(x.minutes)||0):0),0);
- const eligibleGroups=v480Groups(computeScores([]),prefs);
- const share=group.weight/(eligibleGroups.reduce((sum,x)=>sum+x.weight,0)||1);
- const ratio=share>0?(spent/total)/share:1;
- const adjust=ratio>=1.5?.8:ratio<=.6?1.15:1;
- if(adjust===1)return standard;
- const low=Math.max(1,Math.round(standard.low*adjust)),high=Math.max(low,Math.round(standard.high*adjust));
- return {...standard,low,high,multiplier:standard.multiplier*adjust,
-  direction:adjust<1?'reduced':'increased'};
-};
-// Presentation — reuse the exact category edit picker markup and handlers.
-// No forked emoji, URL, built-in artwork or color palettes.
-function v480Icon(cat){
- return v144CategoryIconHtml(cat);
-}
-function v480ClassMinutes(group,days){
- const members=new Set(group.categoryIds.map(String));
- const cutoff=days?Date.now()-days*86400000:0;
- return schedulerConsumptionSessions().reduce((total,s)=>total+
-  (members.has(String(s.categoryId))&&Number(s.timestamp)>=cutoff
-   ?Math.max(0,Number(s.minutes)||0):0),0);
-}
-function v480PanelHtml(){
- const prefs=v480Prefs();
- const label=toggle=>toggle?'On':'Off';
- return '<div class="mf480-panel">'+
-  '<div class="mf480-lead"><strong>Category Classes</strong><p>Optionally balance broader media groups before MediaFlow chooses a category and title. Existing recommendations stay untouched while disabled.</p></div>'+
-  '<div class="mf480-setting mf480-settings-control"><div><b>Enable Category Classes</b><small>Off by default. Class → Category → Title when enabled.</small></div>'+
-   '<button type="button" role="switch" aria-checked="'+prefs.enabled+'" class="toggle '+(prefs.enabled?'on':'')+
-   '" onclick="App.v480SetSetting(\'enabled\','+!prefs.enabled+')" aria-label="Enable Category Classes"></button></div>'+
-  '<div class="mf480-tunings" '+(!prefs.enabled?'data-mf480-inactive="true"':'')+'>'+
-   '<label class="field mf480-settings-control"><span class="field-label">Class balancing strength</span><select onchange="App.v480SetSetting(\'strength\',this.value)" '+(!prefs.enabled?'disabled':'')+'>'+
-    ['gentle','balanced','strong'].map(v=>'<option value="'+v+'" '+(prefs.strength===v?'selected':'')+'>'+({gentle:'Gentle',balanced:'Balanced (recommended)',strong:'Strong'}[v])+'</option>').join('')+'</select></label>'+
-   [['avoidRepeat','Class repetition penalty','Avoid recommending the same class too frequently'],
-    ['rewardNeglect','Class neglect bonus','Favor classes that have received less attention'],
-    ['freshInfluence','Fresh episodes influence','Preserve seasonal importance when choosing a class'],
-    ['adaptAmount','Adjust session amounts by class','Optionally reduce or increase suggested consumption amounts']].map(x=>
-    '<label class="mf480-check mf480-settings-control"><input type="checkbox" '+(prefs[x[0]]?'checked':'')+' '+(!prefs.enabled?'disabled':'')+
-    ' onchange="App.v480SetSetting(\''+x[0]+'\',this.checked)"><span><b>'+x[1]+'</b><small>'+x[2]+'</small></span></label>').join('')+
-   '</div>'+
-  '<div class="mf480-heading"><div><strong>Manage Classes</strong><small>'+prefs.classes.length+' saved · Your assignments remain when classes are turned off</small></div>'+
-    '<button type="button" class="btn btn-sm btn-primary" onclick="App.v480OpenClassEditor()">+ New Class</button></div>'+
-  (prefs.classes.length?'<div class="mf480-list">'+prefs.classes.map(g=>{
-   const assigned=g.categoryIds.map(id=>(S.categories||[]).find(c=>String(c.id)===id)).filter(Boolean);
-   return '<article class="mf480-class" data-mf480-id="'+escapeHtml(g.id)+'"><div class="mf480-class-header">'+
-    '<span class="mf480-avatar" style="--mf480-accent:'+escapeHtml(g.color)+'">'+v480Icon(g)+'</span>'+
-    '<div class="mf480-class-title"><b>'+escapeHtml(g.name)+'</b><small>Weight '+g.weight+' · '+label(g.enabled)+'</small></div>'+
-    '<div class="mf480-class-actions"><button type="button" class="btn btn-sm btn-ghost" onclick="App.v480OpenClassEditor('+escapeHtml(JSON.stringify(g.id))+')">Edit</button>'+
-    '<button type="button" class="btn btn-sm btn-ghost" onclick="App.v480DeleteClass('+escapeHtml(JSON.stringify(g.id))+',this)">Delete</button></div></div>'+
-    '<div class="mf480-chips">'+(assigned.length?assigned.map(c=>'<span class="mf480-chip'+(c.enabled===false?' mf480-disabled':'')+'">'+v480Icon(c)+escapeHtml(c.name)+(c.enabled===false?' · Disabled':'')+'</span>').join(''):'<small>No categories assigned</small>')+'</div>'+
-    '<div class="mf480-class-stats">Last 7 days: '+Math.round(v480ClassMinutes(g,7))+' min · Last 30 days: '+Math.round(v480ClassMinutes(g,30))+' min</div>'+
-    '</article>';
-  }).join('')+'</div>':'<p class="mf480-empty">No classes yet. Create an Anime, Television, Reading or other class and assign existing categories. Categories not in a class remain eligible.</p>')+
-  '<p class="mf480-note">Each category belongs to at most one class. Disabled categories are never recommended. Past consumption remains available for balance statistics. No Library titles, History or XP data are rewritten.</p>'+
- '</div>';
-}
-function v480RefreshPanel(){
- const node=document.querySelector('.mf480-panel');
- if(node)node.outerHTML=v480PanelHtml();
-}
-function v480SetSetting(key,value){
- const fields=['enabled','strength','avoidRepeat','rewardNeglect','freshInfluence','adaptAmount'];
- if(!fields.includes(key))return;
- const pref=v480Prefs();
- pref[key]=value;
- v480Write(pref);
- showToast(key==='enabled'?(value?'Category Classes enabled':'Category Classes disabled; preferences retained'):'Category Classes setting saved');
-}
-function v480OpenClassEditor(id){
- if(!S.settings||!Array.isArray(S.categories)){showToast('Wait for your MediaFlow account to finish loading.');return;}
- const existing=v480Prefs().classes.find(c=>c.id===String(id))||null;
- const target=existing||{name:'',icon:'✨',iconUrl:'',color:'#A78BFA',weight:1,enabled:true,categoryIds:[]};
- // categoryModalHtml is the current v258/v144 Category editor, so extraction
- // retains the exact built-in/emoji/custom icon and color controls.
- const temp=document.createElement('div');
- temp.innerHTML=categoryModalHtml({...target,type:'video',unit:'episodes',target:1,minutesPerUnit:20,seasonal:false});
- const icon=temp.querySelector('#m-icon')?.closest('.field');
- const color=temp.querySelector('#m-color')?.closest('.field');
- if(!icon||!color){showToast('Category icon picker is unavailable');return;}
- const prefs=v480Prefs();
- const owners=new Map();
- prefs.classes.forEach(g=>g.categoryIds.forEach(cid=>owners.set(String(cid),g)));
- const categories=(S.categories||[]).map(cat=>{
-  const owner=owners.get(String(cat.id));
-  return '<label class="mf480-member"><input type="checkbox" data-mf480-member="'+escapeHtml(String(cat.id))+'" '+
-   (target.categoryIds.includes(String(cat.id))?'checked':'')+'><span>'+v480Icon(cat)+escapeHtml(cat.name)+
-   (cat.enabled===false?' <em>(Disabled)</em>':'')+
-   (owner&&owner.id!==target.id?' <small>Currently in '+escapeHtml(owner.name)+' — selecting transfers it</small>':'')+
-   '</span></label>';
- }).join('');
- const previous=document.getElementById('modal-root');
- if(previous)previous.remove();
- const root=document.createElement('div');root.id='modal-root';root.dataset.mf480Modal='1';
- root.innerHTML='<div class="modal-overlay" onclick="if(event.target===this) App.v480CloseClassEditor()"><div class="modal mf480-modal" id="mf480-modal" role="dialog" aria-modal="true" aria-label="'+(existing?'Edit':'Add')+' Category Class">'+
-  '<div class="modal-title">'+(existing?'Edit':'Add')+' Category Class</div>'+
-  '<label class="field"><span class="field-label">Class name</span><input id="mf480-name" type="text" maxlength="80" value="'+escapeHtml(target.name)+'" placeholder="Anime"></label>'+
-  icon.outerHTML+color.outerHTML+
-  '<div class="mf480-modal-row"><label class="field"><span class="field-label">Class weight (1–5)</span><input id="mf480-weight" type="number" min="1" max="5" step="1" value="'+target.weight+'"></label>'+
-  '<label class="mf480-enabled"><input id="mf480-enabled" type="checkbox" '+(target.enabled!==false?'checked':'')+'> Class enabled</label></div>'+
-  '<div class="field"><span class="field-label">Categories in this class</span><p class="hint">One primary class per category. Assignments are optional and changing them does not modify the categories.</p>'+
-  '<div class="mf480-members">'+categories+'</div></div>'+
-  '<div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="App.v480CloseClassEditor()">Cancel</button>'+
-  '<button type="button" class="btn btn-primary" onclick="App.v480SaveClass('+escapeHtml(JSON.stringify(existing?.id||''))+',this)">Save Class</button></div>'+
-  '</div></div>';
- document.body.appendChild(root);
- root.querySelector('#mf480-name')?.focus();
-}
-function v480CloseClassEditor(){
- document.querySelector('#modal-root[data-mf480-modal="1"]')?.remove();
-}
-function v480SaveClass(id,button){
- if(button?.disabled)return;
- const modal=document.getElementById('mf480-modal');
- if(!modal)return;
- const name=String(modal.querySelector('#mf480-name')?.value||'').trim().slice(0,80);
- if(!name){showToast('Enter a class name');modal.querySelector('#mf480-name')?.focus();return;}
- const config=v480Prefs();
- const existing=config.classes.find(g=>g.id===String(id));
- const memberIds=[...modal.querySelectorAll('[data-mf480-member]:checked')].map(el=>String(el.dataset.mf480Member));
- const color=String(modal.querySelector('#m-color')?.value||'#A78BFA').toUpperCase();
- const url=v144SafeIconUrl(modal.querySelector('#m-icon-url')?.value||'');
- const icon=url?'🖼️':String(modal.querySelector('#m-icon')?.value||'✨');
- const item={
-  id:existing?.id||uid(),name,icon,iconUrl:url,color,
-  weight:Math.max(1,Math.min(5,Number(modal.querySelector('#mf480-weight')?.value)||1)),
-  enabled:modal.querySelector('#mf480-enabled')?.checked!==false,categoryIds:memberIds
- };
- if(existing)config.classes=config.classes.map(g=>g.id===existing.id?item:g);
- else config.classes.push(item);
- // A category may belong to only one class. Reassigning removes its prior membership.
- for(const group of config.classes)if(group.id!==item.id)
-  group.categoryIds=group.categoryIds.filter(cid=>!memberIds.includes(String(cid)));
- if(button)button.disabled=true;
- try{
-  v480Write(config);v480CloseClassEditor();showToast('Category Class saved');
- }catch(e){if(button)button.disabled=false;showToast('Unable to save Category Class');console.error('v480 save',e);}
-}
-/* MediaFlow v534 — themed, accessible Category Class deletion confirmation.
-   No class or category data is mutated until the destructive action is chosen. */
-let V534_CLASS_DELETE_ORIGIN=null;
-function v480CloseDeleteClass(){
- const root=document.querySelector('#modal-root[data-mf534-class-delete]');
- if(!root)return;
- root.remove();
- const origin=V534_CLASS_DELETE_ORIGIN;
- V534_CLASS_DELETE_ORIGIN=null;
- if(origin?.isConnected)origin.focus({preventScroll:true});
- else document.querySelector('.mf480-heading button,.mf480-panel button')?.focus?.({preventScroll:true});
-}
-function v480DeleteClass(id,trigger){
- const group=v480Prefs().classes.find(c=>c.id===String(id));
- if(!group||document.getElementById('modal-root'))return;
- V534_CLASS_DELETE_ORIGIN=trigger||document.activeElement;
- const assigned=group.categoryIds?.length||0;
- const root=document.createElement('div');
- root.id='modal-root';
- root.dataset.mf534ClassDelete=group.id;
- root.innerHTML=`<div class="modal-overlay mf534-delete-overlay"
-     onclick="if(event.target===this)App.v480CloseDeleteClass()">
-   <section class="modal mf534-delete-dialog" role="alertdialog" aria-modal="true"
-      aria-labelledby="mf534-delete-title" aria-describedby="mf534-delete-description">
-     <header class="mf534-delete-header">
-       <span class="mf534-delete-icon" aria-hidden="true">
-         <svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16m-11 0V4h6v2m3 0-.7 13a2 2 0 0 1-2 2H8.7a2 2 0 0 1-2-2L6 6m4 4v7m4-7v7"/></svg>
-       </span>
-       <div class="mf534-delete-heading"><small>CATEGORY CLASSES</small>
-         <h2 id="mf534-delete-title">Delete Category Class?</h2>
-         <p id="mf534-delete-description">You're about to delete <strong>${escapeHtml(group.name)}</strong>.</p>
-       </div>
-       <button type="button" class="mf534-delete-dismiss" aria-label="Close confirmation"
-         onclick="App.v480CloseDeleteClass()">×</button>
-     </header>
-     <div class="mf534-delete-content">
-       <div class="mf534-delete-safe">
-         <span aria-hidden="true">✓</span>
-         <div><b>Your media data stays safe</b>
-           <p>${assigned===0?'This class has no assigned categories.':
-              `${assigned} assigned categor${assigned===1?'y':'ies'} will become unassigned.`}
-             Your categories, Library, History, XP and progress will remain unchanged.</p>
-         </div>
-       </div>
-       <p class="mf534-delete-warning">The class and its recommendation grouping will be removed. This action cannot be undone.</p>
-     </div>
-     <footer class="mf534-delete-actions">
-       <button type="button" class="btn btn-ghost mf534-delete-cancel" onclick="App.v480CloseDeleteClass()">Cancel</button>
-       <button type="button" class="btn btn-danger mf534-delete-confirm" onclick="App.v480ConfirmDeleteClass(this)">
-         <span aria-hidden="true">×</span> Delete Category Class
-       </button>
-     </footer>
-   </section>
- </div>`;
- root.addEventListener('keydown',event=>{
-   if(event.key==='Escape'){event.preventDefault();App.v480CloseDeleteClass();return;}
-   if(event.key!=='Tab')return;
-   const buttons=[...root.querySelectorAll('button:not([disabled])')];
-   if(!buttons.length)return;
-   const first=buttons[0],last=buttons[buttons.length-1];
-   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
-   else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
- });
- document.body.appendChild(root);
- root.querySelector('.mf534-delete-cancel')?.focus({preventScroll:true});
-}
-function v480ConfirmDeleteClass(button){
- const root=document.querySelector('#modal-root[data-mf534-class-delete]');
- if(!root||button?.disabled||!root.contains(button))return;
- const id=root.dataset.mf534ClassDelete;
- const prefs=v480Prefs();
- if(!prefs.classes.some(c=>c.id===id)){v480CloseDeleteClass();return;}
- if(button)button.disabled=true;
- try{
-   prefs.classes=prefs.classes.filter(c=>c.id!==id);
-   v480Write(prefs);
-   v480CloseDeleteClass();
-   showToast('Category Class deleted. Categories and History remain unchanged.');
- }catch(error){
-   if(button)button.disabled=false;
-   showToast('Unable to delete Category Class');
-   console.error('v534 delete Category Class',error);
- }
-}
-function v480MountSettings(){
- if(String(S.view)!=='settings'||!window.MediaFlowSettingsCenter?.mountSection)return;
- if(document.querySelector('.mf480-panel'))return;
- const node=document.createElement('div');node.innerHTML=v480PanelHtml();
- const meta=window.MediaFlowSettingsRegistry;
- meta?.registerSetting?.({id:'v480-category-classes',section:'mf480-category-classes',selector:'.mf480-settings-control',
-  label:'Enable Category Classes',subgroup:'Recommendations',
-  keywords:['hierarchical','class','anime','television','consumption balance','recommendation','weight','fatigue']});
- window.MediaFlowSettingsCenter.mountSection({
-  id:'mf480-category-classes',title:'Category Classes & Hierarchical Recommendations',
-  category:'dashboard',subgroup:'Recommendations',
-  keywords:['class','anime','television','groups','hierarchical','consumption','recommendations'],
-  nodes:[node]
- });
-}
-Object.assign(App,{
- v480SetSetting,v480OpenClassEditor,v480CloseClassEditor,v480SaveClass,v480DeleteClass,
- v480CloseDeleteClass,v480ConfirmDeleteClass
-});
-MediaFlowRuntime.registerPageEnhancer('settings',v480MountSettings);
-window.MediaFlowV480=Object.freeze({version:480,prefs:v480Prefs,preview:v480PanelHtml,openEditor:v480OpenClassEditor,closeEditor:v480CloseClassEditor,
- groups:()=>v480Groups(computeScores([]),v480Prefs()),score:v480ClassScore,
- stats:(id,days)=>{const p=v480Prefs().classes.find(c=>c.id===String(id));return p?v480ClassMinutes(p,days):0;},
- candidates:()=>v480Groups(computeScores([]),v480Prefs()).map(g=>({key:g.key,categories:g.rows.map(r=>r.cat.id)}))
-});
-MediaFlowRuntime.version=480;
-/* MediaFlow v481 — Category Class Editor + visual assignment manager.
- * Do not touch the v480 scheduler, class scoring, account data schema or
- * existing Category editor. Reuse Category's real palettes/handlers only.
- */
-const MF481_VERSION=481;
-let MF481_SIDEBAR_QUERY='';
-function mf481SafeId(value){return String(value==null?'':value);}
-function mf481IconMarkup(target){return v144CategoryIconHtml(target||{icon:'✨'});}
-function mf481ClassOptions(selectedId){
- const prefs=v480Prefs();
- return '<option value="">Unassigned</option>'+prefs.classes.map(g=>'<option value="'+escapeHtml(g.id)+'" '+
-  (g.id===selectedId?'selected':'')+'>'+escapeHtml(g.name)+'</option>').join('');
-}
-function mf481ClassOf(categoryId){
- return v480Prefs().classes.find(c=>c.categoryIds.includes(String(categoryId)))||null;
-}
-function mf481SidebarHtml(){
- const all=S.categories||[];
- return '<aside class="mf481-sidebar" aria-label="Category assignment sidebar">'+
-  '<div class="mf481-sidebar-head"><div><strong>Category Library</strong><small>Search and drag into a class, or use Assign</small></div>'+
-  '<span class="mf481-sidebar-count">'+all.length+'</span></div>'+
-  '<div class="mf481-search-field"><span aria-hidden="true">⌕</span>'+
-  '<input type="search" id="mf481-manager-search" aria-label="Search categories to assign" placeholder="Search categories…" autocomplete="off" value="'+escapeHtml(MF481_SIDEBAR_QUERY)+'" oninput="App.mf481FilterSidebar(this.value)"></div>'+
-  '<div class="mf481-sidebar-scroll" aria-label="All categories">'+
-  all.map(cat=>{
-   const owner=mf481ClassOf(cat.id),id=escapeHtml(String(cat.id));
-   return '<div class="mf481-category-line'+(cat.enabled===false?' mf481-is-disabled':'')+'" draggable="true" '+
-    'data-mf481-sidebar-category="'+id+'" data-mf481-filter="'+escapeHtml(String(cat.name||'').toLowerCase())+'" '+
-    'ondragstart="App.mf481DragStart(event,this.dataset.mf481SidebarCategory)" ondragend="App.mf481DragEnd()">'+
-    '<span class="mf481-grip" aria-hidden="true">⋮⋮</span><span class="mf481-category-art">'+mf481IconMarkup(cat)+'</span>'+
-    '<div class="mf481-category-info"><b>'+escapeHtml(cat.name)+'</b>'+
-    '<small>'+escapeHtml(owner?.name||'Unassigned')+(cat.enabled===false?' · Disabled':'')+'</small></div>'+
-    mf482AssignmentControl(cat,owner)+'</div>';
-  }).join('')+
-  '</div><div class="mf481-sidebar-foot">Drag categories onto a class or choose from the Assign dropdown. Disabled categories can be organized but never recommended.</div></aside>';
-}
-function mf481EnhancePanel(host=document){
- const panel=host.querySelector?.('.mf480-panel')||(host.matches?.('.mf480-panel')?host:null);
- if(!panel||panel.dataset.mf481Managed==='1')return false;
- const existing=panel.querySelector('.mf480-list,.mf480-empty');
- if(!existing)return false;
- const manager=document.createElement('div');manager.className='mf481-manager';
- manager.innerHTML=mf481SidebarHtml()+
-  '<div class="mf481-class-drops" aria-label="Category Class drop targets">'+
-  '<div class="mf481-unassign-zone" role="group" aria-label="Unassign category" data-mf481-drop-class="" '+
-  'ondragover="App.mf481DragOver(event)" ondragleave="App.mf481DragLeave(event)" ondrop="App.mf481Drop(event,this.dataset.mf481DropClass)">'+
-  '<span aria-hidden="true">↩</span> Drop here to unassign <small>Retains the category and its History</small></div></div>';
- existing.replaceWith(manager);
- const destination=manager.querySelector('.mf481-class-drops');
- destination.appendChild(existing);
- existing.querySelectorAll('[data-mf480-id]').forEach(card=>{
-  card.classList.add('mf481-drop-class');card.dataset.mf481DropClass=card.dataset.mf480Id;
-  card.setAttribute('aria-label',String(card.querySelector('.mf480-class-title b')?.textContent||'Class')+' · drop categories to assign');
-  card.addEventListener('dragover',App.mf481DragOver);
-  card.addEventListener('dragleave',App.mf481DragLeave);
-  card.addEventListener('drop',e=>App.mf481Drop(e,card.dataset.mf481DropClass));
-  const note=document.createElement('small');note.className='mf481-drop-help';note.textContent='Drop a category here to assign it';
-  card.appendChild(note);
- });
- panel.dataset.mf481Managed='1';
- mf481FilterSidebar(MF481_SIDEBAR_QUERY,manager);
- return true;
-}
-// v480 replaces the panel after writing settings. Restore search, focus and
-// independent scroll offsets so assignment never jumps to the top.
-const mf481PanelRefreshBase=v480RefreshPanel;
-v480RefreshPanel=function(){
- const panel=document.querySelector('.mf480-panel');
- const sidebar=panel?.querySelector('.mf481-sidebar-scroll');
- const search=panel?.querySelector('#mf481-manager-search');
- const scrollTop=sidebar?.scrollTop||0;
- const focused=document.activeElement===search;
- const cursor=focused?search.selectionStart:0;
- const pageY=window.scrollY||0;
- mf481PanelRefreshBase.apply(this,arguments);
- mf481EnhancePanel();
- const restored=document.querySelector('.mf481-sidebar-scroll');
- if(restored)restored.scrollTop=scrollTop;
- if(focused){
-  const input=document.getElementById('mf481-manager-search');
-  input?.focus({preventScroll:true});
-  try{input?.setSelectionRange(cursor,cursor);}catch(_){}
- }
- if(Math.abs((window.scrollY||0)-pageY)>1)window.scrollTo({top:pageY,behavior:'instant'});
-};
-function mf481FilterSidebar(value,root=document){
- MF481_SIDEBAR_QUERY=String(value||'');
- const q=MF481_SIDEBAR_QUERY.trim().toLocaleLowerCase();
- root.querySelectorAll('[data-mf481-sidebar-category]').forEach(row=>{
-  row.hidden=!!q&&!String(row.dataset.mf481Filter||'').includes(q);
- });
- const count=root.querySelector('.mf481-sidebar-count');
- if(count)count.textContent=String([...root.querySelectorAll('[data-mf481-sidebar-category]')].filter(x=>!x.hidden).length);
-}
-let MF481_DRAG_ID='';
-function mf481DragStart(event,id){
- if(event.target?.closest('select,input,button')){event.preventDefault();return;}
- MF481_DRAG_ID=mf481SafeId(id);
- event.dataTransfer.effectAllowed='move';
- event.dataTransfer.setData('text/plain',MF481_DRAG_ID);
- document.querySelector('.mf481-manager')?.classList.add('mf481-dragging');
-}
-function mf481DragEnd(){
- MF481_DRAG_ID='';
- document.querySelector('.mf481-manager')?.classList.remove('mf481-dragging');
- document.querySelectorAll('.mf481-drag-over').forEach(e=>e.classList.remove('mf481-drag-over'));
-}
-function mf481DragOver(e){
- if(!MF481_DRAG_ID)return;
- e.preventDefault();e.dataTransfer.dropEffect='move';
- e.currentTarget.classList.add('mf481-drag-over');
-}
-function mf481DragLeave(e){
- if(!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('mf481-drag-over');
-}
-function mf481Drop(e,targetId){
- e.preventDefault();
- const id=MF481_DRAG_ID||e.dataTransfer?.getData('text/plain')||'';
- mf481DragEnd();
- mf481AssignCategory(id,targetId);
-}
-function mf481AssignCategory(categoryId,classId){
- const category=S.categories?.find(c=>String(c.id)===String(categoryId));
- const nextId=String(classId||''),prefs=v480Prefs();
- if(!category||nextId&&!prefs.classes.some(c=>c.id===nextId)){
-  showToast('Category or Class no longer exists.');return false;
- }
- const current=prefs.classes.find(g=>g.categoryIds.includes(String(categoryId)));
- if((current?.id||'')===nextId)return true;
- for(const group of prefs.classes){
-  group.categoryIds=group.categoryIds.filter(id=>String(id)!==String(categoryId));
-  if(group.id===nextId)group.categoryIds.push(String(categoryId));
- }
- v480Write(prefs);
- showToast(nextId?'Category assigned to '+prefs.classes.find(g=>g.id===nextId).name:'Category unassigned');
- return true;
-}
-function mf481ModalIconSection(target){
- const url=v144SafeIconUrl(target.iconUrl||'');
- const emoji=url?'🖼️':String(target.icon||'✨');
- const defaultIcons=ICON_CHOICES.map(ic=>v144IconSwatchHtml('emoji',ic,emoji,url,null)).join('');
- const builtin=v258BuiltInCategoryIconPalette(url);
- return '<section class="mf481-editor-section" aria-label="Class icon">'+
-  '<h3>Icon</h3><div class="v258-category-editor">'+
-  '<div class="v258-palette-heading"><div><b>MediaFlow icons</b><span>Built-in artwork</span></div><small>Choose one of the packaged icons</small></div>'+builtin+
-  '<div class="v258-palette-heading v258-emoji-heading"><div><b>Emoji &amp; symbols</b><span>Classic icons</span></div><small>Use the same palette as Categories</small></div>'+
-  '<div class="v144-palette">'+defaultIcons+'</div>'+
-  '<div class="v144-palette-title">Your saved icons</div>'+
-  '<div class="v144-palette" id="v144-custom-icon-palette">'+v144CustomIconsHtml(emoji,url,target)+'</div>'+
-  '<div class="v144-custom-add-grid"><div class="v144-custom-add"><label for="v144-custom-emoji">Add emoji / symbol</label>'+
-  '<div class="v144-custom-add-row"><input type="text" id="v144-custom-emoji" maxlength="32" placeholder="🧠">'+
-  '<button type="button" class="btn btn-sm" onclick="App.v144AddCustomCategoryEmoji()">Add</button></div></div>'+
-  '<div class="v144-custom-add"><label for="v144-custom-icon-url">Add icon URL</label>'+
-  '<div class="v144-custom-add-row"><input type="url" id="v144-custom-icon-url" placeholder="https://example.com/icon.png">'+
-  '<button type="button" class="btn btn-sm" onclick="App.v144AddCustomCategoryUrl()">Add</button></div></div></div>'+
-  '<div class="v144-current-preview"><span>Selected</span><span id="v144-current-icon-preview" class="preview-box">'+
-  (url?'<img src="'+escapeHtml(url)+'" alt="" referrerpolicy="no-referrer">':escapeHtml(emoji))+'</span></div>'+
-  '<input type="hidden" id="m-icon" value="'+escapeHtml(emoji)+'">'+
-  '<input type="hidden" id="m-icon-url" value="'+escapeHtml(url)+'"></div></section>';
-}
-function mf481ModalColorSection(target){
- const selected=String(target.color||'#A78BFA').toUpperCase();
- return '<section class="mf481-editor-section" aria-label="Class color"><h3>Color</h3>'+
-  '<div class="v144-palette">'+COLOR_CHOICES.map(c=>v144ColorSwatchHtml(c,selected,null)).join('')+'</div>'+
-  '<div class="v144-palette-title">Your saved colors</div>'+
-  '<div class="v144-palette" id="v144-custom-color-palette">'+v144CustomColorsHtml(selected,selected)+'</div>'+
-  '<div class="v144-custom-add"><label for="v144-custom-color-hex">Add custom color</label>'+
-  '<div class="v144-color-picker-row"><input type="color" id="v144-custom-color-picker" value="'+escapeHtml(selected)+'" oninput="document.getElementById(\'v144-custom-color-hex\').value=this.value.toUpperCase()">'+
-  '<input type="text" id="v144-custom-color-hex" value="'+escapeHtml(selected)+'" maxlength="7" placeholder="#AABBCC">'+
-  '<button type="button" class="btn btn-sm" onclick="App.v144AddCustomCategoryColor()">Add color</button></div></div>'+
-  '<div class="v144-current-preview"><span>Selected</span><span id="v144-current-color-preview" class="preview-box" style="background:'+escapeHtml(selected)+'"></span>'+
-  '<span>'+escapeHtml(selected)+'</span></div><input type="hidden" id="m-color" value="'+escapeHtml(selected)+'"></section>';
-}
-function mf481MembersHtml(target,prefs){
- const owners=new Map();
- prefs.classes.forEach(g=>g.categoryIds.forEach(id=>owners.set(String(id),g)));
- return (S.categories||[]).map(cat=>{
-  const id=escapeHtml(String(cat.id)),owner=owners.get(String(cat.id));
-  const assigned=target.categoryIds?.includes(String(cat.id));
-  return '<label class="mf480-member mf481-member" data-mf481-member-name="'+escapeHtml(String(cat.name||'').toLocaleLowerCase())+'">'+
-   '<input type="checkbox" data-mf480-member="'+id+'" '+(assigned?'checked':'')+
-   ' onchange="App.mf481SelectionChanged()" aria-label="Assign '+escapeHtml(cat.name)+'">'+
-   '<span class="mf481-member-art">'+mf481IconMarkup(cat)+'</span>'+
-   '<span class="mf481-member-copy"><b>'+escapeHtml(cat.name)+'</b>'+
-   (cat.enabled===false?'<small>Disabled · not eligible for recommendations</small>':'')+
-   (owner&&owner.id!==target.id?'<small>Currently in '+escapeHtml(owner.name)+' · selection transfers it</small>':'')+
-   '</span></label>';
- }).join('');
-}
-function mf481OpenEditor(id){
- if(!S.settings||!Array.isArray(S.categories)){
-  showToast('Wait for your MediaFlow account to finish loading.');return;
- }
- const prefs=v480Prefs();
- const existing=prefs.classes.find(c=>c.id===String(id))||null;
- const target=existing||{name:'',icon:'✨',iconUrl:'',color:'#A78BFA',weight:1,enabled:true,categoryIds:[]};
- const previous=document.getElementById('modal-root');if(previous)previous.remove();
- const root=document.createElement('div');root.id='modal-root';root.dataset.mf480Modal='1';root.dataset.mf481Modal='1';
- const title=existing?'Edit Category Class':'Add Category Class';
- root.innerHTML='<div class="modal-overlay mf481-overlay" onclick="if(event.target===this)App.mf481CloseEditor()">'+
-  '<div class="modal mf480-modal mf481-modal" id="mf480-modal" role="dialog" aria-modal="true" aria-labelledby="mf481-title">'+
-   '<header class="mf481-modal-header"><div><h2 id="mf481-title">'+title+'</h2><p>Customize the class and assign categories</p></div>'+
-    '<button type="button" class="mf481-close" aria-label="Close" onclick="App.mf481CloseEditor()">×</button></header>'+
-   '<main class="mf481-modal-body" id="mf481-modal-body">'+
-    '<section class="mf481-editor-section"><label class="field" for="mf480-name"><span class="field-label">Class name</span>'+
-    '<input id="mf480-name" type="text" maxlength="80" autocomplete="off" value="'+escapeHtml(target.name)+'" placeholder="e.g. Anime"></label></section>'+
-    mf481ModalIconSection(target)+mf481ModalColorSection(target)+
-    '<section class="mf481-editor-section mf481-class-settings"><h3>Class settings</h3>'+
-      '<div class="mf480-modal-row"><label class="field" for="mf480-weight"><span class="field-label">Class weight (1–5)</span>'+
-      '<input id="mf480-weight" type="number" min="1" max="5" step="1" value="'+target.weight+'"></label>'+
-      '<label class="mf480-enabled"><input id="mf480-enabled" type="checkbox" '+(target.enabled!==false?'checked':'')+'> Enabled</label></div></section>'+
-    '<section class="mf481-editor-section mf481-assignment"><div class="mf481-assignment-head"><div><h3>Assigned categories</h3>'+
-     '<p>Search and select; category assignments are independent of category eligibility.</p></div>'+
-     '<span class="mf481-selected-count" id="mf481-selected-count">0 selected</span></div>'+
-     '<div class="mf481-search-field"><span aria-hidden="true">⌕</span>'+
-      '<input type="search" id="mf481-member-search" aria-label="Search categories in this class" placeholder="Search categories…" autocomplete="off" oninput="App.mf481FilterModal(this.value)"></div>'+
-     '<label class="mf481-only-selected"><input type="checkbox" id="mf481-only-selected" onchange="App.mf481FilterModal()"><span>Show selected only</span></label>'+
-     '<div class="mf480-members mf481-members" id="mf481-members">'+mf481MembersHtml(target,prefs)+'</div>'+
-     '<p class="mf481-member-empty" id="mf481-member-empty" hidden>No matching categories.</p></section>'+
-   '</main>'+
-   '<footer class="mf481-modal-footer"><button type="button" class="btn btn-ghost" onclick="App.mf481CloseEditor()">Cancel</button>'+
-    '<button type="button" class="btn btn-primary" onclick="App.mf481SaveClass('+escapeHtml(JSON.stringify(existing?.id||''))+',this)">Save Class</button></footer>'+
-  '</div></div>';
- document.body.appendChild(root);
- mf481SelectionChanged();
- root.querySelector('#mf480-name')?.focus({preventScroll:true});
-}
-function mf481CloseEditor(){document.querySelector('#modal-root[data-mf481-modal="1"]')?.remove();}
-function mf481SelectionChanged(){
- const modal=document.getElementById('mf480-modal');if(!modal)return;
- const count=modal.querySelectorAll('[data-mf480-member]:checked').length;
- const label=modal.querySelector('#mf481-selected-count');if(label)label.textContent=count+' selected';
- if(modal.querySelector('#mf481-only-selected')?.checked)mf481FilterModal();
-}
-function mf481FilterModal(value){
- const modal=document.getElementById('mf480-modal');if(!modal)return;
- const input=modal.querySelector('#mf481-member-search');
- if(typeof value==='string'&&input&&input.value!==value)input.value=value;
- const q=String(input?.value||'').trim().toLocaleLowerCase();
- const selectedOnly=modal.querySelector('#mf481-only-selected')?.checked===true;
- let visible=0;
- modal.querySelectorAll('[data-mf481-member-name]').forEach(row=>{
-  const matches=(!q||String(row.dataset.mf481MemberName).includes(q))&&
-    (!selectedOnly||row.querySelector('[data-mf480-member]')?.checked);
-  row.hidden=!matches;if(matches)visible++;
- });
- const empty=modal.querySelector('#mf481-member-empty');if(empty)empty.hidden=visible!==0;
-}
-function mf481SaveClass(id,button){
- // Preserve all selections including filtered-out categories; v480's save
- // reads [data-mf480-member]:checked from the persistent modal DOM.
- return v480SaveClass(id,button);
-}
-App.v480OpenClassEditor=mf481OpenEditor;
-App.v480CloseClassEditor=mf481CloseEditor;
-App.v480SaveClass=mf481SaveClass;
-Object.assign(App,{
- mf481FilterSidebar,mf481AssignCategory,mf481DragStart,mf481DragEnd,mf481DragOver,mf481DragLeave,mf481Drop,
- mf481OpenEditor,mf481CloseEditor,mf481SelectionChanged,mf481FilterModal,mf481SaveClass
-});
-MediaFlowRuntime.registerPageEnhancer('settings',mf481EnhancePanel);
-window.MediaFlowV481=Object.freeze({version:481,editor:mf481OpenEditor,close:mf481CloseEditor,
- enhance:mf481EnhancePanel,filter:mf481FilterSidebar,assign:mf481AssignCategory});
-MediaFlowRuntime.version=481;
-/* MediaFlow v482 — readable class assignments in the Category Library.
- * Native <select> inherited generic form-picker chrome (grid icon + arrow)
- * and v481 limited the text to 90px, clipping Anime / Unassigned to A / U.
- * Use an accessible, scoped full-label trigger plus a viewport-positioned
- * menu that cannot be clipped by the scrollable Category Library sidebar.
- */
-const MF482_VERSION=482;
-let MF482_ACTIVE=null;
-function mf482AssignmentControl(cat,owner){
- const id=escapeHtml(String(cat?.id??''));
- const name=String(cat?.name||'Category');
- const assigned=String(owner?.name||'Unassigned');
- return '<div class="mf482-assign" data-mf482-category="'+id+'">'+
-  '<button type="button" class="mf482-assign-trigger" aria-haspopup="listbox" aria-expanded="false" '+
-    'aria-label="Assign '+escapeHtml(name)+' to a Category Class. Currently '+escapeHtml(assigned)+'" '+
-    'title="'+escapeHtml(assigned)+'" '+
-    'onclick="App.mf482ToggleAssignment(this,event)" onpointerdown="event.stopPropagation()">'+
-   '<span class="mf482-assign-label">'+escapeHtml(assigned)+'</span>'+
-   '<svg class="mf482-assign-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>'+
-  '</button></div>';
-}
-function mf482CloseAssignment(restoreFocus=false){
- const current=MF482_ACTIVE;
- MF482_ACTIVE=null;
- document.getElementById('mf482-assignment-menu')?.remove();
- if(current?.trigger?.isConnected){
-  current.trigger.setAttribute('aria-expanded','false');
-  if(restoreFocus)current.trigger.focus({preventScroll:true});
- }
-}
-function mf482PopupOptions(categoryId,ownerId){
- const classes=v480Prefs().classes;
- const entries=[{id:'',name:'Unassigned'},...classes.map(c=>({id:String(c.id),name:String(c.name)}))];
- return entries.map(({id,name})=>
-  '<button type="button" role="option" class="mf482-assign-option'+(id===ownerId?' mf482-assigned':'')+'" '+
-   'aria-selected="'+(id===ownerId)+'" data-mf482-class="'+escapeHtml(id)+'" '+
-   'onclick="App.mf482ChooseAssignment(this.dataset.mf482Class)">'+
-   '<span class="mf482-option-label">'+escapeHtml(name)+'</span>'+
-   (id===ownerId?'<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 5 5L20 7"/></svg>':'')+
-  '</button>').join('');
-}
-function mf482PositionAssignment(trigger,menu){
- const r=trigger.getBoundingClientRect(),w=Math.min(Math.max(r.width,214),Math.max(170,window.innerWidth-18));
- menu.style.width=w+'px';
- const left=Math.max(8,Math.min(r.left,window.innerWidth-w-8));
- menu.style.left=left+'px';
- const availableBelow=window.innerHeight-r.bottom-9;
- const availableAbove=r.top-9;
- const preferBelow=availableBelow>=150||availableBelow>=availableAbove;
- const maxHeight=Math.max(88,Math.min(304,(preferBelow?availableBelow:availableAbove)-4));
- menu.style.maxHeight=maxHeight+'px';
- // Position after adding to the DOM so actual menu height is measurable.
- const h=Math.min(menu.scrollHeight,maxHeight);
- const y=preferBelow?Math.min(window.innerHeight-h-8,r.bottom+5):Math.max(8,r.top-5-h);
- menu.style.top=Math.max(8,y)+'px';
-}
-function mf482ToggleAssignment(trigger,event){
- event?.stopPropagation();
- if(MF482_ACTIVE?.trigger===trigger){mf482CloseAssignment(true);return;}
- mf482CloseAssignment(false);
- const categoryId=String(trigger.closest('[data-mf482-category]')?.dataset.mf482Category||'');
- if(!S.categories?.some(c=>String(c.id)===categoryId))return;
- const owner=v480Prefs().classes.find(c=>c.categoryIds.includes(categoryId));
- const menu=document.createElement('div');
- menu.id='mf482-assignment-menu';
- menu.className='mf482-assignment-menu';
- menu.setAttribute('role','listbox');
- menu.setAttribute('aria-label','Assign category to class');
- menu.innerHTML=mf482PopupOptions(categoryId,String(owner?.id||''));
- document.body.appendChild(menu);
- trigger.setAttribute('aria-expanded','true');
- MF482_ACTIVE={trigger,categoryId,menu};
- mf482PositionAssignment(trigger,menu);
- const selected=menu.querySelector('[aria-selected="true"]')||menu.querySelector('[role="option"]');
- selected?.focus({preventScroll:true});
-}
-function mf482ChooseAssignment(classId){
- const current=MF482_ACTIVE;
- if(!current)return false;
- mf482CloseAssignment(false);
- const done=App.mf481AssignCategory(current.categoryId,String(classId||''));
- if(!done&&current.trigger?.isConnected)current.trigger.focus({preventScroll:true});
- return done;
-}
-function mf482MenuKeyDown(event){
- const current=MF482_ACTIVE;
- if(!current)return;
- if(event.key==='Escape'){event.preventDefault();mf482CloseAssignment(true);return;}
- if(event.key!=='ArrowDown'&&event.key!=='ArrowUp'&&event.key!=='Home'&&event.key!=='End')return;
- const options=[...current.menu.querySelectorAll('[role="option"]')];
- if(!options.length)return;
- event.preventDefault();
- let idx=options.indexOf(document.activeElement);
- if(event.key==='Home')idx=0;
- else if(event.key==='End')idx=options.length-1;
- else idx=(idx+(event.key==='ArrowDown'?1:-1)+options.length)%options.length;
- options[idx]?.focus({preventScroll:true});
-}
-document.addEventListener('pointerdown',event=>{
- const active=MF482_ACTIVE;
- if(active&&!active.menu.contains(event.target)&&!active.trigger.contains(event.target))mf482CloseAssignment();
-},true);
-document.addEventListener('keydown',mf482MenuKeyDown,true);
-// The popup lives outside the scrolling sidebar so its options remain readable.
-// Close when the sidebar/page scrolls rather than leaving a detached menu.
-document.addEventListener('scroll',event=>{
- if(MF482_ACTIVE&&event.target!==MF482_ACTIVE.menu)mf482CloseAssignment();
-},true);
-window.addEventListener('resize',()=>{if(MF482_ACTIVE)mf482CloseAssignment();});
-Object.assign(App,{mf482ToggleAssignment,mf482ChooseAssignment});
-window.MediaFlowV482=Object.freeze({version:482,render:mf482AssignmentControl,close:mf482CloseAssignment});
-MediaFlowRuntime.version=MF482_VERSION;
-/* MediaFlow v483 — Unified Recovery category selection scroll continuity.
- * v457 restored only the outer panel/dialog scrollTop. Category checkboxes
- * re-render the nested .mf446-category-grid, which has its OWN overflow and
- * resets to zero. This restores the precise nested viewport and focused row,
- * search results and expanded status filters. Does not change recovery scope,
- * providers, job queues or cloud writes.
- */
-const MF483_VERSION=483;
-let MF483_REVISION=0;
-function mf483ActiveMode(){
- return typeof MF447!=='undefined'&&MF447.active==='both'?'both':MF445.mode;
-}
-function mf483ScrollNodes(root){
- const pane=root?.querySelector('[data-mf445-panel]');
- if(!pane)return [];
- return [
-  ...pane.querySelectorAll('.mf446-category-grid,.mf445-provider-grid,.mf454-category-list,.mf446-statuses>div')
- ].map((element,index)=>({
-  index,top:element.scrollTop,left:element.scrollLeft,
-  selector:element.classList.contains('mf446-category-grid')?'categories':
-   element.classList.contains('mf445-provider-grid')?'providers':
-   element.classList.contains('mf454-category-list')?'category-list':'statuses'
- }));
-}
-function mf483Capture(){
- const root=document.getElementById('mf445-workspace');
- if(!root||!root.isConnected)return null;
- const pane=root.querySelector('[data-mf445-panel]'),dialog=root.querySelector('.mf445-dialog');
- if(!pane)return null;
- const active=document.activeElement;
- const scope=pane.querySelector('.mf446-categories');
- const activeCat=active?.closest?.('.mf446-category');
- const categoryId=activeCat?.querySelector('[data-mf446-category]')?.getAttribute('data-mf446-category')||'';
- const anchor=activeCat?.getBoundingClientRect?.();
- const search=[...pane.querySelectorAll('.mf455-search input[type="search"]')].map(input=>({
-  value:input.value,kind:input.closest('.mf446-categories')?'categories':
-   input.closest('[data-mf455-kind="metadata"]')?'metadata':'cover'
- }));
- const statuses=[...pane.querySelectorAll('.mf446-category')].map(el=>({
-  id:el.querySelector('[data-mf446-category]')?.getAttribute('data-mf446-category')||'',
-  open:el.querySelector('.mf446-statuses')?.open===true
- })).filter(x=>x.id);
- return {
-  root,mode:mf483ActiveMode(),paneTop:pane.scrollTop,paneLeft:pane.scrollLeft,
-  dialogTop:dialog?.scrollTop||0,dialogLeft:dialog?.scrollLeft||0,
-  winX:window.scrollX||0,winY:window.scrollY||0,
-  grids:mf483ScrollNodes(root),categoryOpen:scope?.open===true,
-  statuses,search,
-  focusedCategory:categoryId,
-  focusedStatus:active?.closest?.('.mf446-statuses')?.querySelector?.('input[type=checkbox]')===active?
-   active.value||active.getAttribute('onchange')||'':'',
-  activeInScope:!!active?.closest?.('.mf446-scope'),
-  anchorTop:anchor?.top??null
- };
-}
-function mf483Restore(s,focus){
- if(!s||!s.root.isConnected||document.getElementById('mf445-workspace')!==s.root||
-    mf483ActiveMode()!==s.mode)return false;
- const pane=s.root.querySelector('[data-mf445-panel]'),dialog=s.root.querySelector('.mf445-dialog');
- if(!pane)return false;
- const scope=pane.querySelector('.mf446-categories');
- if(scope&&s.categoryOpen)scope.open=true;
- const restored=[...pane.querySelectorAll('.mf446-category')];
- const statusMap=new Map(s.statuses.map(row=>[row.id,row.open]));
- for(const entry of restored){
-  const id=entry.querySelector('[data-mf446-category]')?.getAttribute('data-mf446-category');
-  const details=entry.querySelector('.mf446-statuses');
-  if(details&&statusMap.has(id)&&statusMap.get(id))details.open=true;
- }
- // The search input is rebuilt with pane.innerHTML and loses its value/filter.
- // Reapply filtering IN PLACE, without another recovery-panel rerender.
- const searches=[...pane.querySelectorAll('.mf455-search input[type="search"]')];
- for(const original of s.search){
-  const input=searches.find(el=>(el.closest('.mf446-categories')?'categories':
-    el.closest('[data-mf455-kind="metadata"]')?'metadata':'cover')===original.kind);
-  if(!input)continue;
-  input.value=original.value;
-  if(original.value)App.mf455SearchWorkspace?.(input,original.kind);
- }
- const gridNodes=[...pane.querySelectorAll('.mf446-category-grid,.mf445-provider-grid,.mf454-category-list,.mf446-statuses>div')];
- for(const saved of s.grids){
-  const node=gridNodes[saved.index];if(!node)return false;
-  node.scrollTop=saved.top;node.scrollLeft=saved.left;
- }
- pane.scrollTop=s.paneTop;pane.scrollLeft=s.paneLeft;
- if(dialog){dialog.scrollTop=s.dialogTop;dialog.scrollLeft=s.dialogLeft;}
- let focused=null;
- if(s.focusedCategory){
-  focused=[...pane.querySelectorAll('[data-mf446-category]')].find(el=>
-   el.getAttribute('data-mf446-category')===s.focusedCategory)||null;
-  if(focused&&s.focusedStatus){
-   const parent=focused.closest('.mf446-category');
-   const statuses=[...parent.querySelectorAll('.mf446-statuses input[type=checkbox]')];
-   focused=statuses.find(el=>el.value===s.focusedStatus||el.getAttribute('onchange')===s.focusedStatus)||focused;
-  }
- }
- // Only give focus back immediately after the selection. Delayed restores
- // should never steal focus from a user who has already moved elsewhere.
- if(focus&&focused?.isConnected)try{focused.focus({preventScroll:true});}catch(_){}
- if(s.focusedCategory&&s.anchorTop!=null){
-  const row=focused?.closest('.mf446-category');
-  const current=row?.getBoundingClientRect?.().top;
-  const categoryGrid=scope?.querySelector('.mf446-category-grid');
-  if(Number.isFinite(current)&&categoryGrid){
-   const difference=current-s.anchorTop;
-   if(Math.abs(difference)>1&&Math.abs(difference)<500)
-    categoryGrid.scrollTop+=difference;
-  }
- }
- // v457 also preserves window scroll, but enforce it here after restoring
- // nested scroll containers and focus to prevent browser scroll anchoring.
- if((window.scrollX||0)!==s.winX||(window.scrollY||0)!==s.winY)
-  window.scrollTo(s.winX,s.winY);
- return true;
-}
-function mf483Preserve(action){
- const snapshot=mf483Capture(),revision=++MF483_REVISION;
- // Keep the existing engine's validation, immediate scope save, and re-render
- // (including combined Cover+Metadata mode and provider preset updates).
- const result=action();
- if(!snapshot)return result;
- mf483Restore(snapshot,true);
- if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>{
-  if(revision!==MF483_REVISION)return;
-  mf483Restore(snapshot,false);
-  requestAnimationFrame(()=>{
-   if(revision===MF483_REVISION)mf483Restore(snapshot,false);
-  });
- });
- return result;
-}
-for(const name of ['mf446ToggleCategory','mf446AllCategories','mf446ToggleStatus']){
- const previous=App[name];
- if(typeof previous!=='function')continue;
- App[name]=function(){
-  const args=arguments,self=this;
-  return mf483Preserve(()=>previous.apply(self,args));
- };
-}
-window.MediaFlowV483=Object.freeze({
- version:483,capture:mf483Capture,restore:mf483Restore,preserve:mf483Preserve
-});
-MediaFlowRuntime.version=483;
-/* MediaFlow v503 — targeted recovery controls, theme contrast, Library cover parity.
- * Additive runtime extension on the restored v483 source; no persistence changes. */
-const MF503_VERSION=503;
-
-/* Library is the authority for actual cover/default-cover/category-icon selection. */
-function mf503CoverHtml(item, extraClass=''){
- const source=v417LibraryCoverSource(item);
- const cat=getCategory(item?.categoryId);
- const title=escapeHtml(cleanTitle(item?.title||'title'));
- const id=item?.id==null?'':escapeHtml(String(item.id));
- const categoryIcon=cat?v144CategoryIconHtml(cat):mf419Icon('layers',28);
- const fallback='<span class="mf419-cover-fallback mf417-cover-placeholder mf503-cover-fallback" role="img" aria-label="Category icon for '+title+'" style="'+(source.url?'display:none;':'')+'">'+categoryIcon+'</span>';
- const cover=source.url?'<img src="'+escapeHtml(source.url)+'" alt="'+title+' cover" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'">':'';
- return '<span class="mf419-cover-art mf503-cover-art '+extraClass+'" data-mf419-cover-source="'+escapeHtml(source.type)+'"'+(id?' data-mf503-title-id="'+id+'" role="button" tabindex="0" aria-label="Open '+title+' details"':'')+'>'+cover+fallback+'</span>';
-}
-/* v419's Dashboard, Logging Library picker and Recommended Title call this by name. */
-mf419MissingCoverHtml=mf503CoverHtml;
-/* Advanced Logging used to render a different fallback with a fixed 32px icon
- * and a "Missing cover" caption. Use the exact same shared renderer. */
-v370CoverHtml=function(item){
- return '<div class="v370-title-cover mf503-title-cover">'+mf503CoverHtml(item,'mf503-advanced-cover')+'</div>';
-};
-
-/* Keep the whole card functional, including a missing or broken cover.
- * Use delegated events because Logging cards are replaced during filtering. */
-document.addEventListener('click',function(event){
- const cover=event.target.closest?.('.mf503-cover-art[data-mf503-title-id]');
- if(!cover)return;
- event.preventDefault();
- event.stopPropagation();
- App.v181OpenTitleDetails(cover.dataset.mf503TitleId);
-});
-document.addEventListener('keydown',function(event){
- if((event.key!=='Enter'&&event.key!==' ')||!event.target.matches?.('.mf503-cover-art[data-mf503-title-id]'))return;
- event.preventDefault();
- event.stopPropagation();
- App.v181OpenTitleDetails(event.target.dataset.mf503TitleId);
-});
-
-/* Correct only visible label text and accessibility descriptions, never HTML
- * attributes containing JavaScript or unrelated recovery engine identifiers. */
-function mf503FixMetadataSpacing(host){
- const walker=document.createTreeWalker(host,NodeFilter.SHOW_TEXT);
- let textNode;
- while((textNode=walker.nextNode())){
-  if(textNode.nodeValue.includes('MetadataRecovery'))
-   textNode.nodeValue=textNode.nodeValue.replace(/\bMetadataRecovery\b/g,'Metadata Recovery');
- }
- host.querySelectorAll('[title],[aria-label]').forEach(el=>{
-  for(const key of ['title','aria-label']){
-   const value=el.getAttribute(key);
-   if(value?.includes('MetadataRecovery'))el.setAttribute(key,value.replace(/\bMetadataRecovery\b/g,'Metadata Recovery'));
-  }
- });
-}
-/* Replace only the three redundant recovery actions in Title Details.
- * Preserve Edit Title, Logging, Personal Order, and all non-recovery buttons. */
-const mf503OriginalTitleDetails=v181TitleDetailsHtml;
-v181TitleDetailsHtml=function(item){
- const html=String(mf503OriginalTitleDetails.apply(this,arguments)||'');
- const host=document.createElement('div');
- host.innerHTML=html;
- const actions=host.querySelector('.v181-detail-actions');
- if(actions&&item?.id!=null&&mf447Prefs().details){
-  actions.querySelectorAll('button,a').forEach(el=>{
-   const action=String(el.getAttribute('onclick')||'');
-   if(/App\.(?:mf439Open|mf447Open|mf445Open|mf424Open)\s*\(/.test(action))el.remove();
-  });
-  actions.querySelectorAll('.mf447-shortcut-group,.mf425-detail-actions').forEach(el=>{
-   if(!el.querySelector('button,a'))el.remove();
-  });
-  const group=document.createElement('div');
-  group.className='mf503-detail-recovery';
-  group.setAttribute('role','group');
-  group.setAttribute('aria-label','Title recovery actions');
-  group.innerHTML=mf447Buttons({id:String(item.id)});
-  actions.prepend(group);
- }
- mf503FixMetadataSpacing(host);
- return host.innerHTML;
-};
-/* Edit Title: correct both disabled draft controls and saved recovery labels. */
-const mf503OriginalEditor=libraryModalHtml;
-libraryModalHtml=function(){
- const html=String(mf503OriginalEditor.apply(this,arguments)||'');
- if(!html.includes('MetadataRecovery'))return html;
- const host=document.createElement('div');host.innerHTML=html;
- mf503FixMetadataSpacing(host);
- return host.innerHTML;
-};
-
-/* Resolve the actual selected row background, not the current accent alone:
- * a cover-derived theme may be dark even with a near-black --text value. */
-function mf503Rgb(raw){
- raw=String(raw||'').trim().toLowerCase();
- const srgb=raw.match(/^color\(srgb\s+([^)]+)\)$/);
- if(srgb){
-  const values=srgb[1].replace(/\s*\/\s*/g,' ').trim().split(/\s+/).map(Number);
-  if(values.length>=3&&values.slice(0,3).every(Number.isFinite))
-   return [values[0]*255,values[1]*255,values[2]*255];
- }
- const rgb=raw.match(/^rgba?\(\s*([^)]+)\)$/);
- if(rgb){
-  const values=rgb[1].replace(/\s*\/\s*/g,' ').replace(/,/g,' ').trim().split(/\s+/).map(Number);
-  if(values.length>=3&&values.slice(0,3).every(Number.isFinite))
-   return values.slice(0,3).map((n,i)=>raw.includes('%')?n*2.55:n);
- }
- if(/^#[0-9a-f]{6}$/i.test(raw))
-  return [1,3,5].map(i=>parseInt(raw.slice(i,i+2),16));
- if(/^#[0-9a-f]{3}$/i.test(raw))
-  return [1,2,3].map(i=>parseInt(raw[i]+raw[i],16));
- return null;
-}
-function mf503Luminance(rgb){
- const channels=rgb.map(x=>{
-  const c=Math.max(0,Math.min(1,x/255));
-  return c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4);
- });
- return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;
-}
-function mf503PaintSelectedContrast(){
- const rows=document.querySelectorAll('.mf379-picker .log-suggestion.mf379-picked');
- rows.forEach(row=>{
-  let rgb=mf503Rgb(getComputedStyle(row).backgroundColor);
-  if(!rgb){
-   let parent=row.parentElement;
-   while(parent&&!rgb){rgb=mf503Rgb(getComputedStyle(parent).backgroundColor);parent=parent.parentElement;}
-  }
-  // WCAG relative luminance: choose the foreground with higher contrast.
-  const lum=mf503Luminance(rgb||[24,33,44]);
-  const white=1.05/(lum+.05),dark=(lum+.05)/.05;
-  row.style.setProperty('--mf503-selected-ink',white>=dark?'#ffffff':'#101820');
- });
-}
-let mf503ContrastQueued=false;
-function mf503ScheduleContrast(){
- if(mf503ContrastQueued)return;
- mf503ContrastQueued=true;
- requestAnimationFrame(()=>{mf503ContrastQueued=false;mf503PaintSelectedContrast();});
-}
-const mf503PreviousPickerUpdate=v379UpdatePickerActions;
-v379UpdatePickerActions=function(){
- const result=mf503PreviousPickerUpdate.apply(this,arguments);
- mf503ScheduleContrast();
- return result;
-};
-const mf503PreviousLogSuggestions=renderLogSuggestions;
-renderLogSuggestions=function(){
- const result=mf503PreviousLogSuggestions.apply(this,arguments);
- mf503ScheduleContrast();
- return result;
-};
-const mf503PreviousRender=render;
-render=function(){
- const result=mf503PreviousRender.apply(this,arguments);
- if(S.logging)mf503ScheduleContrast();
- return result;
-};
-const mf503ThemeObserver=new MutationObserver(()=>{
- if(document.querySelector('.mf379-picker .log-suggestion.mf379-picked'))mf503ScheduleContrast();
-});
-mf503ThemeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['style','class','data-theme']});
-if(document.body)mf503ThemeObserver.observe(document.body,{attributes:true,attributeFilter:['style','class','data-theme']});
-window.MediaFlowV503=Object.freeze({version:503,cover:mf503CoverHtml,contrast:mf503PaintSelectedContrast});
-/* MediaFlow v504 — +/- quantity steppers for Quick and Advanced Logging.
- * Presentation and draft-only mutations. Existing submit, season, runtime,
- * timestamp, XP and History handlers remain authoritative.
- */
-const MF504_VERSION=504;
-const MF504_STEP_LIMIT=999999;
-const MF504_ICON_MINUS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>';
-const MF504_ICON_PLUS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>';
-
-function mf504Value(value){
- if(value===null||String(value).trim()==='')return NaN;
- const n=Number(value);
- return Number.isSafeInteger(n)?n:NaN;
-}
-function mf504Bound(value,min,max){
- return Math.max(min,Math.min(max,value));
-}
-function mf504QuickMax(item){
- const total=Math.floor(Number(item?.total)||0);
- if(!item||total<=0)return MF504_STEP_LIMIT;
- const start=v179StartProgress(item);
- return Math.max(0,Math.min(MF504_STEP_LIMIT,total-start));
-}
-function mf504AdvancedBounds(index){
- const e=v394Entry(index),item=e?v369ItemTitle(e):null;
- if(!e||!item)return {min:0,max:0};
- const {season}=v394Relevant(e,item);
- const base=v394Base(e,item,season);
- const total=v394NumberLimit(season,item);
- const countMax=Math.min(2000,total>0?Math.max(0,total-base):2000);
- if(v394Method(e)==='last')return {min:base,max:base+countMax};
- return {min:0,max:countMax};
-}
-function mf504Bounds(kind,index){
- if(kind==='advanced')return mf504AdvancedBounds(index);
- if(kind==='quick-entry-progress'||kind==='quick-progress'){
-  const item=kind==='quick-entry-progress'
-    ?(S.library||[]).find(x=>String(x.id)===String(S.entryDraft?.libraryId||''))
-    :v369ItemTitle(S.logDraft?.entries?.[index]);
-  const entry=kind==='quick-progress'?S.logDraft?.entries?.[index]:null;
-  const start=entry?(Number.isFinite(Number(entry.v179StartProgress))?Math.max(0,Number(entry.v179StartProgress)):v179StartProgress(item))
-    :item?v179StartProgress(item):0;
-  const total=Math.floor(Number(item?.total)||0);
-  return {min:start,max:total>0?Math.max(start,total):MF504_STEP_LIMIT};
- }
- if(kind==='quick-entry-amount'){
-  const item=(S.library||[]).find(x=>String(x.id)===String(S.entryDraft?.libraryId||''));
-  return {min:1,max:Math.max(1,mf504QuickMax(item))};
- }
- if(kind==='quick-amount'){
-  return {min:0,max:mf504QuickMax(v369ItemTitle(S.logDraft?.entries?.[index]))};
- }
- return {min:0,max:MF504_STEP_LIMIT};
-}
-function mf504WrapInput(input,kind,index,labelText){
- if(!input||input.dataset.mf504Enhanced)return;
- const b=mf504Bounds(kind,index);
- input.dataset.mf504Enhanced='1';
- input.dataset.mf504Kind=kind;
- input.dataset.mf504Index=String(index);
- input.step='1';input.min=String(b.min);input.max=String(b.max);
- const id='mf504-'+kind+'-'+index;
- input.id=input.id||id;
- // Move the input out of its enclosing label. Buttons may not be nested
- // inside a label, otherwise clicking +/- can activate the input unexpectedly.
- const oldLabel=input.parentElement?.closest('label');
- let holder;
- if(oldLabel?.contains(input)){
-  holder=document.createElement('div');
-  holder.className=(oldLabel.className||'')+' mf504-step-field';
-  const caption=oldLabel.cloneNode(true);
-  caption.querySelectorAll('input').forEach(el=>el.remove());
-  caption.className='mf504-step-label';
-  caption.htmlFor=input.id;
-  oldLabel.replaceWith(holder);
-  holder.appendChild(caption);
- }else{
-  holder=document.createElement('div');
-  holder.className='mf504-step-field';
-  input.parentNode.insertBefore(holder,input);
- }
- const controls=document.createElement('div');
- controls.className='mf504-stepper';
- controls.dataset.mf504Kind=kind;
- controls.dataset.mf504Index=String(index);
- const minus=document.createElement('button'),plus=document.createElement('button');
- for(const [button,delta,icon,name] of [[minus,-1,MF504_ICON_MINUS,'Decrease'],[plus,1,MF504_ICON_PLUS,'Increase']]){
-  button.type='button';button.className='btn btn-sm btn-ghost mf504-step-button';
-  button.dataset.mf504Delta=String(delta);
-  button.setAttribute('aria-label',name+' '+labelText);
-  button.setAttribute('title',name+' '+labelText);
-  button.setAttribute('onclick',"App.mf504Step('"+kind+"',"+index+","+delta+")");
-  button.innerHTML=icon;
- }
- controls.append(minus,input,plus);
- holder.appendChild(controls);
- if(kind==='quick-entry-amount'||kind==='quick-entry-progress')holder.classList.add('mf504-entry-step-field');
- mf504UpdateButtons(controls);
-}
-function mf504UpdateButtons(controls){
- if(!controls)return;
- const kind=controls.dataset.mf504Kind,index=Number(controls.dataset.mf504Index);
- const {min,max}=mf504Bounds(kind,index),input=controls.querySelector('input');
- if(!input)return;
- input.min=String(min);input.max=String(max);
- const value=mf504Value(input.value);
- const minus=controls.querySelector('[data-mf504-delta="-1"]'),plus=controls.querySelector('[data-mf504-delta="1"]');
- if(minus)minus.disabled=!Number.isFinite(value)||value<=min;
- if(plus)plus.disabled=!Number.isFinite(value)||value>=max;
-}
-function mf504ValidateQuick(value,kind,index){
- const n=mf504Value(value),{min,max}=mf504Bounds(kind,index);
- if(!Number.isFinite(n)||n<min||n>max){
-  showToast('Enter a whole number between '+min+' and '+max+'.');
-  return null;
- }
- return n;
-}
-function mf504KeepViewport(callback){
- const y=window.scrollY,x=window.scrollX;
- const selectors=['.main','.log-form','.v238-log-library','.mf419-workspace-body'];
- const positions=selectors.map(selector=>[selector,document.querySelector(selector)?.scrollTop||0]);
- const result=callback();
- // A Quick Logging render can replace its scrolling host.
- for(const [selector,top] of positions){
-  const el=document.querySelector(selector);
-  if(el&&top>0)el.scrollTop=top;
- }
- if(window.scrollY!==y||window.scrollX!==x)window.scrollTo(x,y);
- return result;
-}
-/* Quick Logging Amount Consumed previously displayed a read-only chip.
- * Allow explicit draft editing without ever writing a Library title. */
-App.mf504SetQuickAmount=function(index,raw){
- const entry=S.logDraft?.v369Interface==='quick'?S.logDraft?.entries?.[Number(index)]:null;
- if(!entry||v179Mode('single')!=='amount')return;
- const quantity=mf504ValidateQuick(raw,'quick-amount',Number(index));
- if(quantity===null){render();return;}
- if(quantity!==mf504Value(entry.qty)){
-  entry.qty=quantity;entry.v369UpdatedAt=Date.now();
-  v179SyncSingleFromEntries();
-  v369Touch();
- }
- mf504KeepViewport(()=>render());
-};
-App.mf504Step=function(kind,index,delta){
- if(!S.logging||!S.logDraft||![1,-1].includes(delta))return;
- if(kind.startsWith('quick')&&S.logDraft.v369Interface!=='quick')return;
- if(kind==='advanced'&&S.logDraft.v369Interface!=='itemized')return;
- const controls=[...document.querySelectorAll('.log-form .mf504-stepper')].find(el=>el.dataset.mf504Kind===kind&&Number(el.dataset.mf504Index)===Number(index));
- const input=controls?.querySelector('input');
- if(!input)return;
- const value=mf504Value(input.value),b=mf504Bounds(kind,index);
- if(!Number.isFinite(value)){showToast('Enter a valid whole number first.');return;}
- const next=mf504Bound(value+delta,b.min,b.max);
- if(next===value)return;
- if(kind==='advanced'){
-  // Native handler owns safe 2,000-unit cap, season selection, undo tombstones
-  // and confirmation before replacing non-contiguous or mixed-timestamp units.
-  App.v394SetQuantity(index,next);
- }else if(kind==='quick-progress'){
-  mf504KeepViewport(()=>App.v179SetLogEntryEnd(index,next));
-  v369Touch();
- }else if(kind==='quick-amount'){
-  App.mf504SetQuickAmount(index,next);
- }else{
-  // Initial Quick Logging title entry: preserve existing oninput listeners.
-  input.value=String(next);
-  input.dispatchEvent(new Event('input',{bubbles:true}));
-  mf504UpdateButtons(controls);
-  v369Touch();
- }
- // Restore keyboard focus after card-level rerenders.
- if(kind==='advanced'||kind==='quick-progress'||kind==='quick-amount'){
-  const updated=[...document.querySelectorAll('.log-form .mf504-stepper')].find(el=>el.dataset.mf504Kind===kind&&Number(el.dataset.mf504Index)===Number(index));
-  updated?.querySelector('[data-mf504-delta="'+delta+'"]')?.focus({preventScroll:true});
- }
-};
-function mf504DecorateQuickCards(raw){
- if(S.logDraft?.v369Interface!=='quick'||!raw)return raw;
- const host=document.createElement('div');host.innerHTML=raw;
- host.querySelectorAll('.v239-logged-title-card').forEach((card,index)=>{
-  const entry=S.logDraft?.entries?.[index],actions=card.querySelector('.v239-logged-title-actions');
-  if(!entry||!actions)return;
-  const progress=actions.querySelector('.v239-logged-progress input[type="number"]');
-  if(progress){mf504WrapInput(progress,'quick-progress',index,'last progress');return;}
-  const chip=actions.querySelector('.v239-logged-consumed');
-  if(!chip)return;
-  const field=document.createElement('div');field.className='mf504-amount-inline';
-  const label=document.createElement('label');label.className='mf504-step-label';label.textContent='Amount consumed';label.htmlFor='mf504-quick-amount-'+index;
-  const input=document.createElement('input');
-  input.type='number';input.inputMode='numeric';input.id='mf504-quick-amount-'+index;
-  input.value=String(Math.max(0,Math.floor(Number(entry.qty)||0)));
-  input.setAttribute('onchange','App.mf504SetQuickAmount('+index+',this.value)');
-  field.append(label,input);chip.replaceWith(field);
-  const unit=document.createElement('span');unit.className='mf504-amount-unit';
-  const item=v369ItemTitle(entry);
-  unit.textContent=item?v179ProgressNoun(item,Number(entry.qty)||0):'units';
-  field.appendChild(unit);
-  mf504WrapInput(input,'quick-amount',index,'amount consumed');
- });
- return host.innerHTML;
-}
-const mf504QuickCardsBase=v239LoggedTitlesHtml;
-v239LoggedTitlesHtml=function(entries){
- return mf504DecorateQuickCards(String(mf504QuickCardsBase.apply(this,arguments)||''));
-};
-/* Add +/- to the Advanced Logging bulk input, but not the Per Unit timeline,
- * and do not change the shared v394SetQuantity model. */
-const mf504AdvancedBulkBase=v394BulkPanel;
-v394BulkPanel=function(e,index,item){
- const raw=String(mf504AdvancedBulkBase.apply(this,arguments)||'');
- if(!raw||!['last','amount'].includes(v394Method(e)))return raw;
- const host=document.createElement('div');host.innerHTML=raw;
- const input=host.querySelector('.mf394-bulk > label.mf394-field input[type="number"]');
- if(input)mf504WrapInput(input,'advanced',index,v394Method(e)==='last'?'last watched unit':'amount consumed');
- return host.innerHTML;
-};
-/* Quick initial title selection also supports +/- for both logging methods.
- * Do not add controls to readonly aggregated consumption totals. */
-const mf504LogFormBase=renderLogForm;
-renderLogForm=function(){
- const raw=String(mf504LogFormBase.apply(this,arguments)||'');
- if(S.logDraft?.v369Interface!=='quick')return raw;
- const host=document.createElement('div');host.innerHTML=raw;
- const mode=v179Mode('single');
- const field=host.querySelector(mode==='progress'?'#entry-progress':'#entry-qty');
- if(field)mf504WrapInput(field,mode==='progress'?'quick-entry-progress':'quick-entry-amount',-1,
-  mode==='progress'?'last progress':'amount consumed');
- return host.innerHTML;
-};
-/* Keep stepper boundary buttons in sync when the numeric input is typed in. */
-document.addEventListener('input',event=>{
- const controls=event.target.closest?.('.mf504-stepper');
- if(controls)mf504UpdateButtons(controls);
-});
-window.MediaFlowV504=Object.freeze({version:504,step:App.mf504Step,bounds:mf504Bounds});
-/* MediaFlow v507 — canonical portable state, cloud readback and release audit.
- * This module must not mutate the Library, History or XP when exporting.
- * All existing backup schema versions and import formats remain compatible.
- */
-const MF507_RELEASE=507;
-function mf507Release(){
- const version=Number(v161CurrentVersion());
- return Number.isSafeInteger(version)&&version>=MF507_RELEASE?version:MF507_RELEASE;
-}
-function mf507Clone(value){
- const json=JSON.stringify(value);
- if(json===undefined)throw new Error('Non-serializable MediaFlow data in export');
- return JSON.parse(json);
-}
-function mf507Own(object,key){
- return object!=null&&Object.prototype.hasOwnProperty.call(object,key)&&object[key]!==undefined;
-}
-function mf507Same(a,b){return v250Fingerprint(mf507Clone(a))===v250Fingerprint(mf507Clone(b));}
-const MF507_TRANSIENT_STATE_FIELDS=new Set(['savedAt','cloudSyncVersion']);
-/* The old audit enumerated fields added up to v402. Derive coverage from the
- * real v507 account snapshot so future persistent fields are not omitted. */
-const mf507FullBackupBase=v148BuildFullBackup;
-v148BuildFullBackup=function(){
- const backup=mf507FullBackupBase.apply(this,arguments);
- const state=snapshot();
- if(!backup||typeof backup!=='object')throw new Error('Full Backup builder returned invalid data');
- const backedUp=[];
- for(const [key,value] of Object.entries(state)){
-  if(MF507_TRANSIENT_STATE_FIELDS.has(key)||value===undefined)continue;
-  backup[key]=mf507Clone(value);
-  backedUp.push(key);
- }
- backup.mediaFlowVersion=backup.backupVersion=mf507Release();
- const manifest=backup.backupManifest||(backup.backupManifest={});
- manifest.v507={
-  release:mf507Release(),
-  accountFields:backedUp,
-  libraryTitles:Array.isArray(state.library)?state.library.length:0,
-  consumptionHistory:Array.isArray(state.sessions)?state.sessions.length:0,
-  libraryHistory:Array.isArray(state.activityLog)?state.activityLog.length:0,
-  collections:Array.isArray(state.collections)?state.collections.length:0,
-  personalOrder:Array.isArray(state.orderPlan?.titleIds)?state.orderPlan.titleIds.length:0,
-  xpLedgerEvents:Object.keys(state.xpLedger?.v348EventMeta||{}).length,
-  fullCloudSnapshotParity:true,
-  automaticExportUsesFullBackup:true,
-  importRequiresVerifiedCloudReadback:true,
-  pwaVersionedRelease:true,
-  schemaCompatible:true
- };
- return backup;
-};
-backupSnapshot=function(){return v148BuildFullBackup();};
-const mf507SettingsPresetBase=v196BuildSettingsPreset;
-v196BuildSettingsPreset=function(){
- const preset=mf507SettingsPresetBase.apply(this,arguments);
- if(!preset||typeof preset!=='object')throw new Error('Settings preset builder returned invalid data');
- preset.settings=mf507Clone(S.settings||DEFAULT_SETTINGS);
- preset.mediaFlowVersion=mf507Release();
- const manifest=preset.presetManifest||(preset.presetManifest={});
- manifest.v507={release:mf507Release(),configurationOnly:true,
-   settingsKeys:Object.keys(preset.settings).length,libraryDataExcluded:true};
- return preset;
-};
-const mf507OrderExportBase=v142OrderExportPayload;
-v142OrderExportPayload=function(){
- const order=mf507OrderExportBase.apply(this,arguments);
- if(order)order.mediaFlowVersion=mf507Release();
- return order;
-};
-const mf507CollectionsExportBase=v281CollectionsExportPayload;
-v281CollectionsExportPayload=function(){
- const collectionData=mf507CollectionsExportBase.apply(this,arguments);
- if(collectionData){
-  collectionData.appVersion=collectionData.mediaFlowVersion=mf507Release();
-  collectionData.collectionTombstones=mf507Clone(S.collectionTombstones||[]);
- }
- return collectionData;
-};
-/* All dedicated imports may use this after the existing queued save succeeds.
- * A readback is not a mutation, and a failed readback never approves a save.
- * Keep the original file in the user's possession on every failure. */
-async function mf507VerifyImportedCloud(kind,expectedUserId){
- const userId=String(expectedUserId||AUTH_USER?.id||'');
- if(!userId||String(AUTH_USER?.id||'')!==userId||V115_STARTUP_GUARD||
-   (typeof V475_AUTH!=='undefined'&&(!V475_AUTH.hydrated||V475_AUTH.restoring||V475_AUTH.logoutRequested)))
-  throw new Error(kind+': account recovery is still in progress. No cloud save is confirmed.');
- if(lastSaveFailed)throw new Error(kind+': cloud save failed. Keep the original import file and retry Sync Now.');
- await saveQueue;
- if(String(AUTH_USER?.id||'')!==userId||V115_STARTUP_GUARD)
-  throw new Error(kind+': account changed during import. Cloud verification cancelled.');
- const expected=snapshot();
- const remote=await v115FetchCloudState();
- if(String(AUTH_USER?.id||'')!==userId||V115_STARTUP_GUARD)
-  throw new Error(kind+': account changed while verifying imported data.');
- if(!remote?.found||!remote.state)
-  throw new Error(kind+': cloud state is missing after the save. Keep the imported file.');
- // snapshot() regenerates savedAt on every call; the cloud was written a
- // moment earlier. Compare the actual uploaded timestamp, not a new clock tick.
- if(mf507Own(remote.state,'savedAt'))expected.savedAt=remote.state.savedAt;
- else delete expected.savedAt;
- const result=v155VerifyCloudState(remote.state,expected);
- if(!result.ok)throw new Error(kind+': cloud verification failed ('+
-   (result.missing||[]).slice(0,5).join(', ')+'). Keep the import file and retry Sync Now.');
- return true;
-}
-/* Lightweight, read-only integrity report. This does not ask for credentials,
- * force a sync, recalculate XP, start an update, or mutate a saved account.
- * Live network readback is done by Sync Now and the import verifiers. */
-function mf507AuditPersistence(){
- const before=v250Fingerprint({xpLedger:S.xpLedger,sessions:S.sessions,orderPlan:S.orderPlan,
-   collections:S.collections,activityLog:S.activityLog});
- const state=snapshot(),full=v148BuildFullBackup(),scheduled=backupSnapshot();
- const settings=v196BuildSettingsPreset(),order=v142OrderExportPayload(),collections=v281CollectionsExportPayload();
- const problems=[],fields={};
- for(const key of Object.keys(state)){
-  if(MF507_TRANSIENT_STATE_FIELDS.has(key)||state[key]===undefined)continue;
-  const found=mf507Own(full,key)&&mf507Own(scheduled,key);
-  const equal=found&&mf507Same(full[key],state[key])&&mf507Same(scheduled[key],state[key]);
-  fields[key]={fullExport:mf507Own(full,key),automaticExport:mf507Own(scheduled,key),equal};
-  if(!equal)problems.push(key+' backup / automatic export mismatch');
- }
- if(!mf507Same(settings.settings,state.settings))problems.push('Settings preset mismatch');
- if(!mf507Same(collections.collectionTombstones||[],state.collectionTombstones||[]))
-  problems.push('Collections deletion records mismatch');
- for(const [kind,value] of Object.entries({
-  full:full.mediaFlowVersion,automatic:scheduled.mediaFlowVersion,
-  settings:settings.mediaFlowVersion,order:order.mediaFlowVersion,
-  collections:collections.mediaFlowVersion
- }))if(Number(value)!==mf507Release())problems.push(kind+' version is stale');
- const after=v250Fingerprint({xpLedger:S.xpLedger,sessions:S.sessions,orderPlan:S.orderPlan,
-   collections:S.collections,activityLog:S.activityLog});
- if(before!==after)problems.push('Read-only audit changed account data');
- const methods={
-  cloudSave:typeof saveState==='function',
-  syncNow:typeof App.syncNow==='function',
-  dataExport:typeof App.exportJSON==='function',
-  dataImport:typeof App.importJSON==='function',
-  automaticExport:typeof backupSnapshot==='function',
-  settingsExport:typeof App.exportSettingsPreset==='function',
-  settingsImport:typeof App.importSettingsPreset==='function',
-  historyExport:typeof App.v271ExportConsumptionCSV==='function'&&typeof App.v271ExportLogsCSV==='function',
-  xpHistoryExport:typeof App.v348ExportXPHistory==='function',
-  xpCalculator:typeof App.calculateXPNow==='function',
-  orderExport:typeof App.v142ExportOrder==='function',
-  orderImport:typeof App.v142ImportOrder==='function',
-  collectionsExport:typeof App.v279ExportCollections==='function',
-  collectionsImport:typeof App.v279ImportCollections==='function',
-  pwaInstaller:typeof App.v248InstallLatestUpdate==='function',
-  automaticUpdateCheck:typeof v161EnsureAutomaticUpdateCheck==='function'
- };
- for(const [method,ready] of Object.entries(methods))if(!ready)problems.push('Missing '+method);
- return {version:mf507Release(),ok:problems.length===0,issues:problems,fields,methods,
-  release:{app:mf507Release(),cloudSchema:V201_CLOUD_SYNC_VERSION,
-    backupSchema:V201_BACKUP_SCHEMA_VERSION,
-    settingsPresetSchema:V196_SETTINGS_PRESET_SCHEMA_VERSION},
-  counts:{library:state.library?.length||0,history:state.sessions?.length||0,
-    libraryHistory:state.activityLog?.length||0,collections:state.collections?.length||0,
-    ordered:state.orderPlan?.titleIds?.length||0,xpEvents:Object.keys(state.xpLedger?.v348EventMeta||{}).length},
-  note:'Offline, read-only parity. For actual Supabase verification, use Sync Now after your account finishes loading.'};
-}
-App.v507AuditPersistence=mf507AuditPersistence;
-App.v507ExportAuditReport=function(){
- try{
-  const report=mf507AuditPersistence();
-  triggerDownload(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),
-    'MediaFlow_Data_Integrity_v'+mf507Release()+'.json');
-  showToast(report.ok?'MediaFlow integrity report exported':'Integrity report exported with warnings');
- }catch(error){console.error('MediaFlow v507 audit report failed',error);showToast('Could not generate the data integrity report');}
-};
-window.MediaFlowV507=Object.freeze({version:507,audit:mf507AuditPersistence,verifyCloud:mf507VerifyImportedCloud});
-/* MediaFlow v508 — shared visual category presentation for Dashboard
- * Today's Balance and Library Overview. NEVER modifies Library, History,
- * XP, the task scheduler, or source category enabled flags.
- * This module intentionally runs last: older renderers resolve our helper at
- * call time and every upgrade path reads the same persisted panel settings. */
-const MF508_PANEL_KEYS=Object.freeze(['todayBalance','libraryOverview']);
-const MF508_SOURCES=Object.freeze(['categories','system','custom','todayBalance','libraryOverview']);
-function mf508Own(v,k){return !!v&&Object.prototype.hasOwnProperty.call(v,k);}
-function mf508AllCategories(){return Array.isArray(S.categories)?S.categories.filter(c=>c&&c.id!=null):[];}
-function mf508Unique(ids){
-  const known=new Set(mf508AllCategories().map(c=>String(c.id)));
-  return [...new Set((Array.isArray(ids)?ids:[]).map(String).filter(id=>known.has(id)))];
-}
-function mf508FallbackPanel(key,settings=S.settings||DEFAULT_SETTINGS){
-  const legacyBalance=settings?.v186ControlCenter?.todayBalance;
-  const previouslyCustom=key==='todayBalance'&&legacyBalance?.mode==='custom';
-  const all=mf508AllCategories();
-  const priorIds=mf508Unique(legacyBalance?.categoryIds);
-  return {
-    enabled:key==='todayBalance'
-      ?settings?.v192Dashboard?.showTodayBalance!==false
-      :settings?.v183LibraryOverview?.showOverview!==false,
-    source:previouslyCustom?'custom':'categories',
-    hiddenIds:previouslyCustom
-      ?all.filter(cat=>!priorIds.includes(String(cat.id))).map(cat=>String(cat.id))
-      :[],
-    order:all.map(cat=>String(cat.id)),
-    metrics:'all',
-    modifiedAt:0
-  };
-}
-function mf508NormalizePanel(raw,key,settings=S.settings||DEFAULT_SETTINGS){
-  const def=mf508FallbackPanel(key,settings);
-  const val=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
-  let source=MF508_SOURCES.includes(val.source)?val.source:def.source;
-  if(source===key)source='categories';
-  const oldOrder=mf508Unique(val.order);
-  const order=[...oldOrder,...mf508AllCategories().map(c=>String(c.id)).filter(id=>!oldOrder.includes(id))];
-  return {
-    enabled:mf508Own(val,'enabled')?val.enabled!==false:def.enabled,
-    source,
-    hiddenIds:mf508Own(val,'hiddenIds')?mf508Unique(val.hiddenIds):def.hiddenIds,
-    order:mf508Own(val,'order')?order:def.order,
-    metrics:key==='todayBalance'&&val.metrics==='visible'?'visible':'all',
-    modifiedAt:Math.max(0,Number(val.modifiedAt)||0)
-  };
-}
-function mf508NormalizeBoth(raw,settings=S.settings||DEFAULT_SETTINGS){
-  const input=raw&&typeof raw==='object'?raw:{};
-  const todayBalance=mf508NormalizePanel(input.todayBalance,'todayBalance',settings);
-  const libraryOverview=mf508NormalizePanel(input.libraryOverview,'libraryOverview',settings);
-  // Malformed or imported circular dependencies resolve deterministically.
-  if(todayBalance.source==='libraryOverview'&&libraryOverview.source==='todayBalance')
-    libraryOverview.source='categories';
-  return {todayBalance,libraryOverview};
-}
-function mf508Ensure(settings=S.settings||DEFAULT_SETTINGS){
-  if(!settings||typeof settings!=='object')return mf508NormalizeBoth(null,DEFAULT_SETTINGS);
-  const cfg=mf508NormalizeBoth(settings.v508Panels,settings);
-  settings.v508Panels=cfg;
-  return cfg;
-}
-function mf508VisibleCategories(key,seen=new Set()){
-  if(!MF508_PANEL_KEYS.includes(key))return mf508AllCategories().filter(c=>c.enabled!==false);
-  if(seen.has(key))return mf508AllCategories().filter(c=>c.enabled!==false);
-  seen.add(key);
-  const cfg=mf508Ensure()[key];
-  let result;
-  if(cfg.source==='system'){
-    result=typeof v186ScopeCategories==='function'
-      ?v186ScopeCategories('scheduler'):mf508AllCategories().filter(c=>c.enabled!==false);
-  }else if(cfg.source==='custom'){
-    const hidden=new Set(cfg.hiddenIds);
-    const map=new Map(mf508AllCategories().map(c=>[String(c.id),c]));
-    result=cfg.order.filter(id=>map.has(id)&&!hidden.has(id)).map(id=>map.get(id));
-  }else if(MF508_PANEL_KEYS.includes(cfg.source)){
-    result=mf508VisibleCategories(cfg.source,seen);
-  }else{
-    result=mf508AllCategories().filter(c=>c.enabled!==false);
-  }
-  return (Array.isArray(result)?result:[]).filter(Boolean);
-}
-function mf508MetricScope(){return mf508Ensure().todayBalance.metrics;}
-function mf508HealthSummaryHtml(visibleCats){
-  const scope=mf508MetricScope();
-  const subjects=scope==='visible'?(Array.isArray(visibleCats)?visibleCats:[]):mf508AllCategories();
-  const countFor=fn=>{
-    const counts={healthy:0,due:0,neglected:0,overused:0,other:0};
-    for(const c of subjects){
-      let status='other';try{status=String(fn(c)||'other');}catch(_){}
-      if(!Object.prototype.hasOwnProperty.call(counts,status))status='other';
-      counts[status]++;
-    }
-    return counts;
-  };
-  const current=countFor(categoryStatus),lifetime=countFor(overallCategoryStatus);
-  const detail=c=>'<span>'+c.healthy+' healthy</span><span>'+c.due+' due</span>'+
-    '<span>'+c.neglected+' neglected</span><span>'+c.overused+' overused</span>';
-  return '<div class="mf508-health-summary" aria-label="Category balance health overview">'+
-    '<div class="mf508-health-header"><strong>Balance health overview</strong><small>'+
-    (scope==='visible'?'Only displayed categories':'All categories, including hidden')+
-    ' · '+subjects.length+' total</small></div>'+
-    '<div class="mf508-health-groups"><div><b>Today (72 hours)</b><div class="mf508-health-counts">'+detail(current)+'</div></div>'+
-    '<div><b>Overall (lifetime)</b><div class="mf508-health-counts">'+detail(lifetime)+'</div></div></div></div>';
-}
-/* v516: Settings Center owns the live controls. A full render() destroys its
- * expanded section and scroll state, so update those controls in place instead.
- * Checkbox/Show All actions never replace their focused DOM elements. */
-function mf508RefreshActiveSettings(key,change){
-  if(String(S.view||'')!=='settings'||typeof document==='undefined')return false;
-  const center=document.querySelector('.mf365-settings-center');
-  if(!center)return false;
-  const panels=[...center.querySelectorAll('.mf508-panel[data-mf508-panel]')];
-  if(!panels.length)return false;
-  const stage=center.querySelector('.mf365-stage');
-  const docScroll=document.scrollingElement||document.documentElement;
-  const pageTop=docScroll?.scrollTop||0,stageTop=stage?.scrollTop||0;
-  let replaced=false;
-  for(const panel of panels){
-    const panelKey=panel.getAttribute('data-mf508-panel');
-    if(!MF508_PANEL_KEYS.includes(panelKey))continue;
-    const cfg=mf508Ensure()[panelKey];
-    const sectionToggle=panel.querySelector('.mf508-master input');
-    if(sectionToggle)sectionToggle.checked=cfg.enabled;
-    const controls=panel.querySelector('.mf508-panel-controls');
-    controls?.classList.toggle('mf508-panel-disabled',!cfg.enabled);
-    if(panelKey===key&&(change==='source'||change==='order')){
-      const scratch=document.createElement('div');
-      scratch.innerHTML=mf508PanelHtml(panelKey);
-      const newControls=scratch.querySelector('.mf508-panel-controls');
-      if(!controls||!newControls)return false;
-      const active=document.activeElement;
-      let oldList=controls.querySelector('.mf508-order-list');
-      const listTop=oldList?.scrollTop||0,listLeft=oldList?.scrollLeft||0;
-      const row=active?.closest?.('.mf508-order-row');
-      const id=row?.getAttribute('data-mf508-category-id');
-      const controlIndex=row?[...row.querySelectorAll('button,input')].indexOf(active):-1;
-      const focusSource=change==='source'&&controls.contains(active);
-      if(change==='source'){
-        controls.innerHTML=newControls.innerHTML;
-        replaced=true;
-      }else{
-        const list=controls.querySelector('.mf508-order-list');
-        const replacement=newControls.querySelector('.mf508-order-list');
-        if(list&&replacement){list.innerHTML=replacement.innerHTML;replaced=true;}
-      }
-      oldList=controls.querySelector('.mf508-order-list');
-      if(oldList){oldList.scrollTop=listTop;oldList.scrollLeft=listLeft;}
-      if(id){
-        const nextRow=[...controls.querySelectorAll('.mf508-order-row')].find(el=>
-          el.getAttribute('data-mf508-category-id')===id);
-        const nextControl=nextRow?.querySelectorAll('button,input')?.[controlIndex];
-        try{nextControl?.focus({preventScroll:true});}catch(_){}
-      }else if(focusSource){
-        try{controls.querySelector('.mf508-field select')?.focus({preventScroll:true});}catch(_){}
-      }
-    }
-    // Keep selected categories checked without replacing a focused checkbox.
-    panel.querySelectorAll('.mf508-order-row').forEach(row=>{
-      const id=row.getAttribute('data-mf508-category-id');
-      const input=row.querySelector('input.mf508-cat-toggle');
-      if(input)input.checked=!cfg.hiddenIds.includes(String(id));
-    });
-    const preview=panel.querySelector('.mf508-follow-preview');
-    if(preview){
-      const names=mf508VisibleCategories(panelKey).map(c=>String(c.name));
-      const count=preview.querySelector('b'),items=preview.querySelector('span');
-      if(count)count.textContent=names.length+' categories shown';
-      if(items)items.textContent=names.slice(0,12).join(' · ')+(names.length>12?' · …':'');
-    }
-    const insight=panel.querySelector('.mf508-field select[onchange*="mf508SetMetricScope"]');
-    if(insight)insight.value=cfg.metrics;
-  }
-  // No page-wide render, so Settings Center remains expanded and in position.
-  if(replaced){
-    const restore=()=>{
-      if(docScroll)docScroll.scrollTop=pageTop;
-      if(stage)stage.scrollTop=stageTop;
-    };
-    restore();
-    if(typeof requestAnimationFrame==='function')requestAnimationFrame(restore);
-  }
-  return true;
-}
-function mf508Persist(key,change='general'){
-  const cfg=mf508Ensure(),panel=cfg[key];
-  if(!panel)return;
-  panel.modifiedAt=Date.now();
-  // Keep older visibility switches synchronized so old render wrappers honor
-  // the same toggle on the initial paint and after cloud reload.
-  const dashboard=v192EnsureDashboardSettings(S.settings||DEFAULT_SETTINGS);
-  dashboard.showTodayBalance=cfg.todayBalance.enabled;
-  v183EnsureLibraryOverview(S.settings||DEFAULT_SETTINGS).showOverview=cfg.libraryOverview.enabled;
-  persistSettings();
-  if(!mf508RefreshActiveSettings(key,change))render();
-}
-function mf508SetEnabled(key,on){
-  if(!MF508_PANEL_KEYS.includes(key))return;
-  mf508Ensure()[key].enabled=on===true;
-  mf508Persist(key,'enabled');
-}
-function mf508SetSource(key,source){
-  if(!MF508_PANEL_KEYS.includes(key)||!MF508_SOURCES.includes(source)||source===key)return;
-  // Resolve the old selection BEFORE grabbing the mutable config; resolving
-  // itself normalizes settings, which otherwise invalidated panel references.
-  const current=source==='custom'?mf508VisibleCategories(key).map(c=>String(c.id)):[];
-  const cfg=mf508Ensure(),other=key==='todayBalance'?'libraryOverview':'todayBalance';
-  if(source===other&&cfg[other].source===key){
-    showToast('These sections cannot follow each other in a loop. Change the other source first.');
-    return;
-  }
-  const panel=cfg[key];
-  if(source==='custom'&&panel.source!=='custom'){
-    const shown=new Set(current);
-    panel.hiddenIds=mf508AllCategories().filter(c=>!shown.has(String(c.id))).map(c=>String(c.id));
-    panel.order=[...current,...mf508AllCategories().map(c=>String(c.id)).filter(id=>!shown.has(id))];
-  }
-  panel.source=source;
-  mf508Persist(key,'source');
-}
-function mf508SetCategory(key,id,show){
-  if(!MF508_PANEL_KEYS.includes(key))return;
-  const panel=mf508Ensure()[key];
-  if(panel.source!=='custom')return;
-  const valid=new Set(mf508AllCategories().map(c=>String(c.id)));
-  if(!valid.has(String(id)))return;
-  const hidden=new Set(panel.hiddenIds);
-  if(show)hidden.delete(String(id));else hidden.add(String(id));
-  panel.hiddenIds=[...hidden];
-  mf508Persist(key,'category');
-}
-function mf508SetAll(key,show){
-  if(!MF508_PANEL_KEYS.includes(key))return;
-  const panel=mf508Ensure()[key];
-  if(panel.source!=='custom')return;
-  panel.hiddenIds=show?[]:mf508AllCategories().map(c=>String(c.id));
-  mf508Persist(key,'all');
-}
-function mf508MoveCategory(key,id,position){
-  if(!MF508_PANEL_KEYS.includes(key))return;
-  const panel=mf508Ensure()[key];
-  if(panel.source!=='custom')return;
-  const all=[...panel.order],from=all.indexOf(String(id));
-  if(from<0)return;
-  const target=Math.max(0,Math.min(all.length-1,Number(position)||0));
-  if(from===target)return;
-  all.splice(from,1);all.splice(target,0,String(id));
-  panel.order=all;
-  mf508Persist(key,'order');
-}
-function mf508SetMetricScope(scope){
-  const panel=mf508Ensure().todayBalance;
-  panel.metrics=scope==='visible'?'visible':'all';
-  mf508Persist('todayBalance','metric');
-}
-function mf508SourceOptions(key){
-  const linked=key==='todayBalance'?'libraryOverview':'todayBalance';
-  const label=key==='todayBalance'?'Library Overview':'Today’s Balance';
-  return [
-    ['categories','Follow Categories (default)'],
-    ['system','Follow MediaFlow System rotation'],
-    ['custom','Custom visibility & order'],
-    [linked,'Follow '+label]
-  ];
-}
-function mf508OptionsHtml(key){
-  const p=mf508Ensure()[key];
-  return mf508SourceOptions(key).map(([value,label])=>'<option value="'+escapeHtml(value)+'"'+
-    (p.source===value?' selected':'')+'>'+escapeHtml(label)+'</option>').join('');
-}
-function mf508ListHtml(key){
-  const p=mf508Ensure()[key];
-  if(p.source!=='custom'){
-    const names=mf508VisibleCategories(key).map(c=>String(c.name));
-    return '<div class="mf508-follow-preview"><b>'+names.length+' categories shown</b>'+
-      '<span>'+escapeHtml(names.slice(0,12).join(' · ')+(names.length>12?' · …':''))+'</span></div>';
-  }
-  const known=new Map(mf508AllCategories().map(c=>[String(c.id),c]));
-  return '<div class="mf508-custom-actions"><button type="button" class="btn btn-sm" onclick="App.mf508SetAll(\''+key+'\',true)">Show all</button>'+
-    '<button type="button" class="btn btn-sm" onclick="App.mf508SetAll(\''+key+'\',false)">Hide all</button></div>'+
-    '<div class="mf508-order-list">'+p.order.map((id,index)=>{
-      const c=known.get(id);if(!c)return '';
-      const on=!p.hiddenIds.includes(id);
-      const safe=escapeHtml(id);
-      return '<div class="mf508-order-row" data-mf508-category-id="'+safe+'"><input type="checkbox" class="mf508-cat-toggle" '+
-        (on?'checked ':'')+'aria-label="Show '+escapeHtml(c.name)+' in '+(key==='todayBalance'?"Today\'s Balance":'Library Overview')+'" '+
-        'onchange="App.mf508SetCategory(\''+key+'\',\''+safe+'\',this.checked)">'+
-        '<span class="mf508-cat-name">'+v144CategoryIconHtml(c)+' '+escapeHtml(c.name)+'</span>'+
-        '<div class="mf508-order-actions"><button type="button" class="btn btn-sm" aria-label="Move up" '+(index===0?'disabled':'')+
-        ' onclick="App.mf508MoveCategory(\''+key+'\',\''+safe+'\','+(index-1)+')">↑</button>'+
-        '<button type="button" class="btn btn-sm" aria-label="Move down" '+(index===p.order.length-1?'disabled':'')+
-        ' onclick="App.mf508MoveCategory(\''+key+'\',\''+safe+'\','+(index+1)+')">↓</button>'+
-        '<label class="mf508-position"><span>Position</span><input type="number" min="1" max="'+p.order.length+
-        '" value="'+(index+1)+'" aria-label="Position of '+escapeHtml(c.name)+'" onchange="App.mf508MoveCategory(\''+key+'\',\''+safe+'\',Number(this.value)-1)"></label></div></div>';
-    }).join('')+'</div>';
-}
-function mf508PanelHtml(key){
-  const today=key==='todayBalance',title=today?"Today's Balance":"Library Overview";
-  const p=mf508Ensure()[key];
-  return '<section class="card mf508-panel" data-mf508-panel="'+key+'"><div class="mf508-panel-header">'+
-    '<div><h3>'+title+'</h3><p>Show, hide and arrange categories without changing Library data, logging, XP or the scheduler.</p></div>'+
-    '<label class="mf508-master"><input type="checkbox" '+(p.enabled?'checked':'')+
-      ' onchange="App.mf508SetEnabled(\''+key+'\',this.checked)"><span>Show section</span></label></div>'+
-    '<div class="mf508-panel-controls '+(!p.enabled?'mf508-panel-disabled':'')+'">'+
-    '<label class="mf508-field"><span>Category source</span><select onchange="App.mf508SetSource(\''+key+'\',this.value)">'+
-      mf508OptionsHtml(key)+'</select></label>'+mf508ListHtml(key)+
-    (today?'<label class="mf508-field"><span>Balance insights scope</span><select onchange="App.mf508SetMetricScope(this.value)">'+
-      '<option value="all"'+(p.metrics==='all'?' selected':'')+'>All categories, including hidden (default)</option>'+
-      '<option value="visible"'+(p.metrics==='visible'?' selected':'')+'>Only displayed categories</option>'+
-      '</select></label><p class="mf508-footnote">Only the Today/Overall category-health overview follows this scope. Category health, consumption, time totals, History, XP and task scores keep their existing calculations.</p>':
-      '<p class="mf508-footnote">The Library-wide completion percentage retains its original all-Library meaning. Only category rows and their order change.</p>')+
-    '</div></section>';
-}
-const mf508RenderSettingsBase=renderSettings;
-renderSettings=function(){
-  let html=String(mf508RenderSettingsBase.apply(this,arguments)||'');
-  // Replace v186's obsolete Today’s Balance-only control; avoid presenting two
-  // independent switches which could contradict each other.
-  const begin='<div class="section-label">DASHBOARD SETTINGS</div>';
-  const end='<div class="section-label">STATISTICS SETTINGS</div>';
-  const i=html.indexOf(begin),j=i>=0?html.indexOf(end,i+begin.length):-1;
-  const cards='<div class="section-label mf508-settings-heading">DASHBOARD SETTINGS</div>'+
-    mf508PanelHtml('todayBalance')+
-    '<div class="section-label mf508-settings-heading">LIBRARY OVERVIEW</div>'+
-    mf508PanelHtml('libraryOverview');
-  if(i>=0&&j>i)html=html.slice(0,i)+cards+html.slice(j);
-  else html+=cards;
-  return html;
-};
-/* Bridge previous switches so toggling either old control also changes this
- * release's canonical setting and every Dashboard/Library render. */
-const mf508LegacyOverviewToggle=App.v183ToggleLibraryOverview;
-App.v183ToggleLibraryOverview=function(){
-  mf508SetEnabled('libraryOverview',!mf508Ensure().libraryOverview.enabled);
-};
-const mf508LegacyDashboardToggle=App.v192ToggleDashboardSection;
-if(typeof mf508LegacyDashboardToggle==='function'){
-  App.v192ToggleDashboardSection=function(key){
-    if(key==='showTodayBalance')return mf508SetEnabled('todayBalance',!mf508Ensure().todayBalance.enabled);
-    return mf508LegacyDashboardToggle.apply(this,arguments);
-  };
-}
-const mf508PersistSettingsBase=persistSettings;
-persistSettings=function(){
-  mf508Ensure(S.settings||DEFAULT_SETTINGS);
-  return mf508PersistSettingsBase.apply(this,arguments);
-};
-const mf508MergeStatesBase=mergeStates;
-mergeStates=function(a,b){
-  const out=mf508MergeStatesBase.apply(this,arguments)||{};
-  out.settings=out.settings||{};
-  const av=mf508NormalizeBoth(a?.settings?.v508Panels,a?.settings||{});
-  const bv=mf508NormalizeBoth(b?.settings?.v508Panels,b?.settings||{});
-  const next={};
-  for(const key of MF508_PANEL_KEYS){
-    const left=av[key],right=bv[key];
-    const stampA=Number(left.modifiedAt)||0,stampB=Number(right.modifiedAt)||0;
-    next[key]=stampB>stampA?right:left;
-  }
-  if(next.todayBalance.source==='libraryOverview'&&next.libraryOverview.source==='todayBalance')
-    next.libraryOverview.source='categories';
-  out.settings.v508Panels=next;
-  out.settings.v183LibraryOverview=Object.assign({},out.settings.v183LibraryOverview||{},
-    {showOverview:next.libraryOverview.enabled});
-  out.settings.v192Dashboard=Object.assign({},out.settings.v192Dashboard||{},
-    {showTodayBalance:next.todayBalance.enabled});
-  return out;
-};
-Object.assign(App,{mf508SetEnabled,mf508SetSource,mf508SetCategory,mf508SetAll,
-  mf508MoveCategory,mf508SetMetricScope});
-window.MediaFlowV508={version:508,resolve:mf508VisibleCategories,
-  inspect:()=>({settings:mf508Ensure(),todayBalance:mf508VisibleCategories('todayBalance').map(c=>c.id),
-    libraryOverview:mf508VisibleCategories('libraryOverview').map(c=>c.id)})};
-
-// v510: Always expose an explicit update path, even when an old controller
-// reports no waiting worker. Never clear IndexedDB, localStorage or user data.
-async function mf510ForcePwaRefresh(){
-  if(!('serviceWorker' in navigator)){location.reload();return;}
-  try{
-    const reg=await navigator.serviceWorker.getRegistration('./');
-    if(reg){
-      await reg.update();
-      if(reg.waiting){
-        reg.waiting.postMessage({type:'SKIP_WAITING'});
-        const onChange=()=>location.reload();
-        navigator.serviceWorker.addEventListener('controllerchange',onChange,{once:true});
-        setTimeout(()=>location.reload(),4500);
-        return;
-      }
-    }
-    // A new document URL bypasses stale app-shell HTML without touching storage.
-    const url=new URL(location.href);
-    url.searchParams.set('mf_update',String(Date.now()));
-    location.replace(url.href);
-  }catch(error){
-    const url=new URL(location.href);
-    url.searchParams.set('mf_update',String(Date.now()));
-    location.replace(url.href);
-  }
-}
-App.mf510ForcePwaRefresh=mf510ForcePwaRefresh;
-
-/* MediaFlow v514 — canonical Settings Center 2.0 integration for the
- * independent Today's Balance / Library Overview visual category controls.
- *
- * The v508-v513 implementation registered a v220 HTML renderer even though the
- * current Settings Center uses v221 + v348 and the v365/v366 registration path.
- * That replaced the canonical renderer and made the new sections unavailable
- * to Settings Center navigation, search and the mobile layout.
- *
- * This module is deliberately loaded after v508; it retains existing
- * v508Panels settings, update/recovery controls and all cloud backup fields.
- */
-const MF514_SETTINGS_SECTIONS=Object.freeze([
-  {
-    id:'v221-settings-today-s-balance',
-    title:"TODAY'S BALANCE",
-    category:'dashboard',
-    subgroup:'Balance & Visibility',
-    keywords:['today balance','category visibility','health scope','dashboard','show hide reorder','follow categories']
-  },
-  {
-    id:'v221-settings-library-overview-display',
-    title:'LIBRARY OVERVIEW DISPLAY',
-    category:'library',
-    subgroup:'Overview & Display',
-    keywords:['library overview','categories','order','visibility','show hide','custom','follow dashboard']
-  },
-  {
-    id:'v221-settings-pwa-update-recovery',
-    title:'PWA UPDATE RECOVERY',
-    category:'app',
-    subgroup:'Updates & Installation',
-    keywords:['service worker','stuck update','force update','refresh app','install']
-  }
-]);
-// v221Slug("TODAY'S BALANCE") produces "today-s-balance".
-if(typeof v366RegisterSection==='function'){
-  for(const section of MF514_SETTINGS_SECTIONS)v366RegisterSection(section);
-}
-if(typeof v366RegisterSetting==='function'){
-  const inputs=[
-    ['today-balance-visible','v221-settings-today-s-balance','[data-mf508-panel="todayBalance"] .mf508-master','Show Today’s Balance'],
-    ['today-balance-source','v221-settings-today-s-balance','[data-mf508-panel="todayBalance"] .mf508-field','Today’s Balance category source'],
-    ['today-balance-insights','v221-settings-today-s-balance','[data-mf508-panel="todayBalance"] .mf508-footnote','Balance insights category scope'],
-    ['overview-visible','v221-settings-library-overview-display','[data-mf508-panel="libraryOverview"] .mf508-master','Show Library Overview'],
-    ['overview-source','v221-settings-library-overview-display','[data-mf508-panel="libraryOverview"] .mf508-field','Library Overview category source']
-  ];
-  for(const [id,section,selector,label] of inputs)
-    v366RegisterSetting({id,section,selector,label,keywords:[label,'visual categories','category order']});
-}
-const mf514PreviousSettingsRenderer=V219_PAGE_RENDERERS.get('settings');
-if(typeof mf514PreviousSettingsRenderer!=='function')
-  throw new Error('MediaFlow v514: canonical Settings page renderer unavailable');
-MediaFlowRuntime.registerPageRenderer('settings',function(){
-  // Keep v348 XP, v335 and all later Settings features; do not call the
-  // obsolete v220 renderer or reconstruct the Settings page ourselves.
-  const markup=String(mf514PreviousSettingsRenderer.apply(this,arguments)||'');
-  if(markup.includes('data-mf508-panel="todayBalance"')&&
-     markup.includes('data-mf508-panel="libraryOverview"'))return markup;
-  const marker='<div id="v221-settings-empty"';
-  const at=markup.indexOf(marker);
-  if(at<0)throw new Error('MediaFlow v514: v221 Settings content anchor missing');
-  const inserts=
-    '<div class="section-label mf508-settings-heading">TODAY\'S BALANCE</div>'+
-    mf508PanelHtml('todayBalance')+
-    '<div class="section-label mf508-settings-heading">LIBRARY OVERVIEW DISPLAY</div>'+
-    mf508PanelHtml('libraryOverview')+
-    '<div class="section-label mf508-settings-heading">PWA UPDATE RECOVERY</div>'+
-    '<div class="card mf514-update-recovery"><b>App update stuck?</b>'+
-      '<p class="hint">Safely request the latest deployed app without deleting locally stored Library, settings or History.</p>'+
-      '<button type="button" class="btn btn-primary" onclick="App.mf510ForcePwaRefresh()">Force latest app update</button></div>';
-  return markup.slice(0,at)+inserts+markup.slice(at);
-});
-// Make the configured balance-scope switch functional WITHOUT changing the
-// consumption/time totals, XP, or scheduler. It controls only the additional
-// Today/Overall health-summary counts; the category rows remain visual.
-const mf514OriginalBalanceMarkup=v264BalanceMarkup;
-v264BalanceMarkup=function(){
-  const existing=String(mf514OriginalBalanceMarkup.apply(this,arguments)||'');
-  return existing+mf508HealthSummaryHtml(mf508VisibleCategories('todayBalance'));
-};
-window.MediaFlowV514=Object.freeze({
-  version:514,
-  settingsSections:MF514_SETTINGS_SECTIONS.map(x=>x.id),
-  inspect:()=>({
-    settingsRendererActive:V219_PAGE_RENDERERS.get('settings')!==mf514PreviousSettingsRenderer,
-    sectionIds:MF514_SETTINGS_SECTIONS.map(x=>x.id),
-    todayBalance:mf508Ensure().todayBalance,
-    libraryOverview:mf508Ensure().libraryOverview,
-    todayCategoryIds:mf508VisibleCategories('todayBalance').map(c=>String(c.id)),
-    overviewCategoryIds:mf508VisibleCategories('libraryOverview').map(c=>String(c.id))
-  })
-});
-/* MediaFlow v518 — Normal & Dynamic Library sort parity with Logging.
- * The two Library modes share S.histFilters and v189CompareLibraryItems.
- * Extend their canonical v224 sorter (not their obsolete duplicate HTML).
- * Sorting remains read-only and does not modify per-title progress or seasons.
- */
-const V518_RELEASE=518;
-if(!V224_LIBRARY_SORT_OPTIONS.some(([key])=>key==='remaining')){
-  const afterTotal=V224_LIBRARY_SORT_OPTIONS.findIndex(([key])=>key==='total');
-  V224_LIBRARY_SORT_OPTIONS.splice(afterTotal<0?V224_LIBRARY_SORT_OPTIONS.length:afterTotal+1,
-    0,['remaining','Remaining progress']);
-}
-const v518AddedOption=V224_LIBRARY_SORT_OPTIONS.find(row=>row[0]==='added');
-if(v518AddedOption)v518AddedOption[1]='Date added to Library';
-
-// Support restoring/importing direction-qualified remaining sorts in legacy
-// histFilters which have libSort but no libSortBase.
-const v518LegacySortParts=v224LegacySortParts;
-v224LegacySortParts=function(value,fallbackBase,fallbackDir){
-  const raw=String(value||'').trim().toLowerCase();
-  const match=raw.match(/^remaining-(asc|desc)$/);
-  if(match)return {base:'remaining',dir:match[1]};
-  if(raw==='remaining')return {base:'remaining',dir:v224SortDirection(fallbackDir)};
-  return v518LegacySortParts.apply(this,arguments);
-};
-
-const v518LibrarySortStateBase=v224LibrarySortState;
-v224LibrarySortState=function(){
-  S.histFilters=S.histFilters||{};
-  const filters=S.histFilters;
-  if(filters.v518DefaultApplied!==true){
-    const base=String(filters.libSortBase||'').toLowerCase();
-    const key=String(filters.libSort||'').toLowerCase();
-    const dir=String(filters.libSortDir||'').toLowerCase();
-    // Older versions initialized the Library sorter to Alphabetic ASC even
-    // when the user had never opened it. Upgrade that untouched default, but
-    // preserve all distinct saved user choices (priority, progress, custom
-    // direction, random, etc.). No title or cloud data is modified.
-    const unset=!base&&!key;
-    const oldDefault=(base===''||base==='title')&&
-      (dir===''||dir==='asc')&&(!key||key==='title-asc');
-    if(unset||oldDefault){
-      filters.libSortBase='added';
-      filters.libSortDir='desc';
-      filters.libSort='added-desc';
-    }
-    filters.v518DefaultApplied=true;
-  }
-  return v518LibrarySortStateBase.apply(this,arguments);
-};
-
-// These comparators serve both Normal Library's v53FilteredLibrary and
-// Dynamic Library's v181SortDynamicRows, including all display modes.
-function v518CompareRemainingLibrary(a,b,dir){
-  const ai=a?.item||a,bi=b?.item||b;
-  const av=v373RemainingUnits(ai),bv=v373RemainingUnits(bi);
-  if(av===null&&bv!==null)return 1;
-  if(av!==null&&bv===null)return -1;
-  if(av===null&&bv===null)return 0;
-  return (av-bv)*(dir==='asc'?1:-1);
-}
-const v518CompareLibraryBase=v189CompareLibraryItems;
-v189CompareLibraryItems=function(a,b,sort){
-  if(sort==='remaining-asc'||sort==='remaining-desc'){
-    return v518CompareRemainingLibrary(a,b,sort.endsWith('-asc')?'asc':'desc')||
-      v518CompareLibraryBase(a,b,'title-asc');
-  }
-  return v518CompareLibraryBase.apply(this,arguments);
-};
-const v518CompareLikeBase=v224CompareLibraryLike;
-v224CompareLibraryLike=function(a,b,base,dir){
-  if(base==='remaining'){
-    return v518CompareRemainingLibrary(a,b,v224SortDirection(dir))||
-      v518CompareLikeBase(a,b,'title','asc');
-  }
-  return v518CompareLikeBase.apply(this,arguments);
-};
-
-// Keep the same direction behavior as the v517 Logging picker: choosing
-// Remaining or Date added begins with descending (most/newest first).
-const v518SetLibrarySortBase=v69SetLibrarySort;
-v69SetLibrarySort=function(value){
-  const raw=String(value||'').toLowerCase();
-  if(raw==='remaining'||raw==='added'){
-    v224LibrarySortState();
-    S.histFilters.libSortDir='desc';
-  }
-  return v518SetLibrarySortBase.apply(this,arguments);
-};
-App.v69SetLibrarySort=v69SetLibrarySort;
-
-// v224's initial normalization already ran before this late extension.
-// Apply v518 default migration now, before the next Library rendering.
-const V518_INITIAL_LIBRARY_SORT=v224LibrarySortState();
-window.MediaFlowV518=Object.freeze({
-  version:V518_RELEASE,
-  supportedModes:['classic','dynamic'],
-  defaultSort:'added-desc',
-  remainingUnits:v373RemainingUnits,
-  inspect:()=>({sort:v224LibrarySortState(),options:V224_LIBRARY_SORT_OPTIONS.map(row=>row[0])})
-});
-/* MediaFlow v525 — Logging draft recency integration.
- * Only affects the existing "Arrange your session" workspace. Does not
- * touch the Library picker, submitted History, XP, or Personal Order.
- */
-const V525_LOGGING_RELEASE=525;
-const v525QuickProgressBase=App.v179SetLogEntryEnd;
-if(typeof v525QuickProgressBase==='function'){
-  App.v179SetLogEntryEnd=function(index,value){
-    const entry=S.logDraft?.v369Interface==='quick'?S.logDraft?.entries?.[Number(index)]:null;
-    const before=entry?Number(entry.v179EndProgress):null;
-    const result=v525QuickProgressBase.apply(this,arguments);
-    if(entry && S.logDraft?.entries?.[Number(index)]===entry &&
-        Number(entry.v179EndProgress)!==before){
-      entry.v369UpdatedAt=Date.now();
-      v369Touch();
-    }
-    return result;
-  };
-}
-// The v373 sorter uses the authoritative draft entry indexes. Re-apply its
-// presentation order after draft changes, without regenerating draft units,
-// resetting focus, mutating Library data, or scrolling to the top.
-const v525TouchBase=v369Touch;
-let v525OrderFrame=0;
-v369Touch=function(){
-  const result=v525TouchBase.apply(this,arguments);
-  if(S.logDraft?.v373Ordering?.sort==='draftUpdated'&&
-      S.logging===true && !v525OrderFrame && typeof requestAnimationFrame==='function'){
-    v525OrderFrame=requestAnimationFrame(()=>{
-      v525OrderFrame=0;
-      if(S.logDraft?.v373Ordering?.sort==='draftUpdated'&&S.logging===true)
-        v373LiveUpdate();
-    });
-  }
-  return result;
-};
-window.MediaFlowV525=Object.freeze({
-  version:V525_LOGGING_RELEASE,
-  scope:'Logging / Arrange your session only',
-  defaultSort:'logAdded',
-  draftUpdatedSort:'draftUpdated',
-  inspect:()=>({sort:v373OrderState().sort,dir:v373OrderState().dir,
-    options:V373_SORTS.map(x=>x[0]),pickerOptions:V373_PICKER_SORTS.map(x=>x[0])})
-});
-/* MediaFlow v527 — Universal Media presentation and category-aware XP controls.
- * Internal sort keys, Library data, and saved category identifiers are unchanged.
- */
-const V527_UNIVERSAL_VERSION=527;
-const V527_ACTIVITY_TYPES=Object.freeze({video:'Watching',reading:'Reading',playing:'Playing',listening:'Listening'});
-const V527_SORT_LABELS=Object.freeze({progress:'Consumed progress',total:'Total progress',remaining:'Remaining progress'});
-const V527_NEW_UNITS=Object.freeze(['sessions','videos','pages','volumes','tracks','albums','levels','missions','matches','lessons','items']);
-// The canonical sort arrays are the primary source; this repairs historical
-// renderer overrides and legacy/picker HTML that are still active elsewhere.
-for(const rows of [typeof V224_LIBRARY_SORT_OPTIONS==='undefined'?[]:V224_LIBRARY_SORT_OPTIONS,
-                    typeof V373_SORTS==='undefined'?[]:V373_SORTS,
-                    typeof V373_PICKER_SORTS==='undefined'?[]:V373_PICKER_SORTS]){
-  for(const row of rows)if(V527_SORT_LABELS[row?.[0]])row[1]=V527_SORT_LABELS[row[0]];
-}
-function v527NormalizeSortSelect(select){
-  if(!select?.options)return;
-  const marker=String(select.id||'')+' '+String(select.getAttribute('aria-label')||'')+' '+String(select.getAttribute('data-v89-filter')||'');
-  if(!/sort|order/i.test(marker)&&![...select.options].some(o=>/^(progress|total|remaining)$/.test(o.value)&&
-      /episodes|chapters|watched\/read|current progress/i.test(o.textContent||'')))return;
-  for(const option of select.options){
-    const label=V527_SORT_LABELS[option.value];
-    if(label&&option.textContent!==label)option.textContent=label;
-  }
-}
-function v527AddUnitXPControls(root){
-  if(!root?.querySelectorAll)return;
-  // v528: never treat controls produced by this helper as original settings
-  // fields. Without both guards the MutationObserver reinserts recursively.
-  if(root.matches?.('.mf527-unit-xp')||root.closest?.('.mf527-unit-xp'))return;
-  const inputs=[...root.querySelectorAll('input[onchange*="updateLevelingUnit"]')];
-  if(!inputs.length)return;
-  const anchor=inputs[inputs.length-1].closest('.field-row')||inputs[inputs.length-1].closest('.field');
-  if(!anchor||anchor.closest?.('.mf527-unit-xp')||anchor.parentElement?.querySelector(':scope > .mf527-unit-xp'))return;
-  const frame=document.createElement('div');
-  frame.className='mf527-unit-xp';
-  frame.setAttribute('aria-label','Additional media unit XP rates');
-  const rates=levelingSettings().unitXP||{};
-  frame.innerHTML='<div class="field-label" style="font-weight:700;margin:12px 0 7px">MORE UNIT XP RATES</div>'+
-    '<div class="field-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px">'+
-    V527_NEW_UNITS.map(unit=>'<div class="field"><label class="field-label" for="mf527-xp-'+unit+'">'+escapeHtml(UNITS[unit].label)+' XP</label>'+
-    '<input id="mf527-xp-'+unit+'" type="number" min="0" step="1" value="'+Math.max(0,Number(rates[unit])||0)+'" onchange="App.updateLevelingUnit(\''+unit+'\',this.value)"></div>').join('')+
-    '</div>';
-  anchor.insertAdjacentElement('afterend',frame);
-}
-function v527EnhanceNode(root){
-  if(!root||root.nodeType!==1)return;
-  if(root.matches?.('select'))v527NormalizeSortSelect(root);
-  root.querySelectorAll?.('select').forEach(v527NormalizeSortSelect);
-  v527AddUnitXPControls(root);
-}
-function v527Start(){
-  if(!document.body){document.addEventListener('DOMContentLoaded',v527Start,{once:true});return;}
-  v527EnhanceNode(document.body);
-  if(typeof MutationObserver==='function'){
-    const observer=new MutationObserver(records=>{
-      for(const record of records)for(const node of record.addedNodes||[])
-        if(node.nodeType===1)v527EnhanceNode(node);
-    });
-    observer.observe(document.body,{childList:true,subtree:true});
-  }
-}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',v527Start,{once:true});
-else v527Start();
-window.MediaFlowV527=Object.freeze({
-  version:V527_UNIVERSAL_VERSION,
-  activityTypes:V527_ACTIVITY_TYPES,
-  newUnits:V527_NEW_UNITS,
-  sortLabels:V527_SORT_LABELS,
-  inspect:()=>({categoryTypes:Object.keys(V527_ACTIVITY_TYPES),
-    units:Object.keys(UNITS),sessionSortOptions:V373_SORTS.map(r=>[...r]),
-    librarySortOptions:V224_LIBRARY_SORT_OPTIONS.map(r=>[...r]),
-    newUnitRates:{...levelingSettings().unitXP}})
-});
-/* MediaFlow v535 — safe cloud transitions, complete data portability and
- * on-demand health checks. Does not mutate account state, perform automatic
- * imports or recalculate / re-award XP. No Supabase schema change required. */
-const MF535_VERSION=535;
-function mf535AccountReady(accountId){
-  return Boolean(accountId&&String(AUTH_USER?.id||'')===accountId&&
-    !V115_STARTUP_GUARD&&(!V475_AUTH||(
-      V475_AUTH.hydrated&&!V475_AUTH.restoring&&!V475_AUTH.logoutRequested)));
-}
-/* v250 previously treated an ignored/guarded save as a success if it resolved
- * without throwing. Require the explicit result from v535's queued writer.
- * This is also used by automatic PWA updates and manual reloads. */
-v250SaveStateBeforeAppTransition=async function(){
-  const accountId=String(AUTH_USER?.id||'');
-  if(!mf535AccountReady(accountId))return false;
-  try{
-    const result=await saveState();
-    await saveQueue;
-    if(result!==true||lastSaveFailed||!mf535AccountReady(accountId))return false;
-    return true;
-  }catch(error){
-    console.warn('MediaFlow v535: app update paused because cloud save failed',error);
-    return false;
-  }
-};
-function mf535AuditPersistence(){
-  const prior=mf507AuditPersistence();
-  const state=snapshot();
-  const backup=v148BuildFullBackup(),scheduled=backupSnapshot();
-  const issues=[...(prior.issues||[])];
-  const equal=(a,b)=>v402Same(a,b);
-  const fields={};
-  for(const [key,value] of Object.entries(state)){
-    if(key==='savedAt'||key==='cloudSyncVersion'||value===undefined)continue;
-    const inFull=Object.prototype.hasOwnProperty.call(backup,key);
-    const inAutomatic=Object.prototype.hasOwnProperty.call(scheduled,key);
-    const fullExact=inFull&&equal(value,backup[key]);
-    const automaticExact=inAutomatic&&equal(value,scheduled[key]);
-    fields[key]={cloudSnapshot:true,fullExport:inFull,automaticExport:inAutomatic,
-      fullExact,automaticExact};
-    if(!fullExact||!automaticExact)issues.push(key+': Full/Automatic backup mismatch');
-  }
-  const historyLength=Array.isArray(state.activityLog)?state.activityLog.length:0;
-  if(historyLength!==Number(backup.activityLog?.length||0)||
-     historyLength!==Number(scheduled.activityLog?.length||0))
-    issues.push('Library History export is incomplete');
-  const manifest=backup.backupManifest?.v507;
-  if(!manifest||!Array.isArray(manifest.accountFields))
-    issues.push('Full export field manifest missing');
-  else for(const key of Object.keys(fields))
-    if(!manifest.accountFields.includes(key))issues.push(key+': unlisted in backup manifest');
-  if(!equal(backup.xpLedger,state.xpLedger)||!equal(scheduled.xpLedger,state.xpLedger))
-    issues.push('XP ledger does not match the exported state');
-  const required={
-    fullExport:App.exportJSON,fullImport:App.importJSON,
-    settingsExport:App.exportSettingsPreset,settingsImport:App.importSettingsPreset,
-    historyExport:App.v271ExportConsumptionCSV,libraryHistoryExport:App.v271ExportLogsCSV,
-    xpHistoryExport:App.v348ExportXPHistory,xpCalculation:App.calculateXPNow,
-    personalOrderExport:App.v142ExportOrder,personalOrderImport:App.v142ImportOrder,
-    collectionsExport:App.v279ExportCollections,collectionsImport:App.v279ImportCollections,
-    cloudSyncNow:App.syncNow,automaticPwaUpdates:v161EnsureAutomaticUpdateCheck,
-    pwaInstaller:App.v248InstallLatestUpdate
-  };
-  const capabilities=Object.fromEntries(Object.entries(required).map(([name,fn])=>[name,typeof fn==='function']));
-  for(const [name,ok] of Object.entries(capabilities))if(!ok)issues.push(name+': unavailable');
-  for(const [kind,stamp] of Object.entries({full:backup.mediaFlowVersion,
-    automatic:scheduled.mediaFlowVersion,
-    settings:v196BuildSettingsPreset().mediaFlowVersion,
-    personalOrder:v142OrderExportPayload().mediaFlowVersion,
-    collections:v281CollectionsExportPayload().mediaFlowVersion}))
-    if(Number(stamp)!==MF535_VERSION)issues.push(kind+': stale release version');
-  const allIssues=[...new Set(issues)];
-  return {release:MF535_VERSION,ok:allIssues.length===0,issues:allIssues,fields,
-    capabilities,save:{accountReady:mf535AccountReady(String(AUTH_USER?.id||'')),
-      lastSaveFailed:Boolean(lastSaveFailed)},
-    counts:{library:state.library?.length||0,history:state.sessions?.length||0,
-      libraryHistory:historyLength,collections:state.collections?.length||0,
-      personalOrder:state.orderPlan?.titleIds?.length||0,
-      xpLedgerEntries:Object.keys(state.xpLedger?.v348EventMeta||{}).length},
-    note:'Read-only local audit. Live cloud parity requires Verify Cloud; no XP rewards or account writes occur.'};
-}
-/* Live *read-only* confirmation. Never trigger a write to make the test pass,
- * never mask a cloud error and never allow a readback from a switched account. */
-async function mf535VerifyCloudReadOnly(){
-  const accountId=String(AUTH_USER?.id||'');
-  if(!mf535AccountReady(accountId))return {ok:false,error:'Account is still restoring or not signed in.'};
-  try{
-    await saveQueue;
-    if(!mf535AccountReady(accountId)||lastSaveFailed)
-      throw new Error('Cloud save pending/failed or account changed.');
-    const expected=snapshot();
-    const cloud=await v115FetchCloudState();
-    if(!mf535AccountReady(accountId))throw new Error('Account switched during cloud verification.');
-    if(!cloud?.found||!cloud.state)throw new Error('Cloud state unavailable; nothing was uploaded.');
-    expected.savedAt=cloud.state.savedAt;
-    const checked=v155VerifyCloudState(cloud.state,expected);
-    return {ok:Boolean(checked.ok),verifiedReadOnly:true,
-      release:MF535_VERSION,issues:checked.missing||[],
-      localSavedAt:Number(expected.savedAt)||0,cloudSavedAt:Number(cloud.state.savedAt)||0,
-      note:'Actual authenticated Supabase readback. Nothing was changed or recalculated.'};
-  }catch(error){
-    return {ok:false,verifiedReadOnly:true,release:MF535_VERSION,
-      error:String(error?.message||error)};
-  }
-}
-App.v535AuditPersistence=mf535AuditPersistence;
-App.v535VerifyCloudReadOnly=mf535VerifyCloudReadOnly;
-App.v535ExportAuditReport=function(){
-  try{
-    const report=mf535AuditPersistence();
-    triggerDownload(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),
-      'MediaFlow_Reliability_Audit_v535.json');
-    showToast(report.ok?'MediaFlow reliability report exported':'Report exported with integrity warnings');
-    return report.ok;
-  }catch(error){
-    console.warn('MediaFlow v535: audit export failed',error);
-    showToast('Could not export reliability audit');
-    return false;
-  }
-};
-window.MediaFlowV535=Object.freeze({version:MF535_VERSION,
-  audit:mf535AuditPersistence,verifyCloud:mf535VerifyCloudReadOnly});
-MediaFlowRuntime.version=MF535_VERSION;
 
 })();
