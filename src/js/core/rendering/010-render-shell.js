@@ -52,7 +52,16 @@ function levelingSettings(){
   l.rotationMultiplier=Object.assign({},d.rotationMultiplier,S.settings?.leveling?.rotationMultiplier||{});
   return l;
 }
-function xpRotationMultiplier(status){ return Number(levelingSettings().rotationMultiplier?.[status])||1; }
+function xpRotationMultiplier(status){
+  // v536: real category health strings use configurable XP settings.
+  // Unknown legacy statuses retain their historical ×1 fallback, so existing
+  // History calculations are not silently reinterpreted as Healthy.
+  // A deliberately configured 0 is a valid multiplier (0 must not become 1).
+  const raw=levelingSettings().rotationMultiplier?.[status];
+  if(raw==null||raw==='')return 1;
+  const value=Number(raw);
+  return Number.isFinite(value)&&value>=0?value:1;
+}
 function xpRotationLabel(status){ return ({neglected:'Neglected bonus',due:'Due bonus',healthy:'Normal rotation',overused:'Overuse reduction'}[status]||'Normal rotation'); }
 function xpUnitBonus(unit){ return Number(levelingSettings().unitXP?.[unit])||0; }
 function libraryAdditionXP(){ return Math.max(0,Math.round(Number(levelingSettings().libraryAdditionXP)||0)); }
@@ -71,7 +80,7 @@ function calculateConsumptionXP(cat, amount, minutes, status){
 function estimateCurrentLogXP(){
   const cat=getCategory(S.currentTask?.categoryId||S.logDraft?.categoryId||'');
   const amount=Math.max(0,Number(S.logDraft?.amount)||0), minutes=Math.max(0,Number(S.logDraft?.minutes)||0);
-  const status=cat?.id ? categoryStatus(cat).status : 'healthy';
+  const status=cat?.id ? categoryStatus(cat) : 'healthy';
   return calculateConsumptionXP(cat,amount,minutes,status);
 }
 function awardLibraryAdditionXP(id){

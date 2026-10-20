@@ -418,7 +418,7 @@ const App = {
 
     updated.unit = getCategory(updated.categoryId).unit;
     const editCat=getCategory(updated.categoryId);
-    const editHealth=categoryStatus(editCat).status;
+    const editHealth=categoryStatus(editCat);
     updated.healthStatus=editHealth;
     updated.xp=calculateConsumptionXP(editCat,updated.actualAmount,updated.minutes,editHealth).xp;
 
@@ -565,9 +565,9 @@ const App = {
         }
 
         const statusMap={
-          'Watching':'active','Reading':'active','Completed':'completed',
+          'Watching':'active','Active':'active','Reading':'active','Completed':'completed',
           'On-Hold':'paused','Dropped':'dropped',
-          'Plan to Watch':'planned','Plan to Read':'planned'
+          'Plan to Watch':'planned','Planned':'planned','Plan to Read':'planned'
         };
 
         const getTag=(block,name)=>{
