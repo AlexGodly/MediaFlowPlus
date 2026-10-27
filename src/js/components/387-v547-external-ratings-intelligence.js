@@ -4,7 +4,7 @@
  * Runs only while the app is open, online, signed in, and no recovery owns the
  * metadata lock. Failed lookups never clear existing ratings.
  */
-const MF547_VERSION=547;
+const MF547_VERSION=554;
 const MF547_INTERVALS=[24,72,168,720];
 const MF547_DEFAULT={enabled:true,intervalHours:168,refreshExisting:false};
 const MF547_ID_RATING_MAP=Object.freeze({
@@ -18,29 +18,35 @@ const MF547_ID_RATING_MAP=Object.freeze({
  simkl:{ratings:['simkl'],providers:['simkl']},
  tvmaze:{ratings:['tvmaze'],providers:['tvmaze']},
  vndb:{ratings:['vndb'],providers:['vndb']},
+ watchmode:{ratings:[],providers:['watchmode']},
+ animeschedule:{ratings:[],providers:['animeschedule']},
+ metron_series:{ratings:[],providers:['metron']},
+ episodate:{ratings:[],providers:['episodate']},
+ openlibrary_work:{ratings:[],providers:['openlibrary']},
+ gutendex:{ratings:[],providers:['gutendex']},
+ apple_music_album:{ratings:[],providers:['itunes']},
+ steam_app:{ratings:[],providers:['steam']},
+ musicbrainz_release_group:{ratings:[],providers:['musicbrainz']},
 });
 const mf547BaseRatingProviders=mf467RatingProviders;
 function mf547ProvidersForIds(item){
+ // Saved IDs prioritize providers; they must never suppress other compatible searches.
  const ids=mf547SupportedIds(item);
- if(!Object.keys(ids).length)return mf547BaseRatingProviders(item);
+ const base=mf547BaseRatingProviders(item);
  const prefs=mf439Preferences(),enabled=new Set(prefs.enabled);
  const readyRaw=typeof mf453Ready==='function'?mf453Ready('metadata',item):prefs.enabled;
  const ready=new Set(Array.isArray(readyRaw)?readyRaw:[]);
- const providers=[];
+ const providers=[...base];
  for(const key of Object.keys(ids)){
   for(const provider of MF547_ID_RATING_MAP[key]?.providers||[]){
    if(enabled.has(provider)&&ready.has(provider)&&MF467_RATING_PROVIDERS.has(provider)&&!providers.includes(provider))
     providers.push(provider);
   }
  }
- return providers.slice(0,4);
+ return providers;
 }
-// When a supported ID is present, only query providers that can use that ID.
-// Never fall back to an unrelated provider's title-name search for an ID-bound title.
-mf467RatingProviders=function(item){
- const ids=mf547SupportedIds(item);
- return Object.keys(ids).length?mf547ProvidersForIds(item):mf547BaseRatingProviders(item);
-};
+// Query all enabled, ready rating providers. Saved IDs only influence priority.
+mf467RatingProviders=function(item){return mf547ProvidersForIds(item);};
 const MF547_LIMITS={perHour:10,perDay:50,minGapMs:30000,retryHours:24,scanChunk:200};
 const MF547={
  working:false,lastRunAt:0,timer:null,runTimer:null,forced:new Map(),
@@ -80,13 +86,19 @@ function mf547SupportedIds(item){
  }
  return out;
 }
-function mf547Signature(item){return JSON.stringify(Object.entries(mf547SupportedIds(item)).sort(([a],[b])=>a.localeCompare(b)));}
+function mf547Signature(item){return JSON.stringify({ids:Object.entries(mf547SupportedIds(item)).sort(([a],[b])=>a.localeCompare(b)),titles:mf439TitleVariants(item),year:item?.year||item?.universalMetadata?.legacy?.year||0,type:item?.universalMetadata?.mediaType||''});}
 function mf547ScoreExists(item,key){
  const r=item?.universalMetadata?.externalRatings?.[key];
  return r&&r.score!==null&&r.score!==undefined&&String(r.score).trim()!==''&&Number.isFinite(Number(r.score));
 }
 function mf547MissingRating(item){
  const ids=mf547SupportedIds(item),providers=typeof mf467RatingProviders==='function'?mf467RatingProviders(item):[];
+ if(!Object.keys(ids).length)return providers.length>0;
+ // Keep discovery active when any compatible provider's identifier is still missing.
+ for(const [key,map] of Object.entries(MF547_ID_RATING_MAP)){
+  if((key==='tmdb'&&ids.tmdb_tv)||(key==='tmdb_tv'&&ids.tmdb))continue;
+  if(!ids[key]&&map.providers.some(provider=>providers.includes(provider)))return true;
+ }
  for(const [id] of Object.entries(ids)){
   const map=MF547_ID_RATING_MAP[id];
   if(!map||!map.providers.some(p=>providers.includes(p)))continue;
@@ -95,9 +107,8 @@ function mf547MissingRating(item){
  return false;
 }
 function mf547CanRefresh(item){
- return Boolean(item?.id!=null&&Object.keys(mf547SupportedIds(item)).length&&
-  typeof App?.mf467RefreshRatings==='function'&&typeof mf467RatingProviders==='function'&&
-  mf467RatingProviders(item).length);
+ return Boolean(item?.id!=null&&typeof App?.mf467RefreshRatings==='function'&&
+  typeof mf467RatingProviders==='function'&&mf467RatingProviders(item).length);
 }
 function mf547Store(id,patch){
  const key=mf547StateKey(id),next={...mf547State(id),...patch};
@@ -162,7 +173,7 @@ function mf547HasRunnablePriority(){
  return false;
 }
 function mf547Eligible(item,now=Date.now()){
- if(!item||item.id==null||!Object.keys(mf547SupportedIds(item)).length)return false;
+ if(!item||item.id==null)return false;
  const prefs=mf547Prefs(),id=String(item.id),signature=mf547Signature(item);
  const providerSignature=mf547ProvidersForIds(item).join(',');
  const state=mf547State(id);
@@ -293,7 +304,7 @@ function mf547SettingsHtml(){
  return '<section class="mf547-settings" data-mf-setting-id="v547ExternalRatingRefresh">'+
   '<div class="mf547-settings-head">'+mf425Icon('refresh',20)+
   '<div><strong>Automatic external-rating intelligence</strong>'+
-  '<small>Use saved external IDs to retrieve verified ratings across your Library.</small></div></div>'+
+  '<small>Discover missing provider IDs and retrieve verified ratings across your Library.</small></div></div>'+
   '<label class="mf547-option"><input type="checkbox" '+(p.enabled?'checked ':'')+
   'onchange="App.mf547Set(\'enabled\',this.checked)"><span>Automatically retrieve ratings when IDs change and backfill missing ratings</span></label>'+
   '<label class="mf547-interval"><span>Refresh interval for previously retrieved ratings</span><select onchange="App.mf547Set(\'intervalHours\',Number(this.value))">'+
@@ -304,7 +315,7 @@ function mf547SettingsHtml(){
   'onchange="App.mf547Set(\'refreshExisting\',this.checked)"><span>Periodically refresh existing ratings too</span></label>'+
   '<div class="mf547-status" data-mf547-status role="status" aria-live="polite">'+escapeHtml(MF547.lastNote)+'</div>'+
   '<button type="button" class="btn btn-sm btn-ghost" onclick="App.mf547ScanNow()">'+mf425Icon('refresh',15)+' Scan Library for missing ratings</button>'+
-  '<p class="mf547-note">Runs gradually while MediaFlow is open and online, with a safety cap of 10 background titles per hour and 50 per day. Newly changed IDs are prioritized. A saved IMDb ID can use a configured IMDb-compatible source; MAL IDs can use Jikan or the official MAL gateway. Provider access, credentials, and rate limits still apply. Existing personal ratings and manually locked external ratings are never overwritten.</p>'+
+  '<p class="mf547-note">Runs gradually while MediaFlow is open and online, with a safety cap of 10 background titles per hour and 50 per day. Newly changed IDs are prioritized. Titles without IDs are searched by title and alternate-title variants; verified IDs are saved when returned. Provider coverage, credentials, and rate limits still apply. Existing personal ratings and manually locked external ratings are never overwritten.</p>'+
   '</section>';
 }
 const mf547SettingsBase=V219_PAGE_RENDERERS.get('settings');
