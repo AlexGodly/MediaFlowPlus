@@ -1,4 +1,4 @@
-/* MediaFlow v457 stylesheet bundle: 216 sources, original cascade order. */
+/* MediaFlow v458 stylesheet bundle: 221 sources, original cascade order. */
 /* --- assets/css/00-foundation.css --- */
 /* MediaFlow v215 modular stylesheet
    Source: stable MediaFlow v201 style blocks 0-2
@@ -25741,4 +25741,86 @@ body.mf565-batch-open #mf397-dock{z-index:1}
 .mf566-radio input{margin-top:3px}
 .mf566-radio span{display:flex;flex-direction:column;gap:2px}
 .mf566-radio small{color:var(--text-mute);font-size:12px}
+
+/* --- assets/css/299-v567-release.css --- */
+/* MediaFlow v567 release styles. */
+
+/* Get MediaFlow: official platform logos as single-colour shapes, filled with
+   the theme's colour (so they follow every MediaFlow theme, light or dark). */
+.mf567-logo{display:block;width:22px;height:22px;background:var(--flow,currentColor);
+  -webkit-mask:var(--mf567-logo) center/contain no-repeat;mask:var(--mf567-logo) center/contain no-repeat}
+.mf566-dev-icon .mf567-logo{width:18px;height:18px}
+
+/* --- assets/css/300-v570-release.css --- */
+/* MediaFlow v570 release styles. */
+
+/* Get MediaFlow and the quick Batch Log popup used the shared popup sheet
+   without the theme polish the Log popup has (v558), so they fell back to a
+   fixed dark background (#141823) while their text took the theme's colour:
+   on light themes the header and the edges around the cards were dark with
+   dark text. They now follow the theme like the Log popup. */
+.mf555-log-popup .mf555-log-backdrop{background:color-mix(in srgb,var(--bg,#000) 38%,rgba(10,10,20,.42));backdrop-filter:blur(6px)}
+.mf555-log-popup .mf555-log-sheet{background:var(--panel);color:var(--text);
+  border:1px solid var(--border-soft,var(--border));border-radius:24px;
+  box-shadow:0 30px 80px color-mix(in srgb,var(--flow) 12%,rgba(0,0,0,.28)),0 2px 0 color-mix(in srgb,var(--text) 4%,transparent) inset}
+.mf555-log-popup .mf555-log-head{padding:16px 18px 14px 20px;border-bottom:1px solid var(--border-soft,var(--border));
+  background:linear-gradient(180deg,color-mix(in srgb,var(--flow) 6%,var(--panel)),var(--panel))}
+.mf555-log-popup .mf555-log-head strong{color:var(--text);font-size:17px;font-weight:800;letter-spacing:-.01em}
+.mf555-log-popup .mf555-log-head small{color:var(--text-dim,var(--text-mute))}
+.mf565-get .mf565-get-status .hint{color:var(--text-dim,var(--text-mute))}
+.mf565-get .mf565-get-status .hint b{color:var(--text)}
+.mf565-get .mf565-get-status .hint a{color:var(--flow)}
+.mf565-get .mf565-get-status .btn-ghost{color:var(--text-dim,var(--text-mute))}
+.mf565-get .mf565-get-status .btn-ghost:hover{color:var(--text)}
+@media (max-width:640px){.mf555-log-popup .mf555-log-sheet{border-radius:0;border:0}}
+
+/* --- assets/css/301-v571-release.css --- */
+/* MediaFlow v571 release styles. */
+
+/* Edit title → Unit & names (v565) was placed in one 84px column of the
+   12-column editor grid, so every label and hint wrapped a word per line.
+   It now spans the editor like the other sections, as a card after the core
+   fields, with the fields side by side where there's room. */
+.v240-library-editor>.mf565-editor,
+.v238-library-editor>.mf565-editor{
+  grid-column:1/-1!important;order:19!important;min-width:0!important;width:100%!important;max-width:100%!important;
+  box-sizing:border-box;margin:4px 0 2px!important}
+.mf565-editor{display:flex;flex-direction:column;gap:14px;padding:16px;border:1px solid var(--border-soft,var(--border));
+  border-radius:16px;background:color-mix(in srgb,var(--panel) 94%,var(--flow) 6%);color:var(--text)}
+.mf565-editor *{box-sizing:border-box;min-width:0}
+.mf565-editor .section-label{margin:0}
+.mf565-editor .field{margin:0;display:flex;flex-direction:column;gap:6px}
+.mf565-editor .field-row{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px 18px;align-items:start}
+.mf565-editor .field-label{margin:0}
+.mf565-editor .hint{margin:0;line-height:1.45;color:var(--text-dim,var(--text-mute))}
+.mf565-editor #mf565-unit,.mf565-editor #mf565-name-lang{width:100%;max-width:360px}
+.mf565-editor .mf565-hms{flex-wrap:nowrap}
+.mf565-editor .mf565-hms label{flex:1 1 0;max-width:110px}
+.mf565-editor .mf565-hms input{width:100%}
+.mf565-editor>.field>.btn{align-self:flex-start;white-space:nowrap}
+.mf565-editor .mf565-check{flex-direction:row;align-items:center;gap:10px;align-self:end;min-height:42px;font-size:13px;color:var(--text)}
+.mf565-editor .mf565-check input{width:18px;height:18px;flex:0 0 auto;margin:0}
+
+/* --- assets/css/302-v573-release.css --- */
+/* MediaFlow v573 release styles. */
+
+/* Batch Log: date and time side by side. */
+.mf573-when{display:flex;gap:8px;align-items:center;min-width:0}
+.mf573-when input[type="date"]{flex:1 1 auto;min-width:0}
+.mf573-when .mf573-batch-time{flex:0 0 130px;width:130px;min-width:0}
+@media (max-width:420px){.mf573-when{flex-wrap:wrap}.mf573-when .mf573-batch-time{flex:1 1 100%;width:100%}}
+
+/* --- assets/css/303-v574-release.css --- */
+/* MediaFlow v574 release styles. */
+
+/* Batch Log: what the batch earns, above the buttons. */
+.mf574-batch-xp{display:flex;align-items:center;gap:10px;margin:10px 0 2px;padding:10px 14px;border-radius:14px;
+  border:1px solid color-mix(in srgb,var(--flow) 30%,var(--border-soft,var(--border)));
+  background:color-mix(in srgb,var(--flow) 9%,var(--panel));color:var(--text)}
+.mf574-batch-xp[hidden]{display:none}
+.mf574-batch-xp>span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mf574-batch-xp b{font-size:14px;font-weight:800}
+.mf574-batch-xp small{font-size:12px;color:var(--text-dim,var(--text-mute));overflow-wrap:anywhere}
+.mf574-xp-icon{display:grid;place-items:center;flex:0 0 30px;height:30px;border-radius:10px;
+  background:color-mix(in srgb,var(--flow) 18%,transparent);color:var(--flow);font-size:15px}
 
