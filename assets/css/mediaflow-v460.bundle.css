@@ -1,4 +1,4 @@
-/* MediaFlow v459 stylesheet bundle: 221 sources, original cascade order. */
+/* MediaFlow v460 stylesheet bundle: 224 sources, original cascade order. */
 /* --- assets/css/00-foundation.css --- */
 /* MediaFlow v215 modular stylesheet
    Source: stable MediaFlow v201 style blocks 0-2
@@ -25823,4 +25823,111 @@ body.mf565-batch-open #mf397-dock{z-index:1}
 .mf574-batch-xp small{font-size:12px;color:var(--text-dim,var(--text-mute));overflow-wrap:anywhere}
 .mf574-xp-icon{display:grid;place-items:center;flex:0 0 30px;height:30px;border-radius:10px;
   background:color-mix(in srgb,var(--flow) 18%,transparent);color:var(--flow);font-size:15px}
+
+/* --- assets/css/304-v577-release.css --- */
+/* MediaFlow v577 release styles: titles logged by parts. */
+
+/* Edit title: how this title is logged. */
+.mf577-mode{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:12px 0 8px;padding:12px 14px;
+  border-radius:14px;border:1px solid var(--border-soft,var(--border));background:var(--panel)}
+.mf577-mode>div:first-child{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 260px}
+.mf577-mode small{color:var(--text-dim,var(--text-mute));font-size:12px;line-height:1.35}
+.mf577-mode-pick{display:flex;gap:6px;flex-wrap:wrap}
+.mf577-mode-pick label{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:1px solid var(--border);cursor:pointer;font-weight:700;font-size:13px}
+.mf577-mode-pick label:has(input:checked){border-color:var(--flow);background:color-mix(in srgb,var(--flow) 12%,transparent)}
+.mf577-mode-pick input{accent-color:var(--flow)}
+
+/* Part fields only in a by-parts editor; the season number is not used there. */
+.mf577-part-field,.mf577-l-part{display:none}
+.mf577-parts-editor .mf577-part-field{display:flex;flex-direction:column}
+.mf577-parts-editor .mf577-l-part{display:inline}
+.mf577-parts-editor .mf577-l-season,.mf577-parts-editor .v252-season-number{display:none}
+.mf577-parts-editor .v252-season-editor-row{flex-wrap:wrap}
+.mf577-parts-editor .v252-season-editor-row .field{min-width:110px;flex:1 1 110px}
+
+/* Logging: chips to pick parts, one line per chosen part. */
+.mf577-actions{flex-direction:column;align-items:stretch!important}
+.mf577-parts{display:flex;flex-direction:column;gap:8px;min-width:0;width:100%;margin:6px 0}
+.mf577-chips{display:flex;flex-wrap:wrap;gap:6px}
+.mf577-chip{padding:6px 11px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--text);font-weight:700;font-size:12.5px;cursor:pointer}
+.mf577-chip.is-on{border-color:var(--flow);background:color-mix(in srgb,var(--flow) 16%,transparent);color:var(--text)}
+.mf577-chip:focus-visible{outline:2px solid var(--flow);outline-offset:2px}
+.mf577-line{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 10px;padding:8px 10px;border-radius:12px;
+  background:color-mix(in srgb,var(--flow) 6%,var(--panel));border:1px solid var(--border-soft,var(--border))}
+.mf577-line>b{font-size:13px;overflow-wrap:anywhere}
+.mf577-line label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim,var(--text-mute))}
+.mf577-line input{width:86px}
+.mf577-line small{grid-column:1/-1;font-size:12px;color:var(--text-dim,var(--text-mute))}
+.mf577-bar{grid-column:1/-1;display:block;height:5px;border-radius:999px;background:color-mix(in srgb,var(--text) 10%,transparent);overflow:hidden}
+.mf577-bar i{display:block;height:100%;background:var(--flow);border-radius:inherit}
+.mf577-sum{font-size:12px;color:var(--text-dim,var(--text-mute))}
+@media (max-width:520px){.mf577-line{grid-template-columns:1fr}.mf577-line input{width:100%}}
+
+/* A selected season's (or part's) own counter and bar while logging. */
+.mf577-season-bar{display:flex;flex-direction:column;gap:5px;margin:8px 0 2px;padding:8px 10px;border-radius:10px;
+  background:color-mix(in srgb,var(--flow) 7%,var(--panel));border:1px solid var(--border-soft,var(--border));font-size:12.5px}
+.mf577-season-bar b{font-weight:800}
+
+/* --- assets/css/305-v578-release.css --- */
+/* MediaFlow v578: Batch Log rows (the Batch Log page and "Log any title").
+ * The cover is wrapped in an "open title details" button (v241); the row's
+ * styles only sized a bare cover, so in the popup the cover was drawn at full
+ * size and the title and its details were squeezed into a one-letter column. */
+.batch-log-row .batch-selected-title{display:grid!important;grid-template-columns:52px minmax(0,1fr)!important;column-gap:10px!important;
+  row-gap:2px!important;align-items:center!important;min-width:0;max-width:100%;box-sizing:border-box}
+.batch-log-row .batch-selected-title>:is(.v241-logged-cover-button,.v239-batch-cover){grid-column:1!important;grid-row:1/span 3!important;
+  width:52px!important;height:74px!important;min-width:0!important;max-width:52px!important;max-height:74px!important;padding:0!important;
+  margin:0!important;overflow:hidden!important;border-radius:8px!important;display:block!important}
+.batch-log-row .batch-selected-title>.v241-logged-cover-button>:is(img,.v239-batch-cover){width:100%!important;height:100%!important;
+  max-width:none!important;max-height:none!important;object-fit:cover!important;display:block!important;border-radius:8px}
+.batch-log-row .batch-selected-title>.v241-logged-cover-button>.v243-cover-fallback-hidden{display:none!important}
+.batch-log-row .batch-selected-title>:is(.v144-cat-icon-img,.v144-cat-icon-emoji){display:none!important}
+.batch-log-row .batch-selected-title>:is(b,span,.mf351-batch-copy){grid-column:2!important;min-width:0!important;max-width:100%!important;
+  white-space:normal!important;overflow-wrap:anywhere;word-break:normal!important;writing-mode:horizontal-tb!important;display:block!important}
+.batch-log-row .batch-selected-title>b{font-size:13.5px!important;font-weight:800;line-height:1.3}
+.batch-log-row .batch-selected-title>span{font-size:12px!important;color:var(--text-dim,var(--text-mute))}
+/* Parts: their own full-width section under the title. */
+.batch-log-row>.mf577-parts{grid-column:1/-1!important;width:100%;margin:2px 0 0}
+.batch-log-row>.batch-counts-note{grid-column:1/-1}
+.mf577-chip{display:inline-flex;align-items:center;gap:6px}
+.mf577-chip.is-on::before{content:'✓';font-weight:900}
+@media (max-width:700px){
+  #mf565-batch .batch-log-row,#view-root .batch-log-row{grid-template-columns:minmax(0,1fr)!important}
+  .batch-log-row>.batch-remove{justify-self:start}
+}
+/* Part chips: no generic button icon (the ✓ shows what is chosen). */
+.mf577-chip>.v225-btn-icon{display:none!important}
+.batch-log-row .batch-selected-title .mf351-batch-copy>:is(.v144-cat-icon-img,.v144-cat-icon-emoji){width:16px!important;height:16px!important}
+.mf577-line label>span{white-space:nowrap}
+
+/* --- assets/css/306-v579-release.css --- */
+/* MediaFlow v579 release styles. */
+.mf579-quick-select{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0}
+.mf579-quick-select small{margin-left:auto;color:var(--text-dim,var(--text-mute))}
+.mf579-parts{display:flex;flex-direction:column;gap:1px;margin:3px 0}
+.mf579-parts>small{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim,var(--text-mute))}
+.mf579-parts>span{font-size:12px;font-weight:700;color:var(--flow)}
+/* By-parts logging: the same layout as the app's Log any title. */
+.mf579-parts-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.mf579-parts-head b{font-size:12px;font-weight:800;color:var(--text-dim,var(--text-mute))}
+.mf579-parts-head small{font-size:12px;font-weight:700;color:var(--text-dim,var(--text-mute))}
+.mf577-line.mf579-part-card{display:flex;flex-direction:column;align-items:stretch;gap:6px}
+.mf579-part-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.mf579-part-head>b{font-size:13.5px;font-weight:800;min-width:0;overflow-wrap:anywhere}
+.mf579-part-head label{display:flex;flex-direction:column;align-items:stretch;gap:2px;flex:0 0 160px;width:160px;font-size:11px}
+.mf579-part-head label>span{white-space:nowrap;overflow:visible}
+.mf577-line.mf579-part-card input{width:100%;min-width:0}
+.mf577-line.mf579-part-card small{grid-column:auto}
+.mf577-sum{font-weight:700}
+@media (max-width:520px){.mf579-part-head{flex-direction:column;align-items:stretch}.mf579-part-head label{flex:1 1 auto;width:100%}}
+/* Batch Log: the cover already shows the category icon; drop the stray copy
+ * beside the title (it showed as a broken-image emoji). */
+.batch-log-row .batch-selected-title>.v144-cat-icon-img.v144-cat-icon-img,.batch-log-row .batch-selected-title>.v144-cat-icon-emoji.v144-cat-icon-emoji{display:none!important}
+.mf579-next-part{display:block;font-size:12px;font-weight:800;color:var(--flow);margin-top:2px}
+div.mf579-next-part{display:inline-block;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--flow) 14%,transparent);margin:6px 0}
+/* Edit title: "How this title is logged" sits full width right above the
+ * seasons / parts editor (it was a single 1/12 cell at the top of the form). */
+.v240-library-editor>.mf577-mode,.v238-library-editor>.mf577-mode{grid-column:1/-1!important;order:16!important;width:auto;max-width:none;box-sizing:border-box}
+.mf577-mode-pick label{border-radius:999px!important;min-height:0!important;padding:7px 14px!important;white-space:nowrap}
+.mf577-mode-pick input[type=radio]{width:16px!important;height:16px!important;min-width:16px;margin:0!important;flex:0 0 auto;box-shadow:none!important}
 
